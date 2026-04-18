@@ -37,7 +37,11 @@
     year: new Date().getFullYear(),
     month: new Date().getMonth(), // 0..11
     byDate: {}, // '2026-04-01' -> row
+    zoom: clampZoom(Number(localStorage.getItem('motivation_zoom')) || 100),
   };
+
+  const ZOOM_MIN = 50, ZOOM_MAX = 130, ZOOM_STEP = 10;
+  function clampZoom(v) { return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(v / ZOOM_STEP) * ZOOM_STEP || 100)); }
 
   function isoDate(y, m, d) {
     const mm = String(m + 1).padStart(2, '0');
@@ -122,12 +126,18 @@
           <button class="btn sm" id="mot-next" type="button">→</button>
           <button class="btn sm" id="mot-today" type="button">Сегодня</button>
         </div>
+        <div class="mot-zoom" title="Масштаб таблицы">
+          <button class="btn sm" id="mot-zoom-out" type="button">−</button>
+          <button class="btn sm" id="mot-zoom-val" type="button" title="Сбросить (100%)">100%</button>
+          <button class="btn sm" id="mot-zoom-in" type="button">+</button>
+          <button class="btn sm" id="mot-zoom-fit" type="button" title="Подогнать под экран">⤢ Вписать</button>
+        </div>
         <div class="mot-actions">
           <span class="mot-hint" id="mot-hint"></span>
           <button class="btn primary" id="mot-save" type="button">💾 Сохранить</button>
         </div>
       </div>
-      <div class="mot-table-wrap">
+      <div class="mot-table-wrap" id="mot-wrap">
         <table class="mot-table" id="mot-table"></table>
       </div>
     `;
@@ -141,8 +151,43 @@
       refresh();
     });
     document.getElementById('mot-save').addEventListener('click', save);
+    document.getElementById('mot-zoom-in').addEventListener('click', () => setZoom(mState.zoom + ZOOM_STEP));
+    document.getElementById('mot-zoom-out').addEventListener('click', () => setZoom(mState.zoom - ZOOM_STEP));
+    document.getElementById('mot-zoom-val').addEventListener('click', () => setZoom(100));
+    document.getElementById('mot-zoom-fit').addEventListener('click', fitZoom);
 
     await refresh();
+    applyZoom();
+  }
+
+  function applyZoom() {
+    const wrap = document.getElementById('mot-wrap');
+    if (!wrap) return;
+    // style.zoom работает в Chrome/Safari/Edge и в Firefox 126+.
+    // Для подстраховки используем ещё и CSS-свойство --mot-zoom, если кому-то захочется fallback.
+    wrap.style.zoom = mState.zoom / 100;
+    const val = document.getElementById('mot-zoom-val');
+    if (val) val.textContent = mState.zoom + '%';
+  }
+
+  function setZoom(v) {
+    mState.zoom = clampZoom(v);
+    localStorage.setItem('motivation_zoom', String(mState.zoom));
+    applyZoom();
+  }
+
+  // Подогнать зум так, чтобы таблица помещалась в ширину контейнера без горизонтального скролла
+  function fitZoom() {
+    const wrap = document.getElementById('mot-wrap');
+    const table = document.getElementById('mot-table');
+    if (!wrap || !table) return;
+    // сбрасываем зум для честного измерения
+    wrap.style.zoom = 1;
+    const available = wrap.clientWidth;
+    const needed = table.scrollWidth;
+    if (!needed) return;
+    const ratio = Math.floor((available / needed) * 100 / ZOOM_STEP) * ZOOM_STEP;
+    setZoom(ratio >= 100 ? 100 : clampZoom(ratio));
   }
 
   function updateTitle() {

@@ -473,6 +473,16 @@ h1, h2, h3, .topbar .title {
   align-items: center;
   gap: 14px;
 }
+.mot-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-soft);
+  border-radius: 10px;
+}
+.mot-zoom .btn.sm { padding: 5px 10px; min-width: 32px; }
+.mot-zoom #mot-zoom-val { min-width: 52px; font-variant-numeric: tabular-nums; }
 .mot-hint {
   color: var(--success);
   font-size: 13px;
