@@ -35,6 +35,7 @@ function init() {
   loadObjections();
   loadCheatsheet();
   loadDocuments();
+  loadOperators();
 }
 
 // ---------- Модалка (универсальная) ----------
@@ -454,4 +455,118 @@ async function deleteDoc(id) {
   const { error } = await sb.from('documents').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
   toast('Удалено'); loadDocuments();
+}
+
+// ============================================================
+// ОПЕРАТОРЫ
+// ============================================================
+let opsCache = [];
+
+async function hashPassword(pw) {
+  const data = new TextEncoder().encode(pw);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function formatOpDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' });
+}
+
+async function loadOperators() {
+  const { data, error } = await sb.from('operators')
+    .select('id, name, login, is_active, created_at')
+    .order('created_at', { ascending: false });
+  if (error) {
+    const tbody = document.querySelector('#op-table tbody');
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Ошибка: ${escapeHtml(error.message)}. Выполни миграцию sql/migration_02_operators.sql в Supabase.</td></tr>`;
+    return;
+  }
+  opsCache = data || [];
+  const tbody = document.querySelector('#op-table tbody');
+  if (!opsCache.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Операторов пока нет</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = opsCache.map(op => `
+    <tr>
+      <td><strong>${escapeHtml(op.name)}</strong></td>
+      <td><code style="font-size:13px;">${escapeHtml(op.login)}</code></td>
+      <td>${op.is_active
+        ? '<span class="badge" style="background:var(--success-soft);color:var(--success);">Активен</span>'
+        : '<span class="badge muted">Отключён</span>'}</td>
+      <td style="color:var(--muted);font-size:13px;">${formatOpDate(op.created_at)}</td>
+      <td class="actions-cell">
+        <button class="btn sm" data-edit="${op.id}">Ред.</button>
+        <button class="btn sm danger" data-del="${op.id}">Удалить</button>
+      </td>
+    </tr>`).join('');
+  tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editOp(b.dataset.edit)));
+  tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteOp(b.dataset.del)));
+}
+
+document.getElementById('op-add').addEventListener('click', () => editOp(null));
+
+function editOp(id) {
+  const op = id ? opsCache.find(x => x.id === id) : { name:'', login:'', is_active: true };
+  const isNew = !id;
+  openModal(isNew ? 'Новый оператор' : 'Редактировать оператора', `
+    <form class="form-grid" id="op-form">
+      <label><div class="lbl">Имя</div>
+        <input type="text" name="name" value="${escapeHtml(op.name)}" required placeholder="Иван Петров"></label>
+      <label><div class="lbl">Логин</div>
+        <input type="text" name="login" value="${escapeHtml(op.login)}" required
+               autocomplete="off" pattern="[A-Za-z0-9_.\\-]{3,32}"
+               title="Латиница, цифры, _ . - (3–32 символа)"
+               placeholder="ivan.petrov">
+      </label>
+      <label><div class="lbl">Пароль ${isNew ? '' : '<span class="muted" style="font-weight:400;">(оставьте пустым, чтобы не менять)</span>'}</div>
+        <input type="text" name="password" ${isNew ? 'required' : ''} autocomplete="new-password" minlength="6" placeholder="${isNew ? 'Минимум 6 символов' : '••••••••'}"></label>
+      ${isNew ? '' : `
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" name="is_active" ${op.is_active ? 'checked' : ''}>
+        <span>Активен (может заходить на сайт)</span>
+      </label>`}
+      <div class="row">
+        <button type="submit" class="btn primary">Сохранить</button>
+        <button type="button" class="btn" id="cancel">Отмена</button>
+      </div>
+    </form>`);
+  document.getElementById('cancel').addEventListener('click', closeModal);
+  document.getElementById('op-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name = String(fd.get('name')).trim();
+    const login = String(fd.get('login')).trim().toLowerCase();
+    const password = String(fd.get('password') || '');
+    const payload = { name, login };
+    if (!isNew) payload.is_active = fd.has('is_active');
+    if (password) {
+      if (password.length < 6) { toast('Пароль минимум 6 символов'); return; }
+      payload.password_hash = await hashPassword(password);
+    }
+    const btn = e.submitter;
+    btn.disabled = true; btn.textContent = 'Сохраняем…';
+    const { error } = isNew
+      ? await sb.from('operators').insert(payload)
+      : await sb.from('operators').update(payload).eq('id', id);
+    btn.disabled = false; btn.textContent = 'Сохранить';
+    if (error) {
+      const msg = error.message.includes('operators_login_key') || error.code === '23505'
+        ? 'Логин уже занят — выбери другой'
+        : 'Ошибка: ' + error.message;
+      toast(msg);
+      return;
+    }
+    closeModal(); toast('Сохранено'); loadOperators();
+  });
+}
+
+async function deleteOp(id) {
+  const op = opsCache.find(x => x.id === id);
+  if (!op || !await confirmDelete(`оператора «${op.name}»`)) return;
+  const { error } = await sb.from('operators').delete().eq('id', id);
+  if (error) { toast('Ошибка: ' + error.message); return; }
+  toast('Удалено'); loadOperators();
 }
