@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход · Мои Места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="operator-login.html" class="logo" aria-label="Мои Места">
+    <img src="assets/logo-horizontal.png" alt="Мои Места">
+  </a>
+  <div class="spacer"></div>
+  <a href="login.html" style="font-size:13px;color:var(--muted);">Вход для администратора →</a>
+</header>
+
+<main>
+  <div class="login-card">
+    <h1>Вход оператора</h1>
+    <form class="form-grid" id="login-form">
+      <label>
+        <div class="lbl">Логин</div>
+        <input type="text" id="login" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </label>
+      <label>
+        <div class="lbl">Пароль</div>
+        <input type="password" id="password" required autocomplete="current-password">
+      </label>
+      <button type="submit" class="btn primary" id="submit-btn">Войти</button>
+      <div class="error" id="error" hidden></div>
+    </form>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/operator-auth.js"></script>
+<script>
+// Если уже вошёл — сразу на рабочий сайт
+if (operatorSession.get()) location.replace('index.html');
+
+const form = document.getElementById('login-form');
+const errEl = document.getElementById('error');
+const btn = document.getElementById('submit-btn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errEl.hidden = true;
+  const login = document.getElementById('login').value.trim();
+  const password = document.getElementById('password').value;
+  btn.disabled = true; btn.textContent = 'Проверяем…';
+  try {
+    const { data, error } = await sb.rpc('operator_login', {
+      p_login: login,
+      p_password: password,
+    });
+    if (error) {
+      errEl.textContent = 'Ошибка: ' + error.message;
+      errEl.hidden = false;
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row) {
+      errEl.textContent = 'Неверный логин или пароль';
+      errEl.hidden = false;
+      return;
+    }
+    operatorSession.set({ id: row.id, name: row.name, login });
+    location.replace('index.html');
+  } catch (err) {
+    errEl.textContent = 'Сбой: ' + (err?.message || err);
+    errEl.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Войти';
+  }
+});
+</script>
+</body>
+</html>

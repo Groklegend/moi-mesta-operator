@@ -28,7 +28,11 @@
     </button>
     <div class="cat-menu hidden" id="cat-menu"></div>
   </div>
-  <a href="login.html">Админ</a>
+  <div class="operator-box" id="operator-box" hidden>
+    <span class="op-name" id="op-name"></span>
+    <button class="link logout-btn" id="op-logout" type="button" title="Выйти">Выйти</button>
+  </div>
+  <a href="login.html" class="admin-link" style="font-size:13px;color:var(--muted);">Админ</a>
 </header>
 
 <main class="container wide">
@@ -80,6 +84,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
+<script src="js/operator-auth.js"></script>
+<script>
+  // Гард: если нет сессии — сразу на логин, до загрузки данных
+  if (!operatorSession.require()) throw new Error('no-session');
+  // Показать имя оператора и кнопку выхода
+  (function () {
+    const s = operatorSession.get();
+    const box = document.getElementById('operator-box');
+    document.getElementById('op-name').textContent = s.name;
+    box.hidden = false;
+    document.getElementById('op-logout').addEventListener('click', () => operatorSession.logout());
+  })();
+</script>
 <script src="js/operator.js"></script>
 </body>
 </html>

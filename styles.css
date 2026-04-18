@@ -82,6 +82,38 @@ h1, h2, h3, .topbar .title {
   font-weight: 500;
 }
 
+/* Бокс с именем оператора и кнопкой «Выйти» в шапке */
+.operator-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.operator-box .op-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operator-box .logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: inherit;
+}
+.operator-box .logout-btn:hover { color: var(--danger); background: var(--danger-soft); }
+
 /* Переключатель режима (Возражения / Документы) — встроен в шапку */
 .mode-nav {
   display: inline-flex;
