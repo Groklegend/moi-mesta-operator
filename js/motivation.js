@@ -409,9 +409,15 @@
   function applyZoom() {
     const wrap = document.getElementById('mot-wrap');
     if (!wrap) return;
-    // style.zoom работает в Chrome/Safari/Edge и в Firefox 126+.
-    // Для подстраховки используем ещё и CSS-свойство --mot-zoom, если кому-то захочется fallback.
-    wrap.style.zoom = mState.zoom / 100;
+    // ВАЖНО: при zoom=100% НЕ выставляем style.zoom — даже `zoom: 1`
+    // в Chrome создаёт containing block и ломает sticky у потомков
+    // (см. https://crbug.com/1254081). Без атрибута sticky у thead
+    // работает как надо.
+    if (mState.zoom === 100) {
+      wrap.style.zoom = '';
+    } else {
+      wrap.style.zoom = mState.zoom / 100;
+    }
     const val = document.getElementById('mot-zoom-val');
     if (val) val.textContent = mState.zoom + '%';
   }
