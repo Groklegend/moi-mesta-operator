@@ -27,6 +27,10 @@
         <div class="lbl">Пароль</div>
         <input type="password" id="password" required autocomplete="current-password">
       </label>
+      <label class="inline" style="margin:-4px 0 4px;">
+        <input type="checkbox" id="remember" checked>
+        <span>Запомнить меня на этом устройстве</span>
+      </label>
       <button type="submit" class="btn primary" id="submit-btn">Войти</button>
       <div class="error" id="error" hidden></div>
     </form>
@@ -67,7 +71,8 @@ form.addEventListener('submit', async (e) => {
       errEl.hidden = false;
       return;
     }
-    operatorSession.set({ id: row.id, name: row.name, login });
+    const remember = document.getElementById('remember').checked;
+    operatorSession.set({ id: row.id, name: row.name, login }, remember);
     location.replace('index.html');
   } catch (err) {
     errEl.textContent = 'Сбой: ' + (err?.message || err);

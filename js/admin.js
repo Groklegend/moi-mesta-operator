@@ -462,37 +462,42 @@ async function deleteDoc(id) {
 // ============================================================
 let opsCache = [];
 
-async function hashPassword(pw) {
-  const data = new TextEncoder().encode(pw);
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 function formatOpDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' });
 }
 
+function renderPasswordCell(pw) {
+  if (!pw) return '<span class="muted" style="font-size:12px;">— не задан —</span>';
+  const safe = escapeHtml(pw);
+  return `
+    <span class="pw-cell">
+      <code class="pw-value" data-pw="${safe}" data-shown="0">••••••••</code>
+      <button class="btn sm pw-toggle" type="button" title="Показать/скрыть">👁</button>
+      <button class="btn sm pw-copy" type="button" data-pw="${safe}" title="Скопировать">📋</button>
+    </span>`;
+}
+
 async function loadOperators() {
   const { data, error } = await sb.from('operators')
-    .select('id, name, login, is_active, created_at')
+    .select('id, name, login, password, is_active, created_at')
     .order('created_at', { ascending: false });
   if (error) {
     const tbody = document.querySelector('#op-table tbody');
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">Ошибка: ${escapeHtml(error.message)}. Выполни миграцию sql/migration_02_operators.sql в Supabase.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Ошибка: ${escapeHtml(error.message)}. Выполни миграции sql/migration_02_operators.sql и sql/migration_04_plain_passwords_and_stats.sql в Supabase.</td></tr>`;
     return;
   }
   opsCache = data || [];
   const tbody = document.querySelector('#op-table tbody');
   if (!opsCache.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">Операторов пока нет</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Операторов пока нет</td></tr>`;
     return;
   }
   tbody.innerHTML = opsCache.map(op => `
     <tr>
       <td><strong>${escapeHtml(op.name)}</strong></td>
       <td><code style="font-size:13px;">${escapeHtml(op.login)}</code></td>
+      <td>${renderPasswordCell(op.password)}</td>
       <td>${op.is_active
         ? '<span class="badge" style="background:var(--success-soft);color:var(--success);">Активен</span>'
         : '<span class="badge muted">Отключён</span>'}</td>
@@ -504,12 +509,22 @@ async function loadOperators() {
     </tr>`).join('');
   tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editOp(b.dataset.edit)));
   tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteOp(b.dataset.del)));
+  tbody.querySelectorAll('.pw-toggle').forEach(b => b.addEventListener('click', (e) => {
+    const cell = e.currentTarget.parentElement.querySelector('.pw-value');
+    const shown = cell.dataset.shown === '1';
+    cell.textContent = shown ? '••••••••' : cell.dataset.pw;
+    cell.dataset.shown = shown ? '0' : '1';
+  }));
+  tbody.querySelectorAll('.pw-copy').forEach(b => b.addEventListener('click', async (e) => {
+    try { await navigator.clipboard.writeText(e.currentTarget.dataset.pw); toast('Пароль скопирован'); }
+    catch { toast('Не удалось скопировать'); }
+  }));
 }
 
 document.getElementById('op-add').addEventListener('click', () => editOp(null));
 
 function editOp(id) {
-  const op = id ? opsCache.find(x => x.id === id) : { name:'', login:'', is_active: true };
+  const op = id ? opsCache.find(x => x.id === id) : { name:'', login:'', password:'', is_active: true };
   const isNew = !id;
   openModal(isNew ? 'Новый оператор' : 'Редактировать оператора', `
     <form class="form-grid" id="op-form">
@@ -521,8 +536,9 @@ function editOp(id) {
                title="Латиница, цифры, _ . - (3–32 символа)"
                placeholder="ivan.petrov">
       </label>
-      <label><div class="lbl">Пароль ${isNew ? '' : '<span class="muted" style="font-weight:400;">(оставьте пустым, чтобы не менять)</span>'}</div>
-        <input type="text" name="password" ${isNew ? 'required' : ''} autocomplete="new-password" minlength="6" placeholder="${isNew ? 'Минимум 6 символов' : '••••••••'}"></label>
+      <label><div class="lbl">Пароль</div>
+        <input type="text" name="password" value="${escapeHtml(op.password || '')}" ${isNew ? 'required' : ''}
+               autocomplete="new-password" minlength="6" placeholder="Минимум 6 символов"></label>
       ${isNew ? '' : `
       <label style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" name="is_active" ${op.is_active ? 'checked' : ''}>
@@ -544,7 +560,9 @@ function editOp(id) {
     if (!isNew) payload.is_active = fd.has('is_active');
     if (password) {
       if (password.length < 6) { toast('Пароль минимум 6 символов'); return; }
-      payload.password_hash = await hashPassword(password);
+      payload.password = password;
+    } else if (isNew) {
+      toast('Задайте пароль'); return;
     }
     const btn = e.submitter;
     btn.disabled = true; btn.textContent = 'Сохраняем…';

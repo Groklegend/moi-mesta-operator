@@ -1043,6 +1043,18 @@ h1, h2, h3, .topbar .title {
 .table tr:hover td { background: rgba(244, 239, 229, 0.4); }
 .table .actions-cell { white-space: nowrap; text-align: right; }
 
+.pw-cell { display: inline-flex; align-items: center; gap: 6px; }
+.pw-cell .pw-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  padding: 2px 8px;
+  background: var(--bg-soft);
+  border-radius: 6px;
+  min-width: 80px;
+  display: inline-block;
+}
+.pw-cell .btn.sm { padding: 4px 8px; font-size: 12px; }
+
 .badge {
   display: inline-block;
   padding: 3px 10px;
@@ -1088,12 +1100,34 @@ h1, h2, h3, .topbar .title {
 /* ---------- Статистика ---------- */
 .stats-filters {
   display: flex;
+  align-items: center;
   gap: 6px;
   margin-bottom: 28px;
   background: var(--bg-soft);
   padding: 5px;
   border-radius: var(--radius);
   width: fit-content;
+  flex-wrap: wrap;
+}
+.stats-filters .op-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 14px;
+  margin-left: 6px;
+  border-left: 1px solid var(--border-strong);
+  font-size: 13px;
+  color: var(--muted);
+}
+.stats-filters .op-filter select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
 }
 .stats-filters button {
   padding: 9px 16px;

@@ -36,5 +36,9 @@ window.formatAnswer = (text) => {
 };
 
 window.logEvent = async (payload) => {
-  try { await sb.from('stats').insert(payload); } catch (e) { /* не блокируем UX */ }
+  try {
+    const s = window.operatorSession?.get?.();
+    const row = s?.id ? { ...payload, operator_id: s.id } : payload;
+    await sb.from('stats').insert(row);
+  } catch (e) { /* не блокируем UX */ }
 };

@@ -31,6 +31,10 @@
     <button data-range="week" class="active">За неделю</button>
     <button data-range="month">За месяц</button>
     <button data-range="all">За всё время</button>
+    <label class="op-filter">
+      <span>Оператор:</span>
+      <select id="op-filter"><option value="">Все операторы</option></select>
+    </label>
   </div>
 
   <div class="stats-grid">
@@ -75,6 +79,14 @@
         <tbody></tbody>
       </table>
     </div>
+  </div>
+
+  <div class="stats-card" style="margin-top:24px;">
+    <h3>По операторам</h3>
+    <table class="table" id="op-stats-table">
+      <thead><tr><th>Оператор</th><th>Клики</th><th>Открытий рубрик</th><th>Поисков</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </main>
 

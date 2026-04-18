@@ -4,7 +4,7 @@
 
 sb.auth.getSession().then(({ data }) => {
   if (!data?.session) location.replace('login.html');
-  else loadStats('week');
+  else init();
 });
 
 document.getElementById('logout').addEventListener('click', async () => {
@@ -20,8 +20,27 @@ document.querySelectorAll('.stats-filters button').forEach(b => {
   });
 });
 
+document.getElementById('op-filter').addEventListener('change', () => {
+  const active = document.querySelector('.stats-filters button.active');
+  loadStats(active?.dataset.range || 'week');
+});
+
 let chartTop = null;
 let chartDays = null;
+let opsList = [];
+
+async function init() {
+  const { data } = await sb.from('operators').select('id, name, login').order('name');
+  opsList = data || [];
+  const sel = document.getElementById('op-filter');
+  opsList.forEach(op => {
+    const o = document.createElement('option');
+    o.value = op.id;
+    o.textContent = op.name + ' (' + op.login + ')';
+    sel.appendChild(o);
+  });
+  loadStats('week');
+}
 
 function rangeToDate(range) {
   if (range === 'all') return null;
@@ -34,11 +53,14 @@ function rangeToDate(range) {
 
 async function loadStats(range) {
   const since = rangeToDate(range);
+  const opId = document.getElementById('op-filter').value || null;
+
   let query = sb.from('stats').select('*').order('created_at');
   if (since) query = query.gte('created_at', since);
   const { data, error } = await query;
   if (error) { alert('Ошибка: ' + error.message); return; }
-  const events = data || [];
+  let events = data || [];
+  if (opId) events = events.filter(e => e.operator_id === opId);
 
   // Справочники (для имён)
   const [{ data: objs }, { data: cats }] = await Promise.all([
@@ -47,6 +69,7 @@ async function loadStats(range) {
   ]);
   const objMap = Object.fromEntries((objs || []).map(o => [o.id, o.title]));
   const catMap = Object.fromEntries((cats || []).map(c => [c.id, c.name]));
+  const opMap  = Object.fromEntries(opsList.map(o => [o.id, o.name]));
 
   const clicks   = events.filter(e => e.event_type === 'objection_click');
   const catOpens = events.filter(e => e.event_type === 'category_open');
@@ -79,8 +102,38 @@ async function loadStats(range) {
     ? topQ.map(([q, n]) => `<tr><td>${escapeHtml(q)}</td><td>${n}</td></tr>`).join('')
     : '<tr><td colspan="2" class="empty">Нет данных</td></tr>';
 
+  // По операторам (агрегируем по исходному events без фильтра по оператору,
+  // чтобы таблица всегда показывала сравнение всех)
+  renderOpStats(data || [], opMap);
+
   // Динамика по дням
   renderDaysChart(clicks);
+}
+
+function renderOpStats(allEvents, opMap) {
+  const tbody = document.querySelector('#op-stats-table tbody');
+  // Сгруппировать по operator_id
+  const m = {};
+  for (const e of allEvents) {
+    const key = e.operator_id || '__unknown__';
+    if (!m[key]) m[key] = { clicks: 0, cats: 0, searches: 0 };
+    if (e.event_type === 'objection_click') m[key].clicks++;
+    else if (e.event_type === 'category_open') m[key].cats++;
+    else if (e.event_type === 'search') m[key].searches++;
+  }
+  const rows = Object.entries(m)
+    .map(([id, v]) => ({ id, name: id === '__unknown__' ? 'Неизвестный' : (opMap[id] || '— удалён —'), ...v }))
+    .sort((a, b) => b.clicks - a.clicks);
+
+  tbody.innerHTML = rows.length
+    ? rows.map(r => `
+      <tr>
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td>${r.clicks}</td>
+        <td>${r.cats}</td>
+        <td>${r.searches}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="empty">Нет данных</td></tr>';
 }
 
 function aggregate(events, field) {
