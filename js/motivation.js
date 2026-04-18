@@ -276,9 +276,15 @@
     const seen = new Set();
     COLS.forEach(c => { if (!seen.has(c.group)) { groupsOrdered.push(c.group); seen.add(c.group); } });
 
+    // В узких группах (1 колонка) заменяем пробел на <br>, чтобы заголовок
+    // шёл в две строки и не растягивал колонку — например, «Звонки / исходящие».
+    const groupHtml = (g) => {
+      const safe = escapeHtml(g);
+      return colspanMap[g] === 1 ? safe.replace(/ /, '<br>') : safe;
+    };
     const headerGroups = `<tr>
       <th rowspan="2" class="col-date">Дата</th>
-      ${groupsOrdered.map(g => `<th colspan="${colspanMap[g]}">${escapeHtml(g)}</th>`).join('')}
+      ${groupsOrdered.map(g => `<th colspan="${colspanMap[g]}">${groupHtml(g)}</th>`).join('')}
     </tr>`;
     const headerSubs = `<tr>
       ${COLS.map(c => `<th>${escapeHtml(c.sub || '—')}</th>`).join('')}
