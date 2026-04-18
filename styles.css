@@ -511,6 +511,15 @@ h1, h2, h3, .topbar .title {
   top: 0;
   z-index: 1;
 }
+/* Заголовки групп (colspan) — разрешаем перенос слов, чтобы
+   узкие колонки вроде «Звонки исходящие» не растягивали таблицу. */
+.mot-table th[colspan] {
+  white-space: normal;
+  line-height: 1.15;
+  word-break: break-word;
+  hyphens: auto;
+  max-width: 110px;
+}
 .mot-table td {
   border: 1px solid var(--border);
   padding: 0;
