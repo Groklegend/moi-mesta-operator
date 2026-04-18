@@ -58,6 +58,7 @@
 
   const statsState = {
     period: localStorage.getItem('motivation_stats_period') || 'day',
+    month: localStorage.getItem('motivation_stats_month') || '', // '' — все месяцы, или 'YYYY-MM'
     entries: [],
     charts: {}, // key -> Chart instance
   };
@@ -159,12 +160,38 @@
     };
   }
 
+  // Записи, отфильтрованные по выбранному месяцу в статистике.
+  function getFilteredEntries() {
+    if (!statsState.month) return statsState.entries;
+    return statsState.entries.filter(e => e.entry_date.startsWith(statsState.month));
+  }
+
+  // Пересобираем список доступных месяцев в <select> по entries.
+  function updateMonthFilterOptions() {
+    const sel = document.getElementById('mot-stats-month');
+    if (!sel) return;
+    const months = [...new Set(statsState.entries.map(e => e.entry_date.slice(0, 7)))].sort().reverse();
+    // Если сохранённый месяц больше не актуален — сбрасываем на «все»
+    if (statsState.month && !months.includes(statsState.month)) {
+      statsState.month = '';
+      localStorage.setItem('motivation_stats_month', '');
+    }
+    sel.innerHTML =
+      `<option value="">Все месяцы</option>` +
+      months.map(m => {
+        const [y, mm] = m.split('-');
+        const label = `${MONTHS[Number(mm) - 1]} ${y}`;
+        return `<option value="${escapeHtml(m)}"${m === statsState.month ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+  }
+
   function renderKpis() {
     const el = document.getElementById('mot-kpis');
     if (!el) return;
+    const entries = getFilteredEntries();
     const totals = {};
     for (const m of STATS_METRICS) totals[m.key] = 0;
-    for (const e of statsState.entries) {
+    for (const e of entries) {
       for (const m of STATS_METRICS) totals[m.key] += (Number(e[m.key]) || 0);
     }
     el.innerHTML = STATS_METRICS.map(m => `
@@ -185,8 +212,9 @@
       </div>
     `).join('');
 
+    const entries = getFilteredEntries();
     for (const m of STATS_METRICS) {
-      const { labels, values } = aggregateForChart(statsState.entries, m.key, statsState.period);
+      const { labels, values } = aggregateForChart(entries, m.key, statsState.period);
       const canvas = document.getElementById(`mot-chart-${m.key}`);
       if (!canvas) continue;
       if (statsState.charts[m.key]) statsState.charts[m.key].destroy();
@@ -228,6 +256,7 @@
 
   async function refreshStats() {
     statsState.entries = await loadAllEntriesForStats();
+    updateMonthFilterOptions();
     renderKpis();
     renderChartsGrid();
   }
@@ -355,10 +384,16 @@
       <section class="mot-stats">
         <div class="mot-stats-head">
           <h2>Статистика</h2>
-          <div class="mot-period" id="mot-period">
-            <button type="button" data-period="day">Дни</button>
-            <button type="button" data-period="week">Недели</button>
-            <button type="button" data-period="month">Месяцы</button>
+          <div class="mot-stats-controls">
+            <label class="mot-month-filter">
+              <span>Месяц:</span>
+              <select id="mot-stats-month"><option value="">Все месяцы</option></select>
+            </label>
+            <div class="mot-period" id="mot-period">
+              <button type="button" data-period="day">Дни</button>
+              <button type="button" data-period="week">Недели</button>
+              <button type="button" data-period="month">Месяцы</button>
+            </div>
           </div>
         </div>
         <div class="mot-kpis" id="mot-kpis"></div>
@@ -398,6 +433,14 @@
         periodEl.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
         renderChartsGrid();
       });
+    });
+
+    // Выбор месяца в статистике
+    document.getElementById('mot-stats-month').addEventListener('change', (e) => {
+      statsState.month = e.target.value;
+      localStorage.setItem('motivation_stats_month', statsState.month);
+      renderKpis();
+      renderChartsGrid();
     });
 
     trackMotHeadHeight();
