@@ -480,7 +480,9 @@
     if (head) {
       document.documentElement.style.setProperty('--mot-head-h', head.offsetHeight + 'px');
     }
-    const row1Th = document.querySelector('.mot-table thead .mot-th-row-1 th');
+    // ВАЖНО: пропускаем th.col-date — у «Даты» rowspan=2, её offsetHeight
+    // равен сумме высот обеих строк, что ломает расчёт offset для row-2.
+    const row1Th = document.querySelector('.mot-table thead .mot-th-row-1 th:not(.col-date)');
     if (row1Th) {
       document.documentElement.style.setProperty('--mot-th-row1-h', row1Th.offsetHeight + 'px');
     }
