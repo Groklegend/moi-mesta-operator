@@ -554,6 +554,104 @@ h1, h2, h3, .topbar .title {
 .mot-table tr:hover td:not(.col-date) { background: #FAF8F2; }
 .mot-table .mut { color: var(--muted-2); font-size: 11px; font-weight: 400; }
 
+/* ---------- Статистика внутри «Мотивации» ---------- */
+.mot-stats {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mot-stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.mot-stats-head h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--navy);
+}
+.mot-period {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--bg-soft);
+  padding: 4px;
+  border-radius: 10px;
+}
+.mot-period button {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.mot-period button:hover { color: var(--navy); }
+.mot-period button.active {
+  background: var(--card);
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+}
+
+.mot-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.mot-kpi {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-left: 4px solid var(--kpi-color, var(--navy));
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.mot-kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.mot-kpi-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.mot-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+.mot-chart-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.mot-chart-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 10px;
+}
+.mot-chart-title .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block;
+}
+.mot-chart-box { height: 180px; position: relative; }
+
 /* Большая область ответа */
 .answer-area {
   background: white;

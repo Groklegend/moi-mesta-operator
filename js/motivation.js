@@ -32,6 +32,24 @@
     { key: 'total',                  group: 'Итого',               sub: '' },
   ];
 
+  // Метрики для статистики (берём только «Кол-во» — считаем действия).
+  // Цвета согласованы между KPI-карточкой и соответствующим графиком.
+  const STATS_METRICS = [
+    { key: 'calls_out_qty',          label: 'Звонки исходящие',     color: '#2563eb' },
+    { key: 'calls_done_qty',         label: 'Звонки состоявшиеся',  color: '#059669' },
+    { key: 'lpr_qty',                label: 'Выход на ЛПР',         color: '#d97706' },
+    { key: 'meetings_scheduled_qty', label: 'Встреч назначено',     color: '#7c3aed' },
+    { key: 'meetings_done_qty',      label: 'Встречи состоявшиеся', color: '#db2777' },
+    { key: 'tests_qty',              label: 'Запустили тест',       color: '#0d9488' },
+    { key: 'contracts_qty',          label: 'Договор заключён',     color: '#dc2626' },
+  ];
+
+  const statsState = {
+    period: localStorage.getItem('motivation_stats_period') || 'day',
+    entries: [],
+    charts: {}, // key -> Chart instance
+  };
+
   const ZOOM_MIN = 50, ZOOM_MAX = 130, ZOOM_STEP = 10;
   function clampZoom(v) {
     const n = Number(v);
@@ -72,6 +90,134 @@
       return;
     }
     mState.byDate = Object.fromEntries((data || []).map(r => [r.entry_date, r]));
+  }
+
+  // ------- Статистика -------
+  async function loadAllEntriesForStats() {
+    const s = window.operatorSession?.get?.();
+    if (!s?.id) return [];
+    const { data, error } = await sb.from('motivation_entries')
+      .select('*')
+      .eq('operator_id', s.id)
+      .order('entry_date', { ascending: true });
+    if (error) { console.error(error); return []; }
+    return data || [];
+  }
+
+  // ISO-неделя: YYYY-Www, начало недели — понедельник
+  function isoWeekKey(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const dayNum = tmp.getUTCDay() || 7;
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+    return `${tmp.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+
+  function bucketKey(dateStr, period) {
+    if (period === 'day')   return dateStr;            // YYYY-MM-DD
+    if (period === 'month') return dateStr.slice(0, 7); // YYYY-MM
+    return isoWeekKey(dateStr);
+  }
+
+  function formatBucketLabel(key, period) {
+    if (period === 'day') {
+      // '2026-04-02' -> '02.04'
+      return key.slice(8) + '.' + key.slice(5, 7);
+    }
+    if (period === 'month') {
+      const [, m] = key.split('-');
+      return MONTHS[Number(m) - 1]?.slice(0, 3) || key;
+    }
+    // неделя: 2026-W15 -> 'W15'
+    return 'н' + key.split('-W')[1];
+  }
+
+  function aggregateForChart(entries, metricKey, period) {
+    const buckets = {};
+    for (const e of entries) {
+      const k = bucketKey(e.entry_date, period);
+      buckets[k] = (buckets[k] || 0) + (Number(e[metricKey]) || 0);
+    }
+    const keys = Object.keys(buckets).sort();
+    return {
+      labels: keys.map(k => formatBucketLabel(k, period)),
+      values: keys.map(k => buckets[k]),
+    };
+  }
+
+  function renderKpis() {
+    const el = document.getElementById('mot-kpis');
+    if (!el) return;
+    const totals = {};
+    for (const m of STATS_METRICS) totals[m.key] = 0;
+    for (const e of statsState.entries) {
+      for (const m of STATS_METRICS) totals[m.key] += (Number(e[m.key]) || 0);
+    }
+    el.innerHTML = STATS_METRICS.map(m => `
+      <div class="mot-kpi" style="--kpi-color:${m.color}">
+        <div class="mot-kpi-label">${escapeHtml(m.label)}</div>
+        <div class="mot-kpi-value">${totals[m.key].toLocaleString('ru-RU')}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderChartsGrid() {
+    const el = document.getElementById('mot-charts');
+    if (!el) return;
+    el.innerHTML = STATS_METRICS.map(m => `
+      <div class="mot-chart-card">
+        <div class="mot-chart-title"><span class="dot" style="background:${m.color}"></span>${escapeHtml(m.label)}</div>
+        <div class="mot-chart-box"><canvas id="mot-chart-${m.key}"></canvas></div>
+      </div>
+    `).join('');
+
+    for (const m of STATS_METRICS) {
+      const { labels, values } = aggregateForChart(statsState.entries, m.key, statsState.period);
+      const canvas = document.getElementById(`mot-chart-${m.key}`);
+      if (!canvas) continue;
+      if (statsState.charts[m.key]) statsState.charts[m.key].destroy();
+      if (!labels.length) {
+        const ctx = canvas.getContext('2d');
+        ctx.font = '13px Montserrat, sans-serif';
+        ctx.fillStyle = '#A0A9B5';
+        ctx.textAlign = 'center';
+        ctx.fillText('Нет данных', canvas.width / 2, canvas.height / 2);
+        continue;
+      }
+      statsState.charts[m.key] = new Chart(canvas, {
+        type: statsState.period === 'day' ? 'line' : 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: m.label,
+            data: values,
+            borderColor: m.color,
+            backgroundColor: m.color + '33',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
+  }
+
+  async function refreshStats() {
+    statsState.entries = await loadAllEntriesForStats();
+    renderKpis();
+    renderChartsGrid();
   }
 
   function buildTable() {
@@ -144,6 +290,19 @@
       <div class="mot-table-wrap" id="mot-wrap">
         <table class="mot-table" id="mot-table"></table>
       </div>
+
+      <section class="mot-stats">
+        <div class="mot-stats-head">
+          <h2>Статистика</h2>
+          <div class="mot-period" id="mot-period">
+            <button type="button" data-period="day">Дни</button>
+            <button type="button" data-period="week">Недели</button>
+            <button type="button" data-period="month">Месяцы</button>
+          </div>
+        </div>
+        <div class="mot-kpis" id="mot-kpis"></div>
+        <div class="mot-charts" id="mot-charts"></div>
+      </section>
     `;
 
     document.getElementById('mot-prev').addEventListener('click', () => shiftMonth(-1));
@@ -160,8 +319,21 @@
     document.getElementById('mot-zoom-val').addEventListener('click', () => setZoom(100));
     document.getElementById('mot-zoom-fit').addEventListener('click', fitZoom);
 
+    // Переключатель периода для статистики
+    const periodEl = document.getElementById('mot-period');
+    periodEl.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.period === statsState.period);
+      b.addEventListener('click', () => {
+        statsState.period = b.dataset.period;
+        localStorage.setItem('motivation_stats_period', statsState.period);
+        periodEl.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        renderChartsGrid();
+      });
+    });
+
     await refresh();
     applyZoom();
+    await refreshStats();
   }
 
   function applyZoom() {
@@ -258,6 +430,8 @@
       document.getElementById('mot-hint').textContent =
         `Сохранено: ${toUpsert.length} ${plural(toUpsert.length, 'запись', 'записи', 'записей')}`;
       toast?.('Сохранено');
+      // Перестраиваем статистику, чтобы сразу увидеть новые цифры/графики
+      refreshStats();
     } catch (err) {
       console.error(err);
       toast?.('Ошибка: ' + (err.message || err));
