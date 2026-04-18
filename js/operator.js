@@ -30,7 +30,6 @@ async function loadAll() {
 
   renderCategoryDropdown();
   renderObjections();
-  renderDocuments();
 }
 
 // ---------- Выпадающий список рубрик ----------
@@ -146,29 +145,6 @@ function highlightActiveItem() {
   const cur = state.currentObjection?.id;
   document.querySelectorAll('.sidebar-item').forEach(b => {
     b.classList.toggle('active', cur && b.dataset.id === cur);
-  });
-}
-
-// ---------- Документы ----------
-function renderDocuments() {
-  const el = document.getElementById('documents');
-  const sec = document.getElementById('documents-section');
-  if (!state.documents.length) { sec.hidden = true; return; }
-  sec.hidden = false;
-  el.innerHTML = state.documents.map(d => `
-    <div class="doc-item">
-      <div class="doc-name">${escapeHtml(d.name)}</div>
-      <div class="flex" style="gap:6px;">
-        <a href="${escapeHtml(d.url)}" target="_blank" rel="noopener">Открыть</a>
-        <button class="btn sm" data-url="${escapeHtml(d.url)}">Скопировать</button>
-      </div>
-    </div>
-  `).join('');
-  el.querySelectorAll('button[data-url]').forEach(b => {
-    b.addEventListener('click', async () => {
-      await copyText(b.dataset.url);
-      toast('Ссылка скопирована');
-    });
   });
 }
 
@@ -450,10 +426,8 @@ function setMode(m) {
   if (!isObj) {
     document.getElementById('specific-section').hidden = true;
     document.getElementById('search-results-section').hidden = true;
-    document.getElementById('documents-section').hidden = true;
   } else {
     renderObjections();
-    renderDocuments();
   }
 
   document.getElementById('docs-mode-section').hidden = !isDocs;
