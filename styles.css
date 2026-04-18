@@ -503,13 +503,14 @@ h1, h2, h3, .topbar .title {
   background: var(--bg-soft);
   color: var(--ink-2);
   font-weight: 700;
-  padding: 8px 6px;
+  padding: 6px 4px;
   border: 1px solid var(--border);
   text-align: center;
   white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 1;
+  font-size: 12px;
 }
 /* Заголовки групп (colspan) — разрешаем перенос слов, чтобы
    узкие колонки вроде «Звонки исходящие» не растягивали таблицу. */
@@ -541,8 +542,8 @@ h1, h2, h3, .topbar .title {
 .mot-table th.col-date { z-index: 3; }
 .mot-table td input {
   width: 100%;
-  min-width: 70px;
-  padding: 6px 8px;
+  min-width: 44px;
+  padding: 6px 4px;
   border: none;
   background: transparent;
   font: inherit;
@@ -565,13 +566,14 @@ h1, h2, h3, .topbar .title {
 
 /* Формульные ячейки — не редактируются, считаются на лету */
 .mot-table td.mot-calc {
-  padding: 6px 10px;
+  padding: 6px 6px;
   text-align: right;
   color: var(--muted);
   background: #FBF7EE;
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   user-select: text;
+  min-width: 50px;
 }
 .mot-table td.mot-calc[data-key="total"] {
   font-weight: 800;
