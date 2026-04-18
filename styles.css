@@ -454,6 +454,17 @@ h1, h2, h3, .topbar .title {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+  /* Sticky: прилипает к верху при вертикальном скролле. Негативные
+     маргины растягивают фон на всю ширину .motivation-area, чтобы
+     контент не просвечивал по бокам. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--card);
+  margin: -20px -20px 0;
+  padding: 14px 20px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-bottom: 1px solid var(--border);
 }
 .mot-nav {
   display: flex;
@@ -489,7 +500,12 @@ h1, h2, h3, .topbar .title {
   font-weight: 600;
 }
 .mot-table-wrap {
-  overflow-x: auto;
+  /* overflow-x: clip (вместо auto) позволяет overflow-y оставаться
+     visible — без этого sticky у <thead> не работает относительно
+     страницы. Горизонтальный перелив (если таблица шире экрана)
+     решается кнопкой «⤢ Вписать». */
+  overflow-x: clip;
+  overflow-y: visible;
   border: 1px solid var(--border);
   border-radius: 10px;
 }
@@ -508,8 +524,9 @@ h1, h2, h3, .topbar .title {
   text-align: center;
   white-space: nowrap;
   position: sticky;
-  top: 0;
-  z-index: 1;
+  /* Прилипаем ПОД .mot-head — высоту считаем в JS */
+  top: var(--mot-head-h, 64px);
+  z-index: 10;
   font-size: 12px;
 }
 /* Заголовки групп (colspan) — разрешаем перенос слов, чтобы

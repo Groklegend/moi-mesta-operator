@@ -400,6 +400,7 @@
       });
     });
 
+    trackMotHeadHeight();
     await refresh();
     applyZoom();
     await refreshStats();
@@ -413,6 +414,26 @@
     wrap.style.zoom = mState.zoom / 100;
     const val = document.getElementById('mot-zoom-val');
     if (val) val.textContent = mState.zoom + '%';
+  }
+
+  // Обновляет CSS-переменную --mot-head-h, от которой зависит
+  // offset sticky-шапки таблицы. Зовём после рендера и на resize,
+  // потому что .mot-head может перенестись на 2 строки на узком экране.
+  let _motHeadRO = null;
+  function trackMotHeadHeight() {
+    const head = document.querySelector('.mot-head');
+    if (!head) return;
+    const update = () => {
+      document.documentElement.style.setProperty('--mot-head-h', head.offsetHeight + 'px');
+    };
+    update();
+    if (_motHeadRO) _motHeadRO.disconnect();
+    if (typeof ResizeObserver !== 'undefined') {
+      _motHeadRO = new ResizeObserver(update);
+      _motHeadRO.observe(head);
+    } else {
+      window.addEventListener('resize', update);
+    }
   }
 
   function setZoom(v) {
