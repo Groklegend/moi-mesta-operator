@@ -437,34 +437,45 @@ function setMode(m) {
   });
 
   const isObj = m === 'objections';
+  const isDocs = m === 'documents';
+  const isMot = m === 'motivation';
+
+  // Сайдбар целиком (в мотивации — прячем, таблица занимает всю ширину)
+  document.getElementById('sidebar').hidden = isMot;
+  document.getElementById('layout').classList.toggle('full-width', isMot);
+
   // Сайдбар: секции, которые видны только в режиме возражений
   document.getElementById('search-wrap').hidden = !isObj;
   document.getElementById('general-section').hidden = !isObj;
-  // specific/search-results управляются своей логикой, но скрываем в режиме документов
   if (!isObj) {
     document.getElementById('specific-section').hidden = true;
     document.getElementById('search-results-section').hidden = true;
     document.getElementById('documents-section').hidden = true;
   } else {
-    // при возврате — перерисуем возражения, чтобы восстановить состояние specific и т.п.
     renderObjections();
     renderDocuments();
   }
 
-  // Секция документов (в режиме документов занимает сайдбар)
-  document.getElementById('docs-mode-section').hidden = isObj;
+  document.getElementById('docs-mode-section').hidden = !isDocs;
 
   // Выпадашка рубрик в шапке имеет смысл только для возражений
   document.getElementById('cat-dropdown').style.display = isObj ? '' : 'none';
 
   // Правая панель
+  const answerPane = document.getElementById('answer-pane');
+  const motPane = document.getElementById('motivation-pane');
+  answerPane.hidden = isMot;
+  motPane.hidden = !isMot;
+
   if (isObj) {
     if (state.currentObjection) renderAnswerPane();
     else resetAnswerPane();
-  } else {
+  } else if (isDocs) {
     renderDocsModeList();
     if (state.currentDocument) renderDocumentPane(state.currentDocument);
     else resetAnswerPane('📎', 'Выберите документ слева — он откроется здесь');
+  } else if (isMot) {
+    window.renderMotivation?.();
   }
 }
 
