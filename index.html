@@ -22,10 +22,19 @@
   <a href="login.html">Админ</a>
 </header>
 
+<nav class="mode-nav">
+  <button class="mode-btn active" data-mode="objections" type="button">
+    <span>💬</span> Возражения
+  </button>
+  <button class="mode-btn" data-mode="documents" type="button">
+    <span>📎</span> Документы
+  </button>
+</nav>
+
 <main class="container wide">
   <div class="layout">
     <aside class="sidebar">
-      <div class="search-wrap">
+      <div class="search-wrap" id="search-wrap">
         <input id="search" type="search" placeholder="Поиск возражения…" autocomplete="off">
       </div>
 
@@ -47,6 +56,11 @@
       <div class="sidebar-section" id="documents-section" hidden>
         <h2>Документы</h2>
         <div id="documents" class="docs-list"></div>
+      </div>
+
+      <div class="sidebar-section" id="docs-mode-section" hidden>
+        <h2>Документы</h2>
+        <div id="docs-mode-list" class="item-list"></div>
       </div>
     </aside>
 

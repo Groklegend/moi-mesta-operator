@@ -11,6 +11,8 @@ const state = {
   documents: [],
   activeCategoryId: null,
   currentObjection: null,
+  mode: 'objections',
+  currentDocument: null,
 };
 
 // ---------- Загрузка данных ----------
@@ -421,6 +423,106 @@ function toast(msg) {
   t.classList.remove('hidden');
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.add('hidden'), 1800);
+}
+
+// ---------- Переключение режима (Возражения / Документы) ----------
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => setMode(btn.dataset.mode));
+});
+
+function setMode(m) {
+  state.mode = m;
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === m);
+  });
+
+  const isObj = m === 'objections';
+  // Сайдбар: секции, которые видны только в режиме возражений
+  document.getElementById('search-wrap').hidden = !isObj;
+  document.getElementById('general-section').hidden = !isObj;
+  // specific/search-results управляются своей логикой, но скрываем в режиме документов
+  if (!isObj) {
+    document.getElementById('specific-section').hidden = true;
+    document.getElementById('search-results-section').hidden = true;
+    document.getElementById('documents-section').hidden = true;
+  } else {
+    // при возврате — перерисуем возражения, чтобы восстановить состояние specific и т.п.
+    renderObjections();
+    renderDocuments();
+  }
+
+  // Секция документов (в режиме документов занимает сайдбар)
+  document.getElementById('docs-mode-section').hidden = isObj;
+
+  // Выпадашка рубрик в шапке имеет смысл только для возражений
+  document.getElementById('cat-dropdown').style.display = isObj ? '' : 'none';
+
+  // Правая панель
+  if (isObj) {
+    if (state.currentObjection) renderAnswerPane();
+    else resetAnswerPane();
+  } else {
+    renderDocsModeList();
+    if (state.currentDocument) renderDocumentPane(state.currentDocument);
+    else resetAnswerPane('📎', 'Выберите документ слева — он откроется здесь');
+  }
+}
+
+function resetAnswerPane(icon = '💬', text = 'Выберите возражение слева — ответ появится здесь') {
+  document.getElementById('answer-pane').innerHTML = `
+    <div class="placeholder">
+      <span class="big-icon">${icon}</span>
+      ${escapeHtml(text)}
+    </div>`;
+}
+
+function renderDocsModeList() {
+  const list = document.getElementById('docs-mode-list');
+  if (!state.documents.length) {
+    list.innerHTML = `<div class="empty" style="font-size:13px;padding:24px 12px;color:var(--muted);">Документов пока нет</div>`;
+    return;
+  }
+  list.innerHTML = state.documents.map(d => `
+    <button class="sidebar-item" data-doc-id="${d.id}">${escapeHtml(d.name)}</button>
+  `).join('');
+  list.querySelectorAll('button[data-doc-id]').forEach(b => {
+    b.onclick = () => openDocument(b.dataset.docId);
+  });
+  highlightActiveDoc();
+}
+
+function openDocument(id) {
+  const d = state.documents.find(x => x.id === id);
+  if (!d) return;
+  state.currentDocument = d;
+  renderDocumentPane(d);
+  highlightActiveDoc();
+}
+
+function highlightActiveDoc() {
+  const cur = state.currentDocument?.id;
+  document.querySelectorAll('#docs-mode-list .sidebar-item').forEach(b => {
+    b.classList.toggle('active', cur && b.dataset.docId === cur);
+  });
+}
+
+function renderDocumentPane(d) {
+  const pane = document.getElementById('answer-pane');
+  const descr = (d.description || '').trim();
+  pane.innerHTML = `
+    <h1>${escapeHtml(d.name)}</h1>
+    <div class="answer-text">${descr ? formatAnswer(descr) : '<p style="color:var(--muted);">Описание не добавлено</p>'}</div>
+    <div class="actions">
+      <button class="btn primary" id="open-doc">📎 Открыть документ</button>
+      <button class="btn" id="copy-doc-url">📋 Скопировать ссылку</button>
+    </div>`;
+  pane.querySelector('#open-doc').addEventListener('click', () => {
+    window.open(d.url, '_blank', 'noopener');
+  });
+  pane.querySelector('#copy-doc-url').addEventListener('click', async () => {
+    await copyText(d.url);
+    toast('Ссылка скопирована');
+  });
 }
 
 // ---------- Запуск ----------
