@@ -42,7 +42,14 @@ const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 document.getElementById('modal-close').addEventListener('click', closeModal);
-modal.addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+// Закрываем модалку кликом по подложке, только если клик и начался, и закончился на ней.
+// Иначе выделение текста в поле с отпусканием за пределами формы закрывает модалку.
+let _modalDownOnBackdrop = false;
+modal.addEventListener('mousedown', e => { _modalDownOnBackdrop = (e.target.id === 'modal'); });
+modal.addEventListener('click', e => {
+  if (e.target.id === 'modal' && _modalDownOnBackdrop) closeModal();
+  _modalDownOnBackdrop = false;
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 function openModal(title, bodyHtml) {
