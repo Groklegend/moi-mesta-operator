@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Админ · Мои места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo"><span class="dot"></span> Мои места</div>
+  <div class="title">Админ-панель</div>
+  <div class="spacer"></div>
+  <a href="index.html">Сайт оператора</a>
+  <button class="link" id="logout">Выйти</button>
+</header>
+
+<main class="container">
+  <nav class="admin-nav">
+    <a href="#categories" data-tab="categories" class="active">Рубрики</a>
+    <a href="#objections" data-tab="objections">Возражения</a>
+    <a href="#cheatsheet" data-tab="cheatsheet">Шпаргалка</a>
+    <a href="#documents" data-tab="documents">Документы</a>
+    <a href="stats.html">Статистика</a>
+  </nav>
+
+  <section id="tab-categories" class="tab">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h2 class="page-title">Рубрики</h2>
+      <button class="btn primary" id="cat-add">+ Добавить рубрику</button>
+    </div>
+    <table class="table" id="cat-table">
+      <thead><tr><th>Название</th><th>Иконка</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="tab-objections" class="tab hidden">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h2 class="page-title">Возражения</h2>
+      <button class="btn primary" id="obj-add">+ Добавить возражение</button>
+    </div>
+    <table class="table" id="obj-table">
+      <thead><tr><th>Заголовок</th><th>Рубрика</th><th>Статус</th><th>Комментарии</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="tab-cheatsheet" class="tab hidden">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h2 class="page-title">Шпаргалка</h2>
+      <button class="btn primary" id="cheat-add">+ Добавить блок</button>
+    </div>
+    <table class="table" id="cheat-table">
+      <thead><tr><th>Заголовок</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="tab-documents" class="tab hidden">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h2 class="page-title">Документы</h2>
+      <button class="btn primary" id="doc-add">+ Добавить документ</button>
+    </div>
+    <table class="table" id="doc-table">
+      <thead><tr><th>Название</th><th>URL</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<div id="modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+  <div class="modal">
+    <button class="close-x" id="modal-close">×</button>
+    <h1 id="modal-title">—</h1>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Статистика · Мои места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo"><span class="dot"></span> Мои места</div>
+  <div class="title">Статистика</div>
+  <div class="spacer"></div>
+  <a href="index.html">Сайт оператора</a>
+  <button class="link" id="logout">Выйти</button>
+</header>
+
+<main class="container">
+  <nav class="admin-nav">
+    <a href="admin.html#categories">Рубрики</a>
+    <a href="admin.html#objections">Возражения</a>
+    <a href="admin.html#cheatsheet">Шпаргалка</a>
+    <a href="admin.html#documents">Документы</a>
+    <a href="stats.html" class="active">Статистика</a>
+  </nav>
+
+  <div class="stats-filters">
+    <button data-range="day">За день</button>
+    <button data-range="week" class="active">За неделю</button>
+    <button data-range="month">За месяц</button>
+    <button data-range="all">За всё время</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stats-card">
+      <h3>Открытий возражений</h3>
+      <div class="kpi" id="kpi-clicks">—</div>
+      <div class="kpi-label">за выбранный период</div>
+    </div>
+    <div class="stats-card">
+      <h3>Поисковых запросов</h3>
+      <div class="kpi" id="kpi-searches">—</div>
+      <div class="kpi-label">за выбранный период</div>
+    </div>
+  </div>
+
+  <div class="stats-card" style="margin-bottom:24px;">
+    <h3>Топ-10 возражений</h3>
+    <canvas id="chart-top" height="140"></canvas>
+    <table class="table" id="top-table" style="margin-top:16px;">
+      <thead><tr><th>#</th><th>Возражение</th><th>Клики</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="stats-card" style="margin-bottom:24px;">
+    <h3>Динамика по дням</h3>
+    <canvas id="chart-days" height="140"></canvas>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stats-card">
+      <h3>Топ рубрик</h3>
+      <table class="table" id="cat-table">
+        <thead><tr><th>Рубрика</th><th>Открытия</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="stats-card">
+      <h3>Топ поисковых запросов</h3>
+      <table class="table" id="search-table">
+        <thead><tr><th>Запрос</th><th>Раз</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/stats.js"></script>
+</body>
+</html>

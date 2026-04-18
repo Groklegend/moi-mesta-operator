@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Макеты админ-панели</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .hero {
+    max-width: 1000px;
+    margin: 48px auto 24px;
+    padding: 0 24px;
+  }
+  .hero h1 {
+    margin: 0 0 8px;
+    font-size: 32px;
+    color: var(--navy);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .hero p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 640px;
+  }
+
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto 48px;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 24px 20px;
+    text-decoration: none;
+    color: var(--ink);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+    border-color: var(--accent);
+  }
+  .card .num {
+    display: inline-block;
+    background: var(--navy);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+    align-self: flex-start;
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: var(--navy);
+    font-weight: 800;
+  }
+  .card p {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .card .preview {
+    background: var(--bg-soft);
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.6;
+  }
+  .card .open-btn {
+    margin-top: 14px;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .note {
+    max-width: 1000px;
+    margin: 0 auto 48px;
+    padding: 18px 22px;
+    background: var(--navy-soft);
+    border-radius: 12px;
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .note strong { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="dot"></span>Мои места</div>
+  <div class="title">Макеты админ-панели</div>
+  <div class="spacer"></div>
+  <a href="../admin.html">Текущая админка</a>
+</header>
+
+<section class="hero">
+  <h1>3 варианта раскладки</h1>
+  <p>Открывай каждый и сравнивай. Это только картинки, кнопки не работают. Когда выберешь — скажи номер, сделаю на настоящей странице.</p>
+</section>
+
+<div class="grid">
+  <a class="card" href="variant-1-compact.html">
+    <span class="num">Макет 1</span>
+    <h3>Компактная таблица</h3>
+    <p>Плотные строки, действия-иконки на наведении. Похоже на текущее, но аккуратнее и быстрее читается.</p>
+    <div class="preview">
+      ┌─ Рубрики  [4]  ──  [+ Добавить] ┐<br>
+      │ ⋮⋮  🍽️  Рестораны    10    ✎ 🗑  │<br>
+      │ ⋮⋮  🦷  Стоматологии 20    ✎ 🗑  │<br>
+      │ ⋮⋮  💇  Салоны       30    ✎ 🗑  │<br>
+      └──────────────────────────────────┘
+    </div>
+    <span class="open-btn">Открыть →</span>
+  </a>
+
+  <a class="card" href="variant-2-cards.html">
+    <span class="num">Макет 2</span>
+    <h3>Сайдбар + карточки</h3>
+    <p>Меню слева (как в приложении). Рубрики — карточки с крупной иконкой. Хорошо, когда рубрик 4–12.</p>
+    <div class="preview">
+      ┌──────┬───────────────────────────┐<br>
+      │📁Руб.│  🍽️      🦷      💇       │<br>
+      │💬Возр│  Рест.  Стом.  Салон      │<br>
+      │📋Шпар│                           │<br>
+      │📎Док.│  🔧      +                │<br>
+      └──────┴───────────────────────────┘
+    </div>
+    <span class="open-btn">Открыть →</span>
+  </a>
+
+  <a class="card" href="variant-3-split.html">
+    <span class="num">Макет 3</span>
+    <h3>Список + редактор</h3>
+    <p>Слева список, справа сразу форма редактирования. Без модалок. Самый быстрый для админа.</p>
+    <div class="preview">
+      ┌─ Список ─┬─ Редактор ────────┐<br>
+      │ 🍽️ Рест. │ Название: Стом.   │<br>
+      │ 🦷 Стом.◆│ Иконка:  [🦷] …   │<br>
+      │ 💇 Салон │ Порядок: [20]     │<br>
+      │ 🔧 Авто  │ [Удал.] [Сохр.]   │<br>
+      └──────────┴───────────────────┘
+    </div>
+    <span class="open-btn">Открыть →</span>
+  </a>
+</div>
+
+<div class="note" style="max-width: 1000px; margin: 0 auto 48px; padding: 0 24px;">
+  <div style="padding: 18px 22px; background: var(--navy-soft); border-radius: 12px;">
+    <strong>Подсказка:</strong> все три варианта можно и смешивать. Например, взять «сайдбар» из №2 и «редактор справа» из №3.
+    Скажи, какой блок понравился — соберу финальную версию.
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Макет №1 · Компактная таблица</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  /* Табы компактные, пилюлями */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    width: fit-content;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .tabs button {
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .tabs button.active {
+    background: var(--navy);
+    color: white;
+  }
+
+  /* Панель с заголовком + действием в одной строке */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+  .section-head h1 {
+    margin: 0;
+    font-size: 22px;
+    color: var(--navy);
+    font-weight: 800;
+  }
+  .section-head .count {
+    background: var(--navy-soft);
+    color: var(--navy);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .section-head .spacer { flex: 1; }
+  .add-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(201, 106, 38, 0.2);
+  }
+
+  /* Компактная таблица */
+  .table-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .table-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 80px 80px 96px;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--bg-soft); }
+  .table-row.header {
+    background: var(--bg-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: var(--muted);
+    padding: 12px 18px;
+  }
+  .drag-handle {
+    color: var(--muted-2);
+    font-size: 18px;
+    cursor: grab;
+    text-align: center;
+    user-select: none;
+  }
+  .cell-name {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .cell-icon {
+    font-size: 22px;
+  }
+  .cell-order {
+    color: var(--muted);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+  }
+  .table-row:hover .row-actions { opacity: 1; }
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .icon-btn:hover { background: var(--bg-soft); }
+  .icon-btn.danger { color: var(--danger); }
+  .icon-btn.danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="dot"></span>Мои места</div>
+  <div class="title">Админ-панель</div>
+  <div class="spacer"></div>
+  <a href="#">Сайт оператора</a>
+  <a href="#">Выйти</a>
+</header>
+
+<div class="mockup-label">
+  <span class="badge">Макет №1</span>
+  <h2>Компактная таблица</h2>
+  <p>Табы-пилюли. Заголовок + счётчик + кнопка «Добавить» в одну строку. Плотные строки таблицы. Действия — иконки, появляются при наведении. Слева — «ручка» для перетаскивания порядка.</p>
+</div>
+
+<main class="container">
+
+  <div class="tabs">
+    <button class="active">Рубрики</button>
+    <button>Возражения</button>
+    <button>Шпаргалка</button>
+    <button>Документы</button>
+    <button>Статистика</button>
+  </div>
+
+  <div class="section-head">
+    <h1>Рубрики</h1>
+    <span class="count">4</span>
+    <div class="spacer"></div>
+    <button class="add-btn">+ Добавить рубрику</button>
+  </div>
+
+  <div class="table-card">
+    <div class="table-row header">
+      <div></div>
+      <div>Название</div>
+      <div>Иконка</div>
+      <div>Порядок</div>
+      <div></div>
+    </div>
+    <div class="table-row">
+      <div class="drag-handle">⋮⋮</div>
+      <div class="cell-name">Рестораны</div>
+      <div class="cell-icon">🍽️</div>
+      <div class="cell-order">10</div>
+      <div class="row-actions">
+        <button class="icon-btn" title="Редактировать">✏️</button>
+        <button class="icon-btn danger" title="Удалить">🗑️</button>
+      </div>
+    </div>
+    <div class="table-row">
+      <div class="drag-handle">⋮⋮</div>
+      <div class="cell-name">Стоматологии</div>
+      <div class="cell-icon">🦷</div>
+      <div class="cell-order">20</div>
+      <div class="row-actions">
+        <button class="icon-btn" title="Редактировать">✏️</button>
+        <button class="icon-btn danger" title="Удалить">🗑️</button>
+      </div>
+    </div>
+    <div class="table-row">
+      <div class="drag-handle">⋮⋮</div>
+      <div class="cell-name">Салоны красоты</div>
+      <div class="cell-icon">💇</div>
+      <div class="cell-order">30</div>
+      <div class="row-actions">
+        <button class="icon-btn" title="Редактировать">✏️</button>
+        <button class="icon-btn danger" title="Удалить">🗑️</button>
+      </div>
+    </div>
+    <div class="table-row">
+      <div class="drag-handle">⋮⋮</div>
+      <div class="cell-name">Автосервисы</div>
+      <div class="cell-icon">🔧</div>
+      <div class="cell-order">40</div>
+      <div class="row-actions">
+        <button class="icon-btn" title="Редактировать">✏️</button>
+        <button class="icon-btn danger" title="Удалить">🗑️</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

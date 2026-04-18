@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Макет №3 · Список + редактор</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 22px;
+  }
+  .tabs button {
+    background: transparent;
+    border: none;
+    padding: 12px 18px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1.5px;
+  }
+  .tabs button.active {
+    color: var(--navy);
+    border-bottom-color: var(--accent);
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Левая колонка — список */
+  .list-col {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .list-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .list-head h2 {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .list-head .count {
+    background: var(--navy-soft);
+    color: var(--navy);
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .list-head .spacer { flex: 1; }
+  .add-mini {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .list-item:last-child { border-bottom: none; }
+  .list-item:hover { background: var(--bg-soft); }
+  .list-item.active {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding-left: 13px;
+  }
+  .list-item .icon { font-size: 20px; }
+  .list-item .name {
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1;
+  }
+  .list-item .ord {
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .list-item .drag {
+    color: var(--muted-2);
+    cursor: grab;
+    font-size: 14px;
+  }
+
+  /* Правая колонка — редактор */
+  .editor {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 28px;
+    box-shadow: var(--shadow-sm);
+  }
+  .editor-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .editor-head h1 {
+    margin: 0;
+    font-size: 22px;
+    color: var(--navy);
+    font-weight: 800;
+  }
+  .editor-head .sub {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .field {
+    margin-bottom: 18px;
+  }
+  .field label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+    font-size: 15px;
+    background: white;
+    color: var(--ink);
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .field .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .icon-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .icon-picker button {
+    width: 40px;
+    height: 40px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 18px;
+  }
+  .icon-picker button.selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .editor-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .editor-actions .spacer { flex: 1; }
+  .btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    color: var(--ink);
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .btn.danger {
+    color: var(--danger);
+    border-color: var(--danger-soft);
+  }
+  .btn.danger:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="dot"></span>Мои места</div>
+  <div class="title">Админ-панель</div>
+  <div class="spacer"></div>
+  <a href="#">Сайт оператора</a>
+  <a href="#">Выйти</a>
+</header>
+
+<div class="mockup-label">
+  <span class="badge">Макет №3</span>
+  <h2>Список + редактор справа</h2>
+  <p>Слева — компактный список рубрик, справа — форма редактирования выбранной. Не нужно открывать модалку: кликнул по рубрике → сразу правишь. Для админа это самый быстрый вариант, если записей много.</p>
+</div>
+
+<main class="container">
+
+  <div class="tabs">
+    <button class="active">Рубрики</button>
+    <button>Возражения</button>
+    <button>Шпаргалка</button>
+    <button>Документы</button>
+    <button>Статистика</button>
+  </div>
+
+  <div class="split">
+
+    <div class="list-col">
+      <div class="list-head">
+        <h2>Рубрики</h2>
+        <span class="count">4</span>
+        <div class="spacer"></div>
+        <button class="add-mini">+ Добавить</button>
+      </div>
+      <div class="list-item">
+        <span class="drag">⋮⋮</span>
+        <span class="icon">🍽️</span>
+        <span class="name">Рестораны</span>
+        <span class="ord">10</span>
+      </div>
+      <div class="list-item active">
+        <span class="drag">⋮⋮</span>
+        <span class="icon">🦷</span>
+        <span class="name">Стоматологии</span>
+        <span class="ord">20</span>
+      </div>
+      <div class="list-item">
+        <span class="drag">⋮⋮</span>
+        <span class="icon">💇</span>
+        <span class="name">Салоны красоты</span>
+        <span class="ord">30</span>
+      </div>
+      <div class="list-item">
+        <span class="drag">⋮⋮</span>
+        <span class="icon">🔧</span>
+        <span class="name">Автосервисы</span>
+        <span class="ord">40</span>
+      </div>
+    </div>
+
+    <div class="editor">
+      <div class="editor-head">
+        <h1>Стоматологии</h1>
+        <span class="sub">· Редактирование</span>
+      </div>
+
+      <div class="field">
+        <label>Название</label>
+        <input type="text" value="Стоматологии">
+      </div>
+
+      <div class="field">
+        <label>Иконка</label>
+        <div class="icon-picker">
+          <button>🍽️</button>
+          <button class="selected">🦷</button>
+          <button>💇</button>
+          <button>🔧</button>
+          <button>🏪</button>
+          <button>🏥</button>
+          <button>💅</button>
+          <button>🎓</button>
+        </div>
+        <div class="hint">Выбери готовую или введи свой emoji</div>
+      </div>
+
+      <div class="field">
+        <label>Порядок сортировки</label>
+        <input type="number" value="20" style="max-width: 120px;">
+        <div class="hint">Меньше = выше в списке у оператора</div>
+      </div>
+
+      <div class="editor-actions">
+        <button class="btn danger">Удалить</button>
+        <div class="spacer"></div>
+        <button class="btn">Отмена</button>
+        <button class="btn primary">Сохранить</button>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+</body>
+</html>

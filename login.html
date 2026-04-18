@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход · Мои места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo"><span class="dot"></span> Мои места</div>
+  <div class="title">Админ-панель</div>
+  <div class="spacer"></div>
+  <a href="index.html">← На сайт оператора</a>
+</header>
+
+<main>
+  <div class="login-card">
+    <h1>Вход для администратора</h1>
+    <form class="form-grid" id="login-form">
+      <label>
+        <div class="lbl">Email</div>
+        <input type="email" id="email" required autocomplete="username">
+      </label>
+      <label>
+        <div class="lbl">Пароль</div>
+        <input type="password" id="password" required autocomplete="current-password">
+      </label>
+      <button type="submit" class="btn primary">Войти</button>
+      <div class="error" id="error" hidden></div>
+    </form>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+// Если уже залогинен — сразу в админку
+sb.auth.getSession().then(({ data }) => {
+  if (data?.session) location.replace('admin.html');
+});
+
+const form = document.getElementById('login-form');
+const errEl = document.getElementById('error');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errEl.hidden = true;
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      errEl.textContent = 'Ошибка входа: ' + error.message;
+      errEl.hidden = false;
+      return;
+    }
+    location.replace('admin.html');
+  } catch (err) {
+    errEl.textContent = 'Сбой: ' + (err?.message || err);
+    errEl.hidden = false;
+    console.error('Login error:', err);
+  }
+});
+</script>
+</body>
+</html>

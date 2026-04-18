@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Макет №2 · Карточки</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  /* Боковая навигация + карточки рубрик */
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 28px;
+    margin-top: 20px;
+  }
+  .side-nav {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 10px;
+    height: fit-content;
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 20px;
+  }
+  .side-nav button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 2px;
+  }
+  .side-nav button:hover { background: var(--bg-soft); }
+  .side-nav button.active {
+    background: var(--navy);
+    color: white;
+  }
+  .side-nav .nav-icon { font-size: 16px; }
+
+  .main-col { min-width: 0; }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .panel-head h1 {
+    margin: 0;
+    font-size: 24px;
+    color: var(--navy);
+    font-weight: 800;
+  }
+  .panel-head .count {
+    background: var(--navy-soft);
+    color: var(--navy);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .panel-head .spacer { flex: 1; }
+  .add-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(201, 106, 38, 0.2);
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 18px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .card .drag-handle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: var(--muted-2);
+    font-size: 14px;
+    cursor: grab;
+    opacity: 0.4;
+  }
+  .card:hover .drag-handle { opacity: 1; }
+  .card .icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+    display: block;
+    text-align: center;
+  }
+  .card .name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .card .order {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    opacity: 0.3;
+    transition: opacity 0.15s;
+  }
+  .card:hover .card-actions { opacity: 1; }
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .icon-btn:hover { background: var(--bg-soft); }
+  .icon-btn.danger { color: var(--danger); }
+  .icon-btn.danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+
+  .card.add-card {
+    border-style: dashed;
+    border-color: var(--border-strong);
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    min-height: 170px;
+    color: var(--muted);
+  }
+  .card.add-card:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .card.add-card .plus { font-size: 34px; line-height: 1; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="dot"></span>Мои места</div>
+  <div class="title">Админ-панель</div>
+  <div class="spacer"></div>
+  <a href="#">Сайт оператора</a>
+  <a href="#">Выйти</a>
+</header>
+
+<div class="mockup-label">
+  <span class="badge">Макет №2</span>
+  <h2>Боковая навигация + карточки</h2>
+  <p>Разделы слева в вертикальном меню (как в приложениях). Рубрики — не таблица, а карточки с крупной иконкой. Быстрее «узнаются» глазом. Последняя карточка — пунктирная «+», чтобы добавить новую.</p>
+</div>
+
+<main class="container">
+
+  <div class="layout">
+    <aside class="side-nav">
+      <button class="active"><span class="nav-icon">📁</span>Рубрики</button>
+      <button><span class="nav-icon">💬</span>Возражения</button>
+      <button><span class="nav-icon">📋</span>Шпаргалка</button>
+      <button><span class="nav-icon">📎</span>Документы</button>
+      <button><span class="nav-icon">📊</span>Статистика</button>
+    </aside>
+
+    <div class="main-col">
+
+      <div class="panel-head">
+        <h1>Рубрики</h1>
+        <span class="count">4</span>
+        <div class="spacer"></div>
+        <button class="add-btn">+ Добавить рубрику</button>
+      </div>
+
+      <div class="cards-grid">
+        <div class="card">
+          <span class="drag-handle">⋮⋮</span>
+          <span class="icon">🍽️</span>
+          <div class="name">Рестораны</div>
+          <div class="order">порядок: 10</div>
+          <div class="card-actions">
+            <button class="icon-btn">✏️</button>
+            <button class="icon-btn danger">🗑️</button>
+          </div>
+        </div>
+        <div class="card">
+          <span class="drag-handle">⋮⋮</span>
+          <span class="icon">🦷</span>
+          <div class="name">Стоматологии</div>
+          <div class="order">порядок: 20</div>
+          <div class="card-actions">
+            <button class="icon-btn">✏️</button>
+            <button class="icon-btn danger">🗑️</button>
+          </div>
+        </div>
+        <div class="card">
+          <span class="drag-handle">⋮⋮</span>
+          <span class="icon">💇</span>
+          <div class="name">Салоны красоты</div>
+          <div class="order">порядок: 30</div>
+          <div class="card-actions">
+            <button class="icon-btn">✏️</button>
+            <button class="icon-btn danger">🗑️</button>
+          </div>
+        </div>
+        <div class="card">
+          <span class="drag-handle">⋮⋮</span>
+          <span class="icon">🔧</span>
+          <div class="name">Автосервисы</div>
+          <div class="order">порядок: 40</div>
+          <div class="card-actions">
+            <button class="icon-btn">✏️</button>
+            <button class="icon-btn danger">🗑️</button>
+          </div>
+        </div>
+        <div class="card add-card">
+          <span class="plus">+</span>
+          <span>Добавить рубрику</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

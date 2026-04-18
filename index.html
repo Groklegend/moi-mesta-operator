@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мои места · Помощник оператору</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo"><span class="dot"></span> Мои места</div>
+  <div class="title">Помощник по возражениям</div>
+  <div class="spacer"></div>
+  <div class="category-dropdown" id="cat-dropdown">
+    <button class="cat-trigger" id="cat-trigger" type="button">
+      <span class="emoji" id="cat-emoji">🗂️</span>
+      <span id="cat-label">Все рубрики</span>
+      <span class="arrow">▾</span>
+    </button>
+    <div class="cat-menu hidden" id="cat-menu"></div>
+  </div>
+  <a href="login.html">Админ</a>
+</header>
+
+<main class="container wide">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="search-wrap">
+        <input id="search" type="search" placeholder="Поиск возражения…" autocomplete="off">
+      </div>
+
+      <div class="sidebar-section" id="search-results-section" hidden>
+        <h2>Результаты поиска</h2>
+        <div id="search-results" class="item-list"></div>
+      </div>
+
+      <div class="sidebar-section" id="general-section">
+        <h2>Общие возражения</h2>
+        <div id="general-list" class="item-list"></div>
+      </div>
+
+      <div class="sidebar-section" id="specific-section" hidden>
+        <h2 id="specific-title">Специфичные</h2>
+        <div id="specific-list" class="item-list"></div>
+      </div>
+
+      <div class="sidebar-section" id="documents-section" hidden>
+        <h2>Документы</h2>
+        <div id="documents" class="docs-list"></div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="answer-area" id="answer-pane">
+        <div class="placeholder">
+          <span class="big-icon">💬</span>
+          Выберите возражение слева — ответ появится здесь
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/operator.js"></script>
+</body>
+</html>
