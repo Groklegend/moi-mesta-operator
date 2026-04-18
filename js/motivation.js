@@ -32,6 +32,18 @@
     { key: 'total',                  group: 'Итого',               sub: '' },
   ];
 
+  // Формулы (как в Excel):
+  //   Сумма = Кол-во × Цена; Итого = сумма всех «Сумм».
+  // Цены по умолчанию применяются, если в строке «Цена» пустая.
+  const FORMULAS = [
+    { qty: 'calls_done_qty',    price: 'calls_done_price',    sum: 'calls_done_sum',    defaultPrice: 30   },
+    { qty: 'lpr_qty',           price: 'lpr_price',           sum: 'lpr_sum',           defaultPrice: 100  },
+    { qty: 'meetings_done_qty', price: 'meetings_done_price', sum: 'meetings_done_sum', defaultPrice: 500  },
+    { qty: 'contracts_qty',     price: 'contracts_price',     sum: 'contracts_sum',     defaultPrice: 3000 },
+  ];
+  const COMPUTED_KEYS = new Set([...FORMULAS.map(f => f.sum), 'total']);
+  const PRICE_KEYS = Object.fromEntries(FORMULAS.map(f => [f.price, f.defaultPrice]));
+
   // Метрики для статистики (берём только «Кол-во» — считаем действия).
   // Цвета согласованы между KPI-карточкой и соответствующим графиком.
   const STATS_METRICS = [
@@ -220,6 +232,42 @@
     renderChartsGrid();
   }
 
+  // ---- Формулы на лету ----
+  function getInputVal(row, key) {
+    const inp = row.querySelector(`input[data-key="${key}"]`);
+    if (!inp) return null;
+    const raw = inp.value.trim();
+    if (raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+  function setCalcCell(row, key, val) {
+    const cell = row.querySelector(`.mot-calc[data-key="${key}"]`);
+    if (!cell) return;
+    if (val == null) cell.textContent = '';
+    else cell.textContent = Number(val).toLocaleString('ru-RU');
+  }
+  function computeRow(row) {
+    let total = 0;
+    let any = false;
+    for (const f of FORMULAS) {
+      const qty = getInputVal(row, f.qty);
+      const priceRaw = getInputVal(row, f.price);
+      const price = priceRaw != null ? priceRaw : f.defaultPrice;
+      let sum = null;
+      if (qty != null) {
+        sum = qty * price;
+        total += sum;
+        any = true;
+      }
+      setCalcCell(row, f.sum, sum);
+    }
+    setCalcCell(row, 'total', any ? total : null);
+  }
+  function computeAllRows() {
+    document.querySelectorAll('#mot-table tbody tr').forEach(computeRow);
+  }
+
   function buildTable() {
     const days = daysInMonth(mState.year, mState.month);
     const colspanMap = {};
@@ -246,11 +294,18 @@
       const label = `${String(d).padStart(2,'0')}.${String(mState.month + 1).padStart(2,'0')}`;
       const cells = COLS.map(c => {
         const val = rec[c.key];
+        if (COMPUTED_KEYS.has(c.key)) {
+          // Формульные ячейки — не редактируются, считаются на лету
+          return `<td class="mot-calc" data-date="${iso}" data-key="${c.key}">${
+            val != null ? Number(val).toLocaleString('ru-RU') : ''
+          }</td>`;
+        }
+        const ph = PRICE_KEYS[c.key];
         return `<td><input type="number" step="any" inputmode="decimal"
                   data-date="${iso}" data-key="${c.key}"
-                  value="${val ?? ''}"></td>`;
+                  value="${val ?? ''}"${ph ? ` placeholder="${ph}"` : ''}></td>`;
       }).join('');
-      rows.push(`<tr class="${weekend ? 'weekend' : ''}">
+      rows.push(`<tr class="${weekend ? 'weekend' : ''}" data-row-date="${iso}">
         <td class="col-date">${label}${weekend ? ' <span class="mut">вых</span>' : ''}</td>
         ${cells}
       </tr>`);
@@ -319,6 +374,14 @@
     document.getElementById('mot-zoom-val').addEventListener('click', () => setZoom(100));
     document.getElementById('mot-zoom-fit').addEventListener('click', fitZoom);
 
+    // Пересчёт формул при любом вводе внутри таблицы
+    document.getElementById('mot-table').addEventListener('input', (e) => {
+      const inp = e.target;
+      if (!inp.dataset || !inp.dataset.date) return;
+      const row = inp.closest('tr');
+      if (row) computeRow(row);
+    });
+
     // Переключатель периода для статистики
     const periodEl = document.getElementById('mot-period');
     periodEl.querySelectorAll('button').forEach(b => {
@@ -373,7 +436,9 @@
   async function refresh() {
     updateTitle();
     await loadMonth();
-    document.getElementById('mot-table').innerHTML = buildTable();
+    const table = document.getElementById('mot-table');
+    table.innerHTML = buildTable();
+    computeAllRows();
     document.getElementById('mot-hint').textContent = '';
   }
 
@@ -389,19 +454,39 @@
     const s = window.operatorSession?.get?.();
     if (!s?.id) { toast?.('Нет сессии'); return; }
 
-    // Собираем строки по дате
+    // Собираем по строкам — читаем инпуты (то, что ввёл пользователь),
+    // затем пересчитываем формульные поля на клиенте и кладём их в тот же объект.
     const byDate = {};
-    document.querySelectorAll('#mot-table input[data-date]').forEach(inp => {
-      const d = inp.dataset.date, k = inp.dataset.key;
-      const raw = inp.value.trim();
-      if (!byDate[d]) byDate[d] = {};
-      byDate[d][k] = raw === '' ? null : Number(raw);
+    document.querySelectorAll('#mot-table tbody tr[data-row-date]').forEach(tr => {
+      const date = tr.dataset.rowDate;
+      const fields = {};
+      tr.querySelectorAll('input[data-date]').forEach(inp => {
+        const raw = inp.value.trim();
+        fields[inp.dataset.key] = raw === '' ? null : Number(raw);
+      });
+      // формулы
+      let total = 0, any = false;
+      for (const f of FORMULAS) {
+        const qty = fields[f.qty];
+        const price = fields[f.price] != null ? fields[f.price] : f.defaultPrice;
+        if (qty != null) {
+          fields[f.sum] = qty * price;
+          total += qty * price;
+          any = true;
+        } else {
+          fields[f.sum] = null;
+        }
+      }
+      fields.total = any ? total : null;
+      byDate[date] = fields;
     });
 
-    // Отправляем только те строки, где есть хотя бы одно заполненное поле
+    // Отправляем только те строки, где есть хотя бы одно **введённое** поле.
+    // Вычисленные поля (сумма/итого) не считаются признаком ввода.
+    const inputKeys = COLS.map(c => c.key).filter(k => !COMPUTED_KEYS.has(k));
     const toUpsert = [];
     for (const [date, fields] of Object.entries(byDate)) {
-      const hasAny = Object.values(fields).some(v => v !== null && !Number.isNaN(v));
+      const hasAny = inputKeys.some(k => fields[k] !== null && fields[k] !== undefined && !Number.isNaN(fields[k]));
       if (!hasAny) continue;
       toUpsert.push({ operator_id: s.id, entry_date: date, ...fields });
     }
@@ -417,9 +502,10 @@
         if (error) throw error;
       }
       // Удаляем полностью очищенные записи за отображаемый месяц,
-      // чтобы «стирание» работало как ожидается.
+      // чтобы «стирание» работало как ожидается. Проверяем только введённые поля,
+      // чтобы computed-поля (sum/total) не мешали определить «пустую» строку.
       const clearedDates = Object.entries(byDate)
-        .filter(([, fields]) => Object.values(fields).every(v => v === null))
+        .filter(([, fields]) => inputKeys.every(k => fields[k] === null || fields[k] === undefined))
         .map(([d]) => d);
       if (clearedDates.length) {
         await sb.from('motivation_entries')

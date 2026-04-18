@@ -554,6 +554,26 @@ h1, h2, h3, .topbar .title {
 .mot-table tr:hover td:not(.col-date) { background: #FAF8F2; }
 .mot-table .mut { color: var(--muted-2); font-size: 11px; font-weight: 400; }
 
+/* Формульные ячейки — не редактируются, считаются на лету */
+.mot-table td.mot-calc {
+  padding: 6px 10px;
+  text-align: right;
+  color: var(--muted);
+  background: #FBF7EE;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  user-select: text;
+}
+.mot-table td.mot-calc[data-key="total"] {
+  font-weight: 800;
+  color: var(--navy);
+  background: #F4EFE5;
+  font-size: 13px;
+}
+.mot-table tr.weekend td.mot-calc { background: #F2EEE4; color: var(--muted-2); }
+/* Плейсхолдер для полей «Цена» — чтобы было видно дефолтную цену */
+.mot-table td input::placeholder { color: var(--muted-2); font-style: italic; opacity: 0.9; }
+
 /* ---------- Статистика внутри «Мотивации» ---------- */
 .mot-stats {
   margin-top: 28px;
