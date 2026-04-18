@@ -316,11 +316,11 @@
       const safe = escapeHtml(g);
       return colspanMap[g] === 1 ? safe.replace(/ /, '<br>') : safe;
     };
-    const headerGroups = `<tr>
+    const headerGroups = `<tr class="mot-th-row-1">
       <th rowspan="2" class="col-date">Дата</th>
       ${groupsOrdered.map(g => `<th colspan="${colspanMap[g]}">${groupHtml(g)}</th>`).join('')}
     </tr>`;
-    const headerSubs = `<tr>
+    const headerSubs = `<tr class="mot-th-row-2">
       ${COLS.map(c => `<th>${escapeHtml(c.sub || '—')}</th>`).join('')}
     </tr>`;
 
@@ -470,23 +470,33 @@
     if (val) val.textContent = mState.zoom + '%';
   }
 
-  // Обновляет CSS-переменную --mot-head-h, от которой зависит
-  // offset sticky-шапки таблицы. Зовём после рендера и на resize,
-  // потому что .mot-head может перенестись на 2 строки на узком экране.
+  // Обновляет CSS-переменные для sticky-offsets:
+  //   --mot-head-h    — высота панели управления (.mot-head)
+  //   --mot-th-row1-h — высота первой строки шапки таблицы
+  // Зовём после рендера таблицы, т.к. thead пересоздаётся при каждой
+  // смене месяца; также дёргается ResizeObserver-ом на изменение размеров.
+  function updateStickyOffsets() {
+    const head = document.querySelector('.mot-head');
+    if (head) {
+      document.documentElement.style.setProperty('--mot-head-h', head.offsetHeight + 'px');
+    }
+    const row1Th = document.querySelector('.mot-table thead .mot-th-row-1 th');
+    if (row1Th) {
+      document.documentElement.style.setProperty('--mot-th-row1-h', row1Th.offsetHeight + 'px');
+    }
+  }
+
   let _motHeadRO = null;
   function trackMotHeadHeight() {
     const head = document.querySelector('.mot-head');
     if (!head) return;
-    const update = () => {
-      document.documentElement.style.setProperty('--mot-head-h', head.offsetHeight + 'px');
-    };
-    update();
+    updateStickyOffsets();
     if (_motHeadRO) _motHeadRO.disconnect();
     if (typeof ResizeObserver !== 'undefined') {
-      _motHeadRO = new ResizeObserver(update);
+      _motHeadRO = new ResizeObserver(updateStickyOffsets);
       _motHeadRO.observe(head);
     } else {
-      window.addEventListener('resize', update);
+      window.addEventListener('resize', updateStickyOffsets);
     }
   }
 
@@ -521,6 +531,8 @@
     table.innerHTML = buildTable();
     computeAllRows();
     document.getElementById('mot-hint').textContent = '';
+    // После перерисовки thead — пересчитать offset для sticky
+    updateStickyOffsets();
   }
 
   function shiftMonth(delta) {
