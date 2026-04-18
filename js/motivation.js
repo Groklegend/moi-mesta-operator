@@ -134,7 +134,12 @@
     return isoWeekKey(dateStr);
   }
 
-  function formatBucketLabel(key, period) {
+  const ORDINAL_RU = ['Первая','Вторая','Третья','Четвёртая','Пятая','Шестая','Седьмая','Восьмая','Девятая','Десятая'];
+  function weekOrdinalLabel(n) {
+    return (ORDINAL_RU[n - 1] || (n + '-я')) + ' неделя';
+  }
+
+  function formatBucketLabel(key, period, index) {
     if (period === 'day') {
       // '2026-04-02' -> '02.04'
       return key.slice(8) + '.' + key.slice(5, 7);
@@ -143,8 +148,8 @@
       const [, m] = key.split('-');
       return MONTHS[Number(m) - 1]?.slice(0, 3) || key;
     }
-    // неделя: 2026-W15 -> 'W15'
-    return 'н' + key.split('-W')[1];
+    // неделя: порядковое имя по индексу в отсортированном списке недель
+    return weekOrdinalLabel(index + 1);
   }
 
   function aggregateForChart(entries, metricKey, period) {
@@ -155,7 +160,7 @@
     }
     const keys = Object.keys(buckets).sort();
     return {
-      labels: keys.map(k => formatBucketLabel(k, period)),
+      labels: keys.map((k, i) => formatBucketLabel(k, period, i)),
       values: keys.map(k => buckets[k]),
     };
   }
