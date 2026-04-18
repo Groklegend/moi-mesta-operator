@@ -32,6 +32,13 @@
     { key: 'total',                  group: 'Итого',               sub: '' },
   ];
 
+  const ZOOM_MIN = 50, ZOOM_MAX = 130, ZOOM_STEP = 10;
+  function clampZoom(v) {
+    const n = Number(v);
+    const snapped = Math.round((Number.isFinite(n) ? n : 100) / ZOOM_STEP) * ZOOM_STEP || 100;
+    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, snapped));
+  }
+
   // Текущее состояние: год/месяц + подгруженные записи по ISO-дате
   const mState = {
     year: new Date().getFullYear(),
@@ -39,9 +46,6 @@
     byDate: {}, // '2026-04-01' -> row
     zoom: clampZoom(Number(localStorage.getItem('motivation_zoom')) || 100),
   };
-
-  const ZOOM_MIN = 50, ZOOM_MAX = 130, ZOOM_STEP = 10;
-  function clampZoom(v) { return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(v / ZOOM_STEP) * ZOOM_STEP || 100)); }
 
   function isoDate(y, m, d) {
     const mm = String(m + 1).padStart(2, '0');
