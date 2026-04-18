@@ -434,6 +434,9 @@ h1, h2, h3, .topbar .title {
   gap: 0;
 }
 
+/* display:flex ниже перебивает атрибут [hidden] — чиним. */
+.answer-area[hidden], .motivation-area[hidden] { display: none !important; }
+
 .motivation-area {
   background: white;
   border: 1.5px solid var(--border);
