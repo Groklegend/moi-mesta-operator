@@ -253,7 +253,7 @@ async function loadCommentsInto(objectionId) {
 document.getElementById('obj-add').addEventListener('click', () => editObjection(null));
 
 function editObjection(id) {
-  const o = id ? objectionsCache.find(x => x.id === id) : { title:'', answer:'', category_id:null, is_general:true, keywords:'', sort_order:0, is_active:true };
+  const o = id ? objectionsCache.find(x => x.id === id) : { title:'', answer:'', details:'', category_id:null, is_general:true, keywords:'', sort_order:0, is_active:true };
   const catOptions = categoriesCache.map(c =>
     `<option value="${c.id}" ${o.category_id === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
   openModal(id ? 'Редактировать возражение' : 'Новое возражение', `
@@ -262,6 +262,8 @@ function editObjection(id) {
         <input type="text" name="title" value="${escapeHtml(o.title)}" required></label>
       <label><div class="lbl">Текст ответа (поддерживает **жирный**, списки через -, переносы строк)</div>
         <textarea name="answer" required>${escapeHtml(o.answer)}</textarea></label>
+      <label><div class="lbl">Подробно о возражении <span class="muted" style="font-weight:400;">— оператор откроет этот текст кнопкой «📖 Подробно о возражении». Объясните суть возражения, что за ним стоит, как с ним работать. Не обязательно.</span></div>
+        <textarea name="details" placeholder="Например: за этим возражением часто стоит страх потратить бюджет впустую. Клиент уже пробовал похожие инструменты и не получил результата…">${escapeHtml(o.details || '')}</textarea></label>
       <label class="inline">
         <input type="checkbox" name="is_general" ${o.is_general ? 'checked' : ''}>
         <span>Общее возражение (показывать во всех рубриках)</span>
@@ -290,6 +292,7 @@ function editObjection(id) {
     const payload = {
       title: fd.get('title'),
       answer: fd.get('answer'),
+      details: fd.get('details') || '',
       is_general: isGeneral,
       category_id: isGeneral ? null : (fd.get('category_id') || null),
       keywords: fd.get('keywords') || '',

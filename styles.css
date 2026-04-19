@@ -761,6 +761,34 @@ h1, h2, h3, .topbar .title {
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
+.answer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.answer-head h1 { margin: 0; flex: 1 1 auto; }
+.answer-head .details-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border-color: var(--navy-soft);
+  color: var(--navy);
+  font-weight: 600;
+  align-self: flex-start;
+}
+.answer-head .details-toggle.active {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.answer-head .details-toggle:hover { border-color: var(--navy); }
+.answer-text.details {
+  background: var(--navy-soft);
+  border-left: 4px solid var(--navy);
+  padding: 18px 22px;
+  border-radius: 10px;
+}
 .answer-area .answer-text {
   font-size: 19px;
   line-height: 1.65;

@@ -13,6 +13,7 @@ const state = {
   currentObjection: null,
   mode: 'objections',
   currentDocument: null,
+  answerView: 'answer', // 'answer' | 'details' — что показываем в панели ответа
 };
 
 // ---------- Загрузка данных ----------
@@ -159,6 +160,7 @@ function openObjection(id) {
   const o = state.objections.find(x => x.id === id);
   if (!o) return;
   state.currentObjection = o;
+  state.answerView = 'answer'; // при открытии нового возражения — сразу режим «Ответ»
   renderAnswerPane();
   highlightActiveItem();
   logEvent({ event_type: 'objection_click', objection_id: o.id, category_id: o.category_id });
@@ -176,11 +178,20 @@ async function renderAnswerPane() {
   commentUI.formOpen = false;
   commentUI.listHidden = false;
 
+  const hasDetails = !!(o.details && String(o.details).trim());
+  const isDetailsView = state.answerView === 'details' && hasDetails;
+  const visibleText = isDetailsView ? o.details : o.answer;
+  const detailsBtnLabel = isDetailsView ? '← К ответу' : '📖 Подробно о возражении';
+  const copyBtnLabel = isDetailsView ? '📋 Скопировать описание' : '📋 Скопировать ответ';
+
   pane.innerHTML = `
-    <h1>${escapeHtml(o.title)}</h1>
-    <div class="answer-text">${formatAnswer(o.answer)}</div>
+    <div class="answer-head">
+      <h1>${escapeHtml(o.title)}</h1>
+      ${hasDetails ? `<button class="btn details-toggle${isDetailsView ? ' active' : ''}" id="details-toggle" type="button">${detailsBtnLabel}</button>` : ''}
+    </div>
+    <div class="answer-text${isDetailsView ? ' details' : ''}">${formatAnswer(visibleText)}</div>
     <div class="actions">
-      <button class="btn primary" id="copy-btn">📋 Скопировать ответ</button>
+      <button class="btn primary" id="copy-btn">${copyBtnLabel}</button>
     </div>
     <div class="comments-section">
       <div class="comments-header">
@@ -204,8 +215,12 @@ async function renderAnswerPane() {
     </div>`;
 
   pane.querySelector('#copy-btn').addEventListener('click', async () => {
-    await copyText(o.answer);
-    toast('Ответ скопирован в буфер');
+    await copyText(visibleText);
+    toast(isDetailsView ? 'Описание скопировано' : 'Ответ скопирован в буфер');
+  });
+  pane.querySelector('#details-toggle')?.addEventListener('click', () => {
+    state.answerView = isDetailsView ? 'answer' : 'details';
+    renderAnswerPane();
   });
   pane.querySelector('#cmt-toggle-form').addEventListener('click', () => toggleCommentForm());
   pane.querySelector('#cmt-cancel').addEventListener('click', () => toggleCommentForm(false));
