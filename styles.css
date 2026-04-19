@@ -789,6 +789,34 @@ h1, h2, h3, .topbar .title {
   padding: 18px 22px;
   border-radius: 10px;
 }
+
+/* Quill-размеры: классы, которые вставляет редактор, работают и на стороне оператора */
+.ql-size-small { font-size: 0.85em; }
+.ql-size-large { font-size: 1.35em; }
+.ql-size-huge  { font-size: 1.7em; }
+
+/* Rich-text редактор в модалке админки */
+.rte {
+  background: white;
+  border-radius: var(--radius-sm);
+  min-height: 180px;
+}
+.modal .ql-toolbar.ql-snow {
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+  border-color: var(--border);
+  background: var(--bg-soft);
+}
+.modal .ql-container.ql-snow {
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  border-color: var(--border);
+  font-family: inherit;
+  font-size: 15px;
+  min-height: 150px;
+}
+.modal .ql-editor { min-height: 140px; }
+.modal .ql-editor.ql-blank::before { color: var(--muted-2); font-style: italic; }
 .answer-area .answer-text {
   font-size: 19px;
   line-height: 1.65;

@@ -260,10 +260,10 @@ function editObjection(id) {
     <form class="form-grid" id="obj-form">
       <label><div class="lbl">Заголовок (что говорит клиент)</div>
         <input type="text" name="title" value="${escapeHtml(o.title)}" required></label>
-      <label><div class="lbl">Текст ответа (поддерживает **жирный**, списки через -, переносы строк)</div>
-        <textarea name="answer" required>${escapeHtml(o.answer)}</textarea></label>
-      <label><div class="lbl">Подробно о возражении <span class="muted" style="font-weight:400;">— оператор откроет этот текст кнопкой «📖 Подробно о возражении». Объясните суть возражения, что за ним стоит, как с ним работать. Не обязательно.</span></div>
-        <textarea name="details" placeholder="Например: за этим возражением часто стоит страх потратить бюджет впустую. Клиент уже пробовал похожие инструменты и не получил результата…">${escapeHtml(o.details || '')}</textarea></label>
+      <label><div class="lbl">Текст ответа <span class="muted" style="font-weight:400;">— редактор с форматированием; жирный, размеры, списки — сохранятся при вставке из Google Docs / Word</span></div>
+        <div class="rte" id="answer-editor"></div></label>
+      <label><div class="lbl">Подробно о возражении <span class="muted" style="font-weight:400;">— оператор откроет этот текст кнопкой «📖 Подробно о возражении». Объясните суть возражения. Не обязательно.</span></div>
+        <div class="rte" id="details-editor"></div></label>
       <label class="inline">
         <input type="checkbox" name="is_general" ${o.is_general ? 'checked' : ''}>
         <span>Общее возражение (показывать во всех рубриках)</span>
@@ -285,26 +285,73 @@ function editObjection(id) {
         <button type="button" class="btn" id="cancel">Отмена</button></div>
     </form>`);
   document.getElementById('cancel').addEventListener('click', closeModal);
+
+  // Подключаем rich-редакторы (Quill) к полям «Ответ» и «Подробно»
+  const answerQuill = mountQuillEditor('#answer-editor', o.answer || '');
+  const detailsQuill = mountQuillEditor('#details-editor', o.details || '');
+
   document.getElementById('obj-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const isGeneral = fd.get('is_general') === 'on';
     const payload = {
       title: fd.get('title'),
-      answer: fd.get('answer'),
-      details: fd.get('details') || '',
+      answer: quillHtml(answerQuill),
+      details: quillHtml(detailsQuill),
       is_general: isGeneral,
       category_id: isGeneral ? null : (fd.get('category_id') || null),
       keywords: fd.get('keywords') || '',
       sort_order: Number(fd.get('sort_order')) || 0,
       is_active: fd.get('is_active') === 'on',
     };
+    if (!payload.answer.trim()) { toast('Заполните текст ответа'); return; }
     const { error } = id
       ? await sb.from('objections').update(payload).eq('id', id)
       : await sb.from('objections').insert(payload);
     if (error) { toast('Ошибка: ' + error.message); return; }
     closeModal(); toast('Сохранено'); loadObjections();
   });
+}
+
+// --- Rich-text helpers (Quill) ---
+function mountQuillEditor(selector, initialHtml) {
+  if (typeof Quill === 'undefined') {
+    // Fallback — если Quill не подгрузился, подменим div обычной textarea,
+    // чтобы админ мог хотя бы сохранить plain text.
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const ta = document.createElement('textarea');
+    ta.value = initialHtml || '';
+    ta.style.width = '100%'; ta.style.minHeight = '160px';
+    el.replaceWith(ta);
+    return { root: ta, _isTextarea: true };
+  }
+  const quill = new Quill(selector, {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        [{ 'size': ['small', false, 'large', 'huge'] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        [{ 'align': [] }],
+        ['link', 'blockquote'],
+        ['clean'],
+      ],
+    },
+    placeholder: 'Введите текст или вставьте из документа — форматирование сохранится',
+  });
+  if (initialHtml) quill.root.innerHTML = initialHtml;
+  return quill;
+}
+
+function quillHtml(editor) {
+  if (!editor) return '';
+  if (editor._isTextarea) return editor.root.value.trim();
+  const html = editor.root.innerHTML.trim();
+  // Пустой редактор Quill — `<p><br></p>`. Считаем это как ''.
+  return html === '<p><br></p>' ? '' : html;
 }
 
 async function toggleObjection(id) {
