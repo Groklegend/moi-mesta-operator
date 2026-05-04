@@ -207,6 +207,43 @@
     `).join('');
   }
 
+  // Плагин: подпись «+X%» / «−X%» над каждым баром, кроме первого —
+  // изменение к предыдущему периоду (месяц/неделя).
+  const percentBadgesPlugin = {
+    id: 'percentBadges',
+    afterDatasetsDraw(chart) {
+      if (chart.config.type !== 'bar') return;
+      const ds = chart.data.datasets[0];
+      const meta = chart.getDatasetMeta(0);
+      if (!ds || !meta || !meta.data) return;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.font = '600 11px Montserrat, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      for (let i = 1; i < meta.data.length; i++) {
+        const prev = Number(ds.data[i - 1]) || 0;
+        const curr = Number(ds.data[i]) || 0;
+        const bar = meta.data[i];
+        if (!bar) continue;
+        let text, color;
+        if (prev === 0 && curr === 0) continue;
+        if (prev === 0) {
+          text = 'новое';
+          color = '#059669';
+        } else {
+          const pct = ((curr - prev) / prev) * 100;
+          const r = Math.round(pct);
+          if (pct >= 0) { text = `+${r}%`; color = '#059669'; }
+          else          { text = `−${Math.abs(r)}%`; color = '#dc2626'; }
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(text, bar.x, bar.y - 4);
+      }
+      ctx.restore();
+    }
+  };
+
   function renderChartsGrid() {
     const el = document.getElementById('mot-charts');
     if (!el) return;
@@ -231,8 +268,9 @@
         ctx.fillText('Нет данных', canvas.width / 2, canvas.height / 2);
         continue;
       }
+      const isBar = statsState.period !== 'day';
       statsState.charts[m.key] = new Chart(canvas, {
-        type: statsState.period === 'day' ? 'line' : 'bar',
+        type: isBar ? 'bar' : 'line',
         data: {
           labels,
           datasets: [{
@@ -246,9 +284,11 @@
             borderWidth: 2,
           }]
         },
+        plugins: isBar ? [percentBadgesPlugin] : [],
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: isBar ? 22 : 0 } },
           plugins: { legend: { display: false } },
           scales: {
             x: { grid: { display: false } },
