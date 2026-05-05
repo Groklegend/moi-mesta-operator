@@ -335,12 +335,18 @@
         <span class="report-month" id="r-month">—</span>
         <button class="btn icon" id="r-next" type="button" aria-label="Следующий месяц">→</button>
         <button class="btn" id="r-today" type="button">Сегодня</button>
+        <div class="mot-zoom" title="Масштаб таблицы" style="margin-left:8px;">
+          <button class="btn sm" id="r-zoom-out" type="button">−</button>
+          <button class="btn sm" id="r-zoom-val" type="button" title="Сбросить (100%)">100%</button>
+          <button class="btn sm" id="r-zoom-in" type="button">+</button>
+          <button class="btn sm" id="r-zoom-fit" type="button" title="Подогнать под экран">⤢ Вписать</button>
+        </div>
         <span class="report-saved" id="r-saved" hidden>✓ Сохранено</span>
         <button class="btn primary" id="r-save" type="button">💾 Сохранить</button>
       </div>
     </div>
 
-    <div class="report-table-wrap">
+    <div class="report-table-wrap" id="r-wrap">
       <table class="report-table" id="r-table">
         <thead>
           <tr>

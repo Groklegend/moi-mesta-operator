@@ -309,6 +309,45 @@
   document.getElementById('r-today').addEventListener('click', jumpToToday);
   document.getElementById('r-save').addEventListener('click', () => saveAll(false));
 
+  // ---------- Зум таблицы (как в кабинете оператора) ----------
+  const ZOOM_MIN = 50, ZOOM_MAX = 130, ZOOM_STEP = 10;
+  function clampZoom(n) {
+    const snapped = Math.round((Number.isFinite(n) ? n : 100) / ZOOM_STEP) * ZOOM_STEP || 100;
+    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, snapped));
+  }
+  let zoomPct = clampZoom(Number(localStorage.getItem('seller_report_zoom')) || 100);
+
+  function applyZoom() {
+    const wrap = document.getElementById('r-wrap');
+    if (!wrap) return;
+    // При zoom=100% не трогаем style.zoom (Chrome ломает sticky на потомках).
+    if (zoomPct === 100) wrap.style.zoom = '';
+    else wrap.style.zoom = zoomPct / 100;
+    const val = document.getElementById('r-zoom-val');
+    if (val) val.textContent = zoomPct + '%';
+  }
+  function setZoom(v) {
+    zoomPct = clampZoom(v);
+    localStorage.setItem('seller_report_zoom', String(zoomPct));
+    applyZoom();
+  }
+  function fitZoom() {
+    const wrap = document.getElementById('r-wrap');
+    const table = document.getElementById('r-table');
+    if (!wrap || !table) return;
+    wrap.style.zoom = 1;
+    const available = wrap.clientWidth;
+    const needed = table.scrollWidth;
+    if (!needed) return;
+    const ratio = Math.floor((available / needed) * 100 / ZOOM_STEP) * ZOOM_STEP;
+    setZoom(ratio >= 100 ? 100 : clampZoom(ratio));
+  }
+  document.getElementById('r-zoom-in')?.addEventListener('click', () => setZoom(zoomPct + ZOOM_STEP));
+  document.getElementById('r-zoom-out')?.addEventListener('click', () => setZoom(zoomPct - ZOOM_STEP));
+  document.getElementById('r-zoom-val')?.addEventListener('click', () => setZoom(100));
+  document.getElementById('r-zoom-fit')?.addEventListener('click', fitZoom);
+  applyZoom();
+
   // Сохраним до ухода со страницы, если есть несохранённое.
   window.addEventListener('beforeunload', (e) => {
     const dirty = Object.values(state.rowsByDate).some(r => r._dirty);
