@@ -1563,6 +1563,23 @@ h1, h2, h3, .topbar .title {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+.form-grid .pwd-wrap { position: relative; }
+.form-grid .pwd-wrap input { padding-right: 48px; }
+.pwd-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.pwd-toggle:hover { background: var(--accent-soft); }
 .form-grid .row { display: flex; gap: 10px; align-items: center; padding-top: 6px; }
 .form-grid .inline { display: flex; gap: 12px; align-items: center; padding: 6px 0; }
 .form-grid .inline input[type="checkbox"] {
