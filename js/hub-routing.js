@@ -17,15 +17,13 @@
     return data;
   }
 
-  // Куда вести по ролям. Пока кабинеты продажника/маркетолога не реализованы —
-  // их и админа ведём на admin.html, оператора — на index.html.
-  // В PR-3 появится /hub.html с переключателем ролей.
+  // Куда вести по ролям. Кабинеты продажника/маркетолога — пустая заглушка hub.html
+  // до появления переключателя ролей с реальными разделами.
   function pickLandingPage(roles, status) {
-    if (!roles || roles.length === 0) return null; // нет ролей — нет доступа
+    if (!roles || roles.length === 0) return null;
     if (status === 'disabled') return null;
     if (roles.includes('admin')) return 'admin.html';
-    // Продажник/маркетолог пока без кабинета — заглушка через hub.html (появится в PR-3).
-    // Оператор по этой ветке не пойдёт: он входит через operator-login.html.
+    if (roles.includes('operator')) return 'index.html';
     return 'hub.html';
   }
 
@@ -47,6 +45,19 @@
       await sb.auth.signOut();
       alert('У вас нет ролей в Хабе. Обратитесь к администратору.');
       return;
+    }
+    // Совместимость с index.html: он ждёт operatorSession в localStorage.
+    // Когда оператор входит через Supabase Auth (login.html), синтезируем
+    // эту сессию из public.users — это позволяет старому экрану оператора
+    // работать без переделки до полной миграции в PR-следующих этапов.
+    // public.users.id = operators.id (мы их сделали равными при миграции),
+    // так что motivation_entries и stats остаются привязаны корректно.
+    if (target === 'index.html' && typeof window.operatorSession !== 'undefined') {
+      window.operatorSession.set({
+        id: row.id,
+        name: (row.full_name && row.full_name.trim()) || row.email,
+        login: '__supabase__',
+      }, true);
     }
     location.replace(target);
   }
