@@ -715,36 +715,70 @@ ALL_ROLES.forEach(r =>
   document.getElementById('filter-' + r)?.addEventListener('change', renderUsers));
 
 function inviteUserModal() {
-  // Server-side invite endpoint появится в PR-5 (Worker /api/v1/admin/invite).
-  // Пока админ инвайтит через curl с service_role — показываем готовый шаблон.
+  const checks = ALL_ROLES.map(r => `
+    <label class="inline">
+      <input type="checkbox" name="role" value="${r}">
+      <span>${ROLE_LABELS[r]}</span>
+    </label>`).join('');
   openModal('Пригласить пользователя', `
-    <div style="font-size:14px;color:var(--ink-2);line-height:1.5;">
-      <p>Создание учёток через UI появится в следующей итерации (нужен серверный
-      handler с правами service_role — браузеру эти права давать нельзя).</p>
-      <p>Пока пригласить нового пользователя можно командой в терминале:</p>
-    </div>
-    <pre id="invite-snippet" style="background:var(--bg-soft);padding:12px;border-radius:8px;font-size:12px;line-height:1.4;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">curl -X POST "$SUPABASE_URL/auth/v1/invite" \\
-  -H "apikey: $SUPABASE_SERVICE_ROLE" \\
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "email": "novyy@example.com",
-    "data": {
-      "full_name": "Имя Фамилия",
-      "roles": "seller,marketer"
-    },
-    "redirect_to": "${location.origin}/invite"
-  }'</pre>
-    <div class="form-row" style="margin-top:12px;">
-      <button class="btn" id="copy-invite-cmd">Скопировать команду</button>
-      <button class="btn primary" id="modal-ok">Понятно</button>
-    </div>
-  `);
-  document.getElementById('copy-invite-cmd').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('invite-snippet').textContent);
-    toast('Скопировано');
+    <form class="form-grid" id="invite-form">
+      <label><div class="lbl">Email</div>
+        <input type="email" name="email" required autocomplete="off"></label>
+      <label><div class="lbl">Имя (необязательно)</div>
+        <input type="text" name="full_name"></label>
+      <div>
+        <div class="lbl">Роли</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">${checks}</div>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn primary" id="invite-submit">Отправить приглашение</button>
+        <button type="button" class="btn" id="invite-cancel">Отмена</button>
+      </div>
+      <div class="error" id="invite-error" hidden></div>
+    </form>`);
+  document.getElementById('invite-cancel').addEventListener('click', closeModal);
+  document.getElementById('invite-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('invite-error');
+    const btn = document.getElementById('invite-submit');
+    errEl.hidden = true;
+    const fd = new FormData(e.target);
+    const email = (fd.get('email') || '').toString().trim();
+    const full_name = (fd.get('full_name') || '').toString().trim();
+    const roles = fd.getAll('role');
+    if (!email || roles.length === 0) {
+      errEl.textContent = 'Email и хотя бы одна роль обязательны';
+      errEl.hidden = false;
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Отправляем…';
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const resp = await fetch('/api/v1/admin/invite', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${session?.access_token || ''}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ email, full_name, roles }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const msg = body.detail ? `${body.error || resp.statusText} — ${body.detail}` : (body.error || resp.statusText);
+        errEl.textContent = 'Ошибка: ' + msg;
+        errEl.hidden = false;
+        btn.disabled = false; btn.textContent = 'Отправить приглашение';
+        return;
+      }
+      toast('Приглашение отправлено: ' + email);
+      closeModal();
+      loadUsers();
+    } catch (err) {
+      errEl.textContent = 'Сбой: ' + (err?.message || err);
+      errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Отправить приглашение';
+    }
   });
-  document.getElementById('modal-ok').addEventListener('click', closeModal);
 }
 
 function editUser(id) {
@@ -755,27 +789,70 @@ function editUser(id) {
       <input type="checkbox" name="role" value="${r}" ${(u.roles || []).includes(r) ? 'checked' : ''}>
       <span>${ROLE_LABELS[r]}</span>
     </label>`).join('');
-  openModal(`Редактировать «${escapeHtml(u.email)}»`, `
+  openModal('Редактировать пользователя', `
     <form class="form-grid" id="user-form">
+      <label><div class="lbl">Email</div>
+        <input type="email" name="email" value="${escapeHtml(u.email || '')}" required></label>
       <label><div class="lbl">Имя</div>
         <input type="text" name="full_name" value="${escapeHtml(u.full_name || '')}"></label>
       <div>
         <div class="lbl">Роли</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;">${checks}</div>
       </div>
-      <div class="form-row">
+      <div class="row">
+        <button type="submit" class="btn primary" id="user-save">Сохранить</button>
         <button type="button" class="btn" id="user-cancel">Отмена</button>
-        <button type="submit" class="btn primary">Сохранить</button>
       </div>
+      <div class="error" id="user-error" hidden></div>
     </form>`);
   document.getElementById('user-cancel').addEventListener('click', closeModal);
   document.getElementById('user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const errEl = document.getElementById('user-error');
+    const btn = document.getElementById('user-save');
+    errEl.hidden = true;
     const fd = new FormData(e.target);
+    const newEmail = (fd.get('email') || '').toString().trim();
+    const full_name = (fd.get('full_name') || '').toString().trim();
     const roles = fd.getAll('role');
-    const full_name = fd.get('full_name')?.toString().trim() || '';
+    btn.disabled = true; btn.textContent = 'Сохраняем…';
+
+    // Смена email требует service_role → идём через Worker.
+    if (newEmail && newEmail.toLowerCase() !== (u.email || '').toLowerCase()) {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const resp = await fetch(`/api/v1/admin/users/${id}/email`, {
+          method: 'PATCH',
+          headers: {
+            authorization: `Bearer ${session?.access_token || ''}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ email: newEmail }),
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          const msg = body.detail ? `${body.error || resp.statusText} — ${body.detail}` : (body.error || resp.statusText);
+          errEl.textContent = 'Email не сменился: ' + msg;
+          errEl.hidden = false;
+          btn.disabled = false; btn.textContent = 'Сохранить';
+          return;
+        }
+      } catch (err) {
+        errEl.textContent = 'Сбой смены email: ' + (err?.message || err);
+        errEl.hidden = false;
+        btn.disabled = false; btn.textContent = 'Сохранить';
+        return;
+      }
+    }
+
+    // full_name + roles — обычный update под RLS админа.
     const { error } = await sb.from('users').update({ full_name, roles }).eq('id', id);
-    if (error) { toast('Ошибка: ' + error.message); return; }
+    if (error) {
+      errEl.textContent = 'Ошибка: ' + error.message;
+      errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Сохранить';
+      return;
+    }
     toast('Сохранено');
     closeModal();
     loadUsers();

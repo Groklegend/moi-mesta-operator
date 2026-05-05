@@ -8,6 +8,7 @@
 .DS_Store
 
 # Серверные и dev-артефакты — не для публикации
+src/
 sql/
 mockups/
 *.md

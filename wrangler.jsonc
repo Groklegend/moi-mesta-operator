@@ -2,13 +2,18 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "moi-mesta-operator",
   "compatibility_date": "2026-05-04",
+  "main": "src/worker.js",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS"
   },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ]
+  "vars": {
+    "SUPABASE_URL": "https://hcsaqrpsdcyfonuidgmf.supabase.co"
+  }
 }
