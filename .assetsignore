@@ -2,6 +2,7 @@
 # Без этого Worker отдавал sql/schema.sql и .git/config с кодом 200
 # (т.к. assets.directory = ".").
 .git/
+.git
 .gitignore
 .claude/
 .DS_Store
