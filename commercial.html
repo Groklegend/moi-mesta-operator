@@ -56,6 +56,15 @@
     <button class="seller-tab" data-section="sellers" data-dept="manager" type="button">
       <span class="emoji">👥</span><span>Менеджеры</span>
     </button>
+    <button class="seller-tab" data-section="categories" data-dept="manager" type="button">
+      <span class="emoji">📚</span><span>Рубрики</span>
+    </button>
+    <button class="seller-tab" data-section="objections" data-dept="manager" type="button">
+      <span class="emoji">💬</span><span>Возражения</span>
+    </button>
+    <button class="seller-tab" data-section="documents" data-dept="manager" type="button">
+      <span class="emoji">📎</span><span>Документы</span>
+    </button>
     <button class="seller-tab" data-section="stats-sellers" data-dept="manager" type="button">
       <span class="emoji">📈</span><span>Статистика менеджеров</span>
     </button>
@@ -308,12 +317,17 @@
     b.addEventListener('click', () => applyDept(b.dataset.dept));
   });
 
-  // ---------- Переключение боковых вкладок (как было) ----------
+  // ---------- Переключение боковых вкладок ----------
+  // Глобальный audience: 'operator' или 'seller'. Влияет на то, какую базу
+  // знаний читает/пишет commercial.js (categories/objections/documents).
+  window.kbAudience = 'operator';
   document.querySelectorAll('#commercial-nav .seller-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       if (btn.hidden) return; // защита от клика по скрытым через JS
       document.querySelectorAll('#commercial-nav .seller-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // Аудитория = отдел кнопки. operator → 'operator', manager → 'seller'.
+      window.kbAudience = btn.dataset.dept === 'manager' ? 'seller' : 'operator';
       document.querySelectorAll('.seller-section').forEach(s => s.hidden = true);
       document.getElementById('section-' + btn.dataset.section).hidden = false;
       location.hash = btn.dataset.section;

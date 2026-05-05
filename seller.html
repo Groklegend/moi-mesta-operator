@@ -30,6 +30,15 @@
     <button class="seller-tab" data-section="deals" type="button">
       <span class="emoji">💼</span><span>Мои сделки</span>
     </button>
+    <button class="seller-tab" data-section="kb-categories" type="button">
+      <span class="emoji">📚</span><span>Рубрики</span>
+    </button>
+    <button class="seller-tab" data-section="kb-objections" type="button">
+      <span class="emoji">💬</span><span>Возражения</span>
+    </button>
+    <button class="seller-tab" data-section="kb-documents" type="button">
+      <span class="emoji">📎</span><span>Документы</span>
+    </button>
   </aside>
 
   <div class="seller-content">
@@ -382,6 +391,40 @@
     </div>
   </section>
 
+  <!-- ==================== База знаний для менеджера ==================== -->
+  <!-- Рубрики -->
+  <section id="section-kb-categories" class="seller-section" hidden>
+    <h1 class="page-title" style="margin-bottom:20px;">Рубрики</h1>
+    <table class="table" id="kb-cat-table">
+      <thead><tr><th>Иконка</th><th>Название</th><th>Возражений</th></tr></thead>
+      <tbody><tr><td colspan="3" class="empty">Загрузка…</td></tr></tbody>
+    </table>
+  </section>
+
+  <!-- Возражения -->
+  <section id="section-kb-objections" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:20px;align-items:flex-start;gap:16px;">
+      <div>
+        <h1 class="page-title" style="margin:0;">Возражения</h1>
+        <p style="color:var(--muted);font-size:13px;margin:4px 0 0;">
+          Готовые ответы на типовые вопросы и возражения клиентов.
+        </p>
+      </div>
+      <input type="search" id="kb-obj-search" placeholder="Поиск…" style="min-width:280px;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);font-family:inherit;font-size:14px;">
+    </div>
+    <div id="kb-obj-list" class="kb-obj-list">
+      <div class="empty plain">Загрузка…</div>
+    </div>
+  </section>
+
+  <!-- Документы -->
+  <section id="section-kb-documents" class="seller-section" hidden>
+    <h1 class="page-title" style="margin-bottom:20px;">Документы</h1>
+    <div id="kb-doc-list" class="kb-doc-list">
+      <div class="empty plain">Загрузка…</div>
+    </div>
+  </section>
+
   </div><!-- /.seller-content -->
 </div><!-- /.seller-layout -->
 </main>
@@ -421,12 +464,15 @@
     let target;
     if (/^app:[0-9a-f-]{36}$/.test(initial)) target = 'connect';
     else if (initial === 'actions') target = 'actions';
+    else if (initial === 'kb-categories' || initial === 'kb-objections' || initial === 'kb-documents') target = initial;
     else target = 'deals'; // включая «connect» и пустой hash
     const tab = document.querySelector(`#seller-nav .seller-tab[data-section="${target}"]`);
     if (tab) tab.click();
   })();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <script src="js/seller-reports.js"></script>
 <script src="js/seller-applications.js"></script>
+<script src="js/seller-knowledge.js"></script>
 </body>
 </html>

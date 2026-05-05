@@ -18,11 +18,15 @@ const state = {
 
 // ---------- Загрузка данных ----------
 async function loadAll() {
+  // База знаний на этой странице — для своей аудитории. operator.js на
+  // странице оператора (index.html) → 'operator'. Тот же модуль может быть
+  // переиспользован менеджером (seller.html), задав window.kbAudience='seller'.
+  const audience = window.kbAudience || 'operator';
   const [cats, objs, cheat, docs] = await Promise.all([
-    sb.from('categories').select('*').order('sort_order'),
-    sb.from('objections').select('*').eq('is_active', true).order('sort_order'),
+    sb.from('categories').select('*').eq('audience', audience).order('sort_order'),
+    sb.from('objections').select('*').eq('audience', audience).eq('is_active', true).order('sort_order'),
     sb.from('cheatsheet_blocks').select('*').order('sort_order'),
-    sb.from('documents').select('*').order('sort_order'),
+    sb.from('documents').select('*').eq('audience', audience).order('sort_order'),
   ]);
   state.categories = cats.data || [];
   state.objections = objs.data || [];

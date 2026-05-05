@@ -498,10 +498,14 @@
   // ============================================================
   let categoriesCache = [];
 
+  // Текущая аудитория базы знаний. 'operator' (по умолчанию) или 'seller'.
+  // Меняется при клике по вкладке (обработчик в commercial.html).
+  function aud() { return window.kbAudience || 'operator'; }
+
   async function loadCategories() {
     const tbody = document.querySelector('#cat-table tbody');
     if (!tbody) return;
-    const { data, error } = await sb.from('categories').select('*').order('sort_order');
+    const { data, error } = await sb.from('categories').select('*').eq('audience', aud()).order('sort_order');
     if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
     categoriesCache = data || [];
     if (!categoriesCache.length) {
@@ -546,6 +550,7 @@
         icon: fd.get('icon'),
         sort_order: Number(fd.get('sort_order')) || 0,
       };
+      if (!id) payload.audience = aud();
       const { data: saved, error } = id
         ? await sb.from('categories').update(payload).eq('id', id).select().maybeSingle()
         : await sb.from('categories').insert(payload).select().maybeSingle();
@@ -594,7 +599,7 @@
     const tbody = document.querySelector('#obj-table tbody');
     if (!tbody) return;
     const [objRes, cmtRes] = await Promise.all([
-      sb.from('objections').select('*').order('sort_order'),
+      sb.from('objections').select('*').eq('audience', aud()).order('sort_order'),
       sb.from('objection_comments').select('objection_id'),
     ]);
     if (objRes.error) { toast('Ошибка: ' + objRes.error.message, 'error'); return; }
@@ -731,6 +736,7 @@
         is_active: fd.get('is_active') === 'on',
       };
       if (!payload.answer.trim()) { toast('Заполните текст ответа', 'error'); return; }
+      if (!id) payload.audience = aud();
       const { data: saved, error } = id
         ? await sb.from('objections').update(payload).eq('id', id).select().maybeSingle()
         : await sb.from('objections').insert(payload).select().maybeSingle();
@@ -872,7 +878,7 @@
   async function loadDocuments() {
     const tbody = document.querySelector('#doc-table tbody');
     if (!tbody) return;
-    const { data, error } = await sb.from('documents').select('*').order('sort_order');
+    const { data, error } = await sb.from('documents').select('*').eq('audience', aud()).order('sort_order');
     if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
     docsCache = data || [];
     if (!docsCache.length) {
@@ -920,6 +926,7 @@
         description: fd.get('description') || null,
         sort_order: Number(fd.get('sort_order')) || 0,
       };
+      if (!id) payload.audience = aud();
       const { data: saved, error } = id
         ? await sb.from('documents').update(payload).eq('id', id).select().maybeSingle()
         : await sb.from('documents').insert(payload).select().maybeSingle();
