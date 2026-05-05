@@ -11,22 +11,96 @@
   <a href="seller.html" class="logo" aria-label="Мои Места">
     <img src="assets/logo-horizontal.png" alt="Мои Места">
   </a>
-  <div class="title">Кабинет продажника</div>
+  <nav class="mode-nav" id="seller-nav">
+    <button class="mode-btn" data-section="connect" type="button">
+      <span>🔌</span> Подключение компании
+    </button>
+    <button class="mode-btn active" data-section="actions" type="button">
+      <span>📊</span> Мои действия
+    </button>
+    <button class="mode-btn" data-section="deals" type="button">
+      <span>💼</span> Мои сделки
+    </button>
+  </nav>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <div class="spacer"></div>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
   <button class="link" id="logout">Выйти</button>
 </header>
 
-<main class="container">
-  <div class="login-card" style="margin:60px auto;max-width:560px;text-align:center;">
-    <h1 id="greeting">Здравствуйте</h1>
-    <p style="color:var(--muted);">Кабинет продажника в разработке.</p>
-    <p style="color:var(--muted);font-size:13px;">
-      Здесь появятся: «Передать Гари», «Мои сделки», статусы заявок.
+<main class="container wide">
+
+  <!-- Подключение компании (заглушка под отдельное ТЗ) -->
+  <section id="section-connect" class="seller-section" hidden>
+    <h1 class="page-title">Подключение компании</h1>
+    <p style="color:var(--muted);">
+      Пятишаговый мастер передачи заявки Гари. Реализуется по отдельному
+      ТЗ «Форма подключения компании».
     </p>
-  </div>
+  </section>
+
+  <!-- Мои действия — ежедневный отчёт -->
+  <section id="section-actions" class="seller-section">
+    <div class="report-head">
+      <div>
+        <h1 class="page-title" style="margin:0;">Ежедневный отчёт</h1>
+        <p style="color:var(--muted);font-size:13px;margin:4px 0 0;">
+          Кабинет продажника · вкладка «Мои действия»
+        </p>
+      </div>
+      <div class="report-controls">
+        <button class="btn icon" id="r-prev" type="button" aria-label="Предыдущий месяц">←</button>
+        <span class="report-month" id="r-month">—</span>
+        <button class="btn icon" id="r-next" type="button" aria-label="Следующий месяц">→</button>
+        <button class="btn" id="r-today" type="button">Сегодня</button>
+        <span class="report-saved" id="r-saved" hidden>✓ Сохранено</span>
+        <button class="btn primary" id="r-save" type="button">💾 Сохранить</button>
+      </div>
+    </div>
+
+    <div class="report-table-wrap">
+      <table class="report-table" id="r-table">
+        <thead>
+          <tr>
+            <th class="col-date">Дата</th>
+            <th>Встречи назначены</th>
+            <th>Встречи прошли</th>
+            <th>Согласились на тест</th>
+            <th>Отказались</th>
+            <th>Подумают</th>
+            <th>Интеграция требуется</th>
+            <th>Запущены на тест</th>
+            <th>Договор + оплата</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <th class="col-date">Итого</th>
+            <th data-total="meetings_scheduled">0</th>
+            <th data-total="meetings_held">0</th>
+            <th data-total="agreed_to_test">0</th>
+            <th data-total="refused">0</th>
+            <th data-total="thinking">0</th>
+            <th data-total="integration_needed">0</th>
+            <th data-total="launched_on_test">0</th>
+            <th data-total="signed_and_paid">0</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- Мои сделки (заглушка) -->
+  <section id="section-deals" class="seller-section" hidden>
+    <h1 class="page-title">Мои сделки</h1>
+    <p style="color:var(--muted);">
+      Список заявок и их статусы. Реализуется отдельной задачей.
+    </p>
+  </section>
 </main>
+
+<div id="toast" class="toast hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
@@ -35,6 +109,25 @@
 <script src="js/hub-routing.js"></script>
 <script src="js/cabinet-shell.js"></script>
 <script src="js/audit.js"></script>
-<script>cabinetShell.init({ requiredRole: 'seller', greetingPrefix: 'Здравствуйте' });</script>
+<script>
+  cabinetShell.init({ requiredRole: 'seller', greetingPrefix: 'Здравствуйте' });
+
+  // Переключение вкладок «Мои действия / Подключение / Сделки».
+  document.querySelectorAll('#seller-nav .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#seller-nav .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.seller-section').forEach(s => s.hidden = true);
+      document.getElementById('section-' + btn.dataset.section).hidden = false;
+      location.hash = btn.dataset.section;
+    });
+  });
+  // Переход по hash при загрузке.
+  const initial = location.hash.replace('#', '');
+  if (initial && document.querySelector(`#seller-nav .mode-btn[data-section="${initial}"]`)) {
+    document.querySelector(`#seller-nav .mode-btn[data-section="${initial}"]`).click();
+  }
+</script>
+<script src="js/seller-reports.js"></script>
 </body>
 </html>

@@ -82,6 +82,32 @@ async function requireAdmin(request, env) {
   return { user, row };
 }
 
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Авторизация Гари по сервисному токену (ТЗ §6.1 основного ТЗ Хаба).
+// Bearer-токен сравниваем как sha256-хеш с public.service_tokens.token_hash.
+async function requireServiceToken(request, env) {
+  const auth = request.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return { error: json({ error: 'no_token' }, { status: 401 }) };
+  const hash = await sha256Hex(m[1]);
+  const r = await supaFetch(env, `/rest/v1/service_tokens?select=id,name,revoked_at&token_hash=eq.${hash}`);
+  if (!r.ok) return { error: json({ error: 'token_lookup_failed' }, { status: 500 }) };
+  const rows = await r.json();
+  const tok = rows[0];
+  if (!tok || tok.revoked_at) return { error: json({ error: 'invalid_token' }, { status: 401 }) };
+  // Обновим last_used_at "огнём и забыли" — не блокируем ответ.
+  supaFetch(env, `/rest/v1/service_tokens?id=eq.${tok.id}`, {
+    method: 'PATCH',
+    headers: { prefer: 'return=minimal' },
+    body: JSON.stringify({ last_used_at: new Date().toISOString() }),
+  }).catch(() => {});
+  return { token: tok };
+}
+
 async function writeAudit(env, request, payload) {
   const ip =
     request.headers.get('cf-connecting-ip') ||
@@ -186,6 +212,92 @@ async function changeEmail(request, env, userId) {
   return json({ ok: true });
 }
 
+// ---------- /api/v1/reports/sellers (Гари) ----------
+
+const SELLER_REPORT_FIELDS = [
+  'meetings_scheduled', 'meetings_held', 'agreed_to_test', 'refused',
+  'thinking', 'integration_needed', 'launched_on_test', 'signed_and_paid',
+];
+
+async function listSellerReports(request, env) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  const url = new URL(request.url);
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  const sellerId = url.searchParams.get('seller_id');
+  const params = new URLSearchParams({ select: '*', order: 'report_date.desc' });
+  if (from) params.append('report_date', `gte.${from}`);
+  if (to) params.append('report_date', `lte.${to}`);
+  if (sellerId) params.append('seller_id', `eq.${sellerId}`);
+  const r = await supaFetch(env, `/rest/v1/seller_daily_reports?${params}`);
+  if (!r.ok) {
+    const detail = await r.text();
+    return json({ error: 'fetch_failed', detail }, { status: r.status });
+  }
+  return json(await r.json());
+}
+
+async function getSellerReport(request, env, sellerId, date) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  const r = await supaFetch(env, `/rest/v1/seller_daily_reports?select=*&seller_id=eq.${sellerId}&report_date=eq.${date}`);
+  if (!r.ok) return json({ error: 'fetch_failed' }, { status: r.status });
+  const rows = await r.json();
+  if (!rows.length) return json({ error: 'not_found' }, { status: 404 });
+  return json(rows[0]);
+}
+
+function isoWeekKey(dateStr) {
+  // ISO week: YYYY-Www. Понедельник — первый день недели.
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dayOfWeek = (dt.getUTCDay() + 6) % 7; // Mon=0..Sun=6
+  dt.setUTCDate(dt.getUTCDate() - dayOfWeek + 3); // ближайший четверг
+  const firstThursday = dt.valueOf();
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  const week = 1 + Math.round(((firstThursday - yearStart.valueOf()) / 86400000 - 3 + ((yearStart.getUTCDay() + 6) % 7)) / 7);
+  return `${dt.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+async function aggregateSellerReports(request, env) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  const url = new URL(request.url);
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  const sellerId = url.searchParams.get('seller_id');
+  const group = url.searchParams.get('group') || 'day';
+  if (!['day', 'week', 'month'].includes(group)) {
+    return json({ error: 'bad_group', allowed: ['day', 'week', 'month'] }, { status: 400 });
+  }
+
+  const params = new URLSearchParams({ select: '*' });
+  if (from) params.append('report_date', `gte.${from}`);
+  if (to) params.append('report_date', `lte.${to}`);
+  if (sellerId) params.append('seller_id', `eq.${sellerId}`);
+  const r = await supaFetch(env, `/rest/v1/seller_daily_reports?${params}`);
+  if (!r.ok) return json({ error: 'fetch_failed' }, { status: r.status });
+  const rows = await r.json();
+
+  const buckets = new Map();
+  for (const row of rows) {
+    let key;
+    if (group === 'month') key = String(row.report_date).slice(0, 7);
+    else if (group === 'week') key = isoWeekKey(row.report_date);
+    else key = row.report_date;
+    if (!buckets.has(key)) {
+      const init = { period: key };
+      for (const f of SELLER_REPORT_FIELDS) init[f] = 0;
+      buckets.set(key, init);
+    }
+    const b = buckets.get(key);
+    for (const f of SELLER_REPORT_FIELDS) b[f] += row[f] || 0;
+  }
+  const data = [...buckets.values()].sort((a, b) => a.period < b.period ? -1 : 1);
+  return json({ group, count: data.length, data });
+}
+
 // ---------- Router ----------
 
 export default {
@@ -210,9 +322,21 @@ export default {
       }
 
       // PATCH /api/v1/admin/users/:id/email
-      const m = url.pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/email\/?$/);
-      if (m && request.method === 'PATCH') {
-        return withCors(await changeEmail(request, env, m[1]));
+      const mEmail = url.pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/email\/?$/);
+      if (mEmail && request.method === 'PATCH') {
+        return withCors(await changeEmail(request, env, mEmail[1]));
+      }
+
+      // Гари: отчёты продажников
+      if (url.pathname === '/api/v1/reports/sellers' && request.method === 'GET') {
+        return withCors(await listSellerReports(request, env));
+      }
+      if (url.pathname === '/api/v1/reports/sellers/aggregate' && request.method === 'GET') {
+        return withCors(await aggregateSellerReports(request, env));
+      }
+      const mReport = url.pathname.match(/^\/api\/v1\/reports\/sellers\/([^/]+)\/(\d{4}-\d{2}-\d{2})\/?$/);
+      if (mReport && request.method === 'GET') {
+        return withCors(await getSellerReport(request, env, mReport[1], mReport[2]));
       }
 
       return withCors(json({ error: 'not_found' }, { status: 404 }));
