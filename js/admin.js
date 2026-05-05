@@ -33,6 +33,7 @@ function init() {
   loadDocuments();
   loadOperators();
   loadUsers();
+  initAuditTab();
 }
 
 // ---------- Модалка (универсальная) ----------
@@ -884,4 +885,151 @@ async function toggleUserStatus(id) {
   audit.log({ action: 'user_status_change', target_type: 'users', target_id: id, metadata: { email: u.email, new_status: newStatus } });
   toast(newStatus === 'active' ? 'Включён' : 'Отключён');
   loadUsers();
+}
+
+// ============================================================
+// ЖУРНАЛ ДЕЙСТВИЙ (audit_log)
+// ============================================================
+const AUDIT_PAGE_SIZE = 50;
+const auditState = { page: 0, total: 0 };
+
+const ACTION_LABELS = {
+  login: 'Вход',
+  login_failed: 'Неудачный вход',
+  logout: 'Выход',
+  user_invite: 'Инвайт',
+  user_update: 'Изменение пользователя',
+  user_email_change: 'Смена email',
+  user_status_change: 'Вкл/откл пользователя',
+  categories_create: 'Создание рубрики',
+  categories_update: 'Изменение рубрики',
+  categories_delete: 'Удаление рубрики',
+  objections_create: 'Создание возражения',
+  objections_update: 'Изменение возражения',
+  objections_delete: 'Удаление возражения',
+  objections_toggle_active: 'Активация возражения',
+  objection_comments_delete: 'Удаление комментария',
+  cheatsheet_blocks_create: 'Создание блока шпаргалки',
+  cheatsheet_blocks_update: 'Изменение блока шпаргалки',
+  cheatsheet_blocks_delete: 'Удаление блока шпаргалки',
+  documents_create: 'Создание документа',
+  documents_update: 'Изменение документа',
+  documents_delete: 'Удаление документа',
+  operators_create: 'Создание оператора',
+  operators_update: 'Изменение оператора',
+  operators_delete: 'Удаление оператора',
+};
+
+function initAuditTab() {
+  const fromEl = document.getElementById('audit-from');
+  const toEl = document.getElementById('audit-to');
+  if (!fromEl) return; // вкладка может отсутствовать на старых страницах
+  // По умолчанию — последние 7 дней.
+  const today = new Date();
+  const weekAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+  toEl.value = today.toISOString().slice(0, 10);
+  fromEl.value = weekAgo.toISOString().slice(0, 10);
+
+  ['audit-from','audit-to','audit-user','audit-action'].forEach(id => {
+    const el = document.getElementById(id);
+    el?.addEventListener('change', () => { auditState.page = 0; loadAudit(); });
+  });
+  document.getElementById('audit-user')?.addEventListener('input', debounce(() => {
+    auditState.page = 0; loadAudit();
+  }, 300));
+  document.getElementById('audit-refresh')?.addEventListener('click', loadAudit);
+
+  // Если открыта прямо вкладка журнала — подгрузим сразу.
+  if (location.hash === '#audit') loadAudit();
+  // Иначе подгрузим лениво при первом клике.
+  document.querySelector('.admin-nav a[data-tab="audit"]')?.addEventListener('click', () => {
+    if (!auditState._loaded) loadAudit();
+  });
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+async function loadAudit() {
+  const tbody = document.querySelector('#audit-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" class="empty">Загрузка…</td></tr>`;
+
+  const fromVal = document.getElementById('audit-from').value;
+  const toVal = document.getElementById('audit-to').value;
+  const userQ = document.getElementById('audit-user').value.trim();
+  const action = document.getElementById('audit-action').value;
+
+  let q = sb.from('audit_log').select('*', { count: 'exact' });
+  if (fromVal) q = q.gte('created_at', fromVal + 'T00:00:00');
+  if (toVal) q = q.lte('created_at', toVal + 'T23:59:59');
+  if (action) q = q.eq('action', action);
+  if (userQ) q = q.ilike('user_email', `%${userQ}%`);
+
+  const start = auditState.page * AUDIT_PAGE_SIZE;
+  const { data, error, count } = await q
+    .order('created_at', { ascending: false })
+    .range(start, start + AUDIT_PAGE_SIZE - 1);
+
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Ошибка: ${escapeHtml(error.message)}</td></tr>`;
+    return;
+  }
+  auditState.total = count || 0;
+  auditState._loaded = true;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Записей нет</td></tr>`;
+  } else {
+    tbody.innerHTML = data.map(row => {
+      const dt = row.created_at ? new Date(row.created_at).toLocaleString('ru-RU') : '';
+      const who = row.is_agent ? 'Гари' : (escapeHtml(row.user_email || '—'));
+      const act = ACTION_LABELS[row.action] || row.action;
+      const target = row.target_type
+        ? `${escapeHtml(row.target_type)}${row.target_id ? ` <span class="muted" style="font-size:11px;">${escapeHtml(String(row.target_id).slice(0, 8))}</span>` : ''}`
+        : '<span class="muted">—</span>';
+      const ip = escapeHtml(row.ip_address || '—');
+      const ua = shortUA(row.user_agent);
+      return `<tr title="${escapeHtml(JSON.stringify(row.metadata || {}, null, 2))}">
+        <td style="white-space:nowrap;">${dt}</td>
+        <td>${who}</td>
+        <td><b>${act}</b></td>
+        <td>${target}</td>
+        <td style="font-size:12px;">${ip}</td>
+        <td style="font-size:12px;color:var(--muted);">${ua}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  renderAuditPager();
+}
+
+function shortUA(ua) {
+  if (!ua) return '—';
+  const u = String(ua);
+  if (/iPhone|iPad/.test(u)) return 'iOS';
+  if (/Android/.test(u))    return 'Android';
+  if (/Edg\//.test(u))      return 'Edge';
+  if (/Chrome\//.test(u))   return 'Chrome';
+  if (/Firefox\//.test(u))  return 'Firefox';
+  if (/Safari\//.test(u))   return 'Safari';
+  return u.slice(0, 24) + '…';
+}
+
+function renderAuditPager() {
+  const el = document.getElementById('audit-pager');
+  if (!el) return;
+  const pages = Math.max(1, Math.ceil(auditState.total / AUDIT_PAGE_SIZE));
+  const cur = auditState.page;
+  el.innerHTML = `
+    <button class="btn sm" id="audit-prev" ${cur === 0 ? 'disabled' : ''}>← Назад</button>
+    <span style="color:var(--muted);font-size:13px;">
+      Страница ${cur + 1} из ${pages} · Всего: ${auditState.total}
+    </span>
+    <button class="btn sm" id="audit-next" ${cur >= pages - 1 ? 'disabled' : ''}>Вперёд →</button>
+  `;
+  document.getElementById('audit-prev')?.addEventListener('click', () => { auditState.page--; loadAudit(); });
+  document.getElementById('audit-next')?.addEventListener('click', () => { auditState.page++; loadAudit(); });
 }

@@ -27,6 +27,8 @@
     <a href="#documents" data-tab="documents">Документы</a>
     <a href="#operators" data-tab="operators">Операторы</a>
     <a href="#users" data-tab="users">Пользователи</a>
+    <a href="#audit" data-tab="audit">Журнал</a>
+    <a href="#backup" data-tab="backup">Бэкап</a>
     <a href="stats.html">Статистика</a>
   </nav>
 
@@ -83,6 +85,98 @@
       <thead><tr><th>Имя</th><th>Логин</th><th>Пароль</th><th>Статус</th><th>Создан</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
+  </section>
+
+  <section id="tab-audit" class="tab hidden">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h2 class="page-title">Журнал действий</h2>
+      <button class="btn" id="audit-refresh">Обновить</button>
+    </div>
+    <div class="audit-filters" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+      <label class="inline" style="font-size:13px;">
+        <span style="color:var(--muted);">С</span>
+        <input type="date" id="audit-from">
+      </label>
+      <label class="inline" style="font-size:13px;">
+        <span style="color:var(--muted);">По</span>
+        <input type="date" id="audit-to">
+      </label>
+      <input type="search" id="audit-user" placeholder="email пользователя…" style="flex:1;min-width:200px;">
+      <select id="audit-action">
+        <option value="">Все действия</option>
+        <option value="login">Вход</option>
+        <option value="login_failed">Неудачный вход</option>
+        <option value="logout">Выход</option>
+        <option value="user_invite">Инвайт</option>
+        <option value="user_update">Изменение пользователя</option>
+        <option value="user_email_change">Смена email</option>
+        <option value="user_status_change">Вкл/откл пользователя</option>
+        <option value="categories_create">Создание рубрики</option>
+        <option value="categories_update">Изменение рубрики</option>
+        <option value="categories_delete">Удаление рубрики</option>
+        <option value="objections_create">Создание возражения</option>
+        <option value="objections_update">Изменение возражения</option>
+        <option value="objections_delete">Удаление возражения</option>
+        <option value="objections_toggle_active">Активация/деактивация</option>
+        <option value="cheatsheet_blocks_create">Создание блока шпаргалки</option>
+        <option value="cheatsheet_blocks_update">Изменение блока шпаргалки</option>
+        <option value="cheatsheet_blocks_delete">Удаление блока шпаргалки</option>
+        <option value="documents_create">Создание документа</option>
+        <option value="documents_update">Изменение документа</option>
+        <option value="documents_delete">Удаление документа</option>
+        <option value="operators_create">Создание оператора</option>
+        <option value="operators_update">Изменение оператора</option>
+        <option value="operators_delete">Удаление оператора</option>
+      </select>
+    </div>
+    <table class="table" id="audit-table">
+      <thead><tr>
+        <th>Дата</th>
+        <th>Пользователь</th>
+        <th>Действие</th>
+        <th>Объект</th>
+        <th>IP</th>
+        <th>Браузер</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="audit-pager" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-top:16px;"></div>
+    <p style="color:var(--muted);font-size:12px;margin-top:12px;">
+      Хранение — 90 дней (ТЗ §7.1). Очистка через ежедневный cron.
+    </p>
+  </section>
+
+  <section id="tab-backup" class="tab hidden">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h2 class="page-title">Бэкап</h2>
+    </div>
+    <div class="card" style="padding:20px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);">
+      <h3 style="margin-top:0;">Расписание</h3>
+      <p>Каждую ночь в <b>03:00 МСК</b> — автоматический <code>pg_dump</code>
+        базы Хаба, сжатие в <code>.sql.gz</code>, загрузка в Google Drive
+        в папку <b>«Backup Хаб»</b> через сервисный аккаунт.</p>
+      <p style="color:var(--muted);font-size:13px;">
+        Ротация: 30 ежедневных копий + 12 еженедельных (понедельники).
+      </p>
+    </div>
+
+    <div class="card" style="padding:20px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);margin-top:16px;">
+      <div class="flex between" style="margin-bottom:12px;">
+        <h3 style="margin:0;">Последние копии</h3>
+        <button class="btn primary" id="backup-now" disabled title="Реальный механизм будет в Этапе 4">Сделать копию сейчас</button>
+      </div>
+      <table class="table" id="backup-table">
+        <thead><tr><th>Дата</th><th>Размер</th><th></th></tr></thead>
+        <tbody>
+          <tr><td colspan="3" class="empty">Список появится после подключения Google Drive.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="color:var(--muted);font-size:13px;margin-top:16px;">
+      Раздел в виде заглушки (ТЗ §10, этап 2: «вид; реальный механизм — на этапе 4»).
+      Для подключения нужен сервисный аккаунт Google Drive с доступом к папке «Backup Хаб».
+    </p>
   </section>
 
   <section id="tab-users" class="tab hidden">
