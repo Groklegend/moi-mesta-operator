@@ -1881,16 +1881,18 @@ h2.page-title {
   margin-left: 4px;
 }
 .report-table input[type="number"] {
-  width: 64px;
-  padding: 6px 8px;
+  width: 100%;
+  max-width: 80px;
+  padding: 8px 10px;
   text-align: center;
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 6px;
   font-size: 14px;
   color: var(--ink);
   font-family: inherit;
   outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
   -moz-appearance: textfield;
 }
 .report-table input[type="number"]::-webkit-outer-spin-button,
@@ -1898,10 +1900,18 @@ h2.page-title {
   -webkit-appearance: none;
   margin: 0;
 }
+.report-table input[type="number"]::placeholder { color: var(--muted); opacity: 0.5; }
+.report-table input[type="number"]:hover { border-color: #c9c9c4; }
 .report-table input[type="number"]:focus {
   border-color: var(--accent);
   background: var(--card);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.report-table tbody tr.weekend input[type="number"] {
+  background: rgba(0, 0, 0, 0.02);
+}
+.report-table tbody tr.today input[type="number"] {
+  background: #fff;
 }
 
 /* Секции вкладок продажника */
