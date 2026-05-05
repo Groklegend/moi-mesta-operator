@@ -1028,20 +1028,23 @@ h1, h2, h3, .topbar .title {
 .ql-size-large { font-size: 1.35em; }
 .ql-size-huge  { font-size: 1.7em; }
 
-/* Rich-text редактор в модалке админки */
+/* Rich-text редактор в модалке админки.
+   Фикс на наезжание: Quill сам ставит height на контейнер и игнорирует
+   max-height потомков — поэтому жёстко фиксируем высоту контейнера и
+   делаем редактор скроллящимся внутри, через !important чтобы перебить
+   inline-стили Quill. */
 .rte {
   background: white;
   border-radius: var(--radius-sm);
-  min-height: 180px;
 }
 .modal .ql-toolbar.ql-snow {
   border-top-left-radius: var(--radius-sm);
   border-top-right-radius: var(--radius-sm);
   border-color: var(--border);
   background: var(--bg-soft);
-  /* Тулбар может переноситься на 2-3 строки — это нормально, главное
-     чтобы он не наезжал на соседнее поле формы. */
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 .modal .ql-container.ql-snow {
   border-bottom-left-radius: var(--radius-sm);
@@ -1049,22 +1052,20 @@ h1, h2, h3, .topbar .title {
   border-color: var(--border);
   font-family: inherit;
   font-size: 15px;
-  min-height: 150px;
-  /* Ограничиваем рост редактора — иначе при большом тексте он раздувается
-     и визуально «наезжает» на следующие поля формы (Рубрика, ключевые
-     слова и т.д.). Внутренний скролл по вертикали — у .ql-editor. */
-  max-height: 300px;
+  height: 220px !important;        /* фикс. высота контейнера */
+  max-height: 220px !important;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
 }
 .modal .ql-editor {
-  min-height: 140px;
-  max-height: 260px;
-  overflow-y: auto;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
 }
 .modal .ql-editor.ql-blank::before { color: var(--muted-2); font-style: italic; }
-/* Gridу-детям нужно min-width:0, иначе длинный текст внутри Quill может
-   расширить колонку формы за её max-width и сломать вёрстку. */
 .modal .form-grid > label,
-.modal .form-grid > div { min-width: 0; }
+.modal .form-grid > div { min-width: 0; position: relative; }
 .answer-area .answer-text {
   font-size: 19px;
   line-height: 1.65;
