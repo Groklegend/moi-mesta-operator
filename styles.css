@@ -1829,6 +1829,7 @@ h2.page-title {
   position: sticky;
   top: 88px;
 }
+.seller-tab[hidden] { display: none !important; }
 .seller-tab {
   display: flex;
   align-items: center;
