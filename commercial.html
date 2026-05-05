@@ -53,6 +53,9 @@
     </button>
 
     <!-- Пункты отдела «Менеджер» -->
+    <button class="seller-tab" data-section="sellers" data-dept="manager" type="button">
+      <span class="emoji">👥</span><span>Менеджеры</span>
+    </button>
     <button class="seller-tab" data-section="stats-sellers" data-dept="manager" type="button">
       <span class="emoji">📈</span><span>Статистика менеджеров</span>
     </button>
@@ -188,6 +191,18 @@
     </div>
   </section>
 
+  <!-- ==================== Менеджеры ==================== -->
+  <section id="section-sellers" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:20px;">
+      <h1 class="page-title">Менеджеры</h1>
+      <button class="btn primary" id="seller-add">+ Добавить менеджера</button>
+    </div>
+    <table class="table" id="seller-table">
+      <thead><tr><th>Имя</th><th>Логин</th><th>Пароль</th><th>Статус</th><th>Создан</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
   <!-- ==================== Статистика менеджеров ==================== -->
   <section id="section-stats-sellers" class="seller-section" hidden>
     <div class="flex between" style="margin-bottom:18px;align-items:flex-end;">
@@ -262,7 +277,7 @@
   // По отделу: какой раздел открыть по умолчанию при переключении.
   const DEPT_DEFAULT_SECTION = {
     operator: 'operators',
-    manager: 'stats-sellers',
+    manager: 'sellers',
   };
 
   function applyDept(dept) {

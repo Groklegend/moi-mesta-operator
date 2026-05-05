@@ -185,6 +185,128 @@
   }
 
   // ============================================================
+  // МЕНЕДЖЕРЫ (sellers) — зеркало операторов
+  // ============================================================
+
+  let sellersCache = [];
+
+  async function loadSellers() {
+    const tbody = $('#seller-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Загрузка…</td></tr>`;
+    const { data, error } = await sb.from('sellers')
+      .select('id, name, login, password, is_active, created_at')
+      .order('created_at', { ascending: false });
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Ошибка: ${escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+    sellersCache = data || [];
+    if (!sellersCache.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Менеджеров пока нет. Нажмите «+ Добавить менеджера».</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = sellersCache.map(s => `
+      <tr>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td><code style="font-size:13px;">${escapeHtml(s.login)}</code></td>
+        <td>${renderPasswordCell(s.password)}</td>
+        <td>${s.is_active
+          ? '<span class="badge" style="background:var(--success-soft);color:var(--success);">Активен</span>'
+          : '<span class="badge muted">Отключён</span>'}</td>
+        <td style="color:var(--muted);font-size:13px;">${fmtDate(s.created_at)}</td>
+        <td class="actions-cell">
+          <button class="btn sm" data-edit-seller="${s.id}">Ред.</button>
+          <button class="btn sm danger" data-del-seller="${s.id}">Удалить</button>
+        </td>
+      </tr>`).join('');
+    tbody.querySelectorAll('[data-edit-seller]').forEach(b => b.addEventListener('click', () => editSeller(b.dataset.editSeller)));
+    tbody.querySelectorAll('[data-del-seller]').forEach(b => b.addEventListener('click', () => deleteSeller(b.dataset.delSeller)));
+    tbody.querySelectorAll('.pw-toggle').forEach(b => b.addEventListener('click', (e) => {
+      const cell = e.currentTarget.parentElement.querySelector('.pw-value');
+      const shown = cell.dataset.shown === '1';
+      cell.textContent = shown ? '••••••••' : cell.dataset.pw;
+      cell.dataset.shown = shown ? '0' : '1';
+    }));
+    tbody.querySelectorAll('.pw-copy').forEach(b => b.addEventListener('click', async (e) => {
+      try { await navigator.clipboard.writeText(e.currentTarget.dataset.pw); toast('Пароль скопирован'); }
+      catch { toast('Не удалось скопировать', 'error'); }
+    }));
+  }
+
+  $('#seller-add')?.addEventListener('click', () => editSeller(null));
+
+  function editSeller(id) {
+    const s = id ? sellersCache.find(x => x.id === id) : { name:'', login:'', password:'', is_active: true };
+    const isNew = !id;
+    openModal(isNew ? 'Новый менеджер' : 'Редактировать менеджера', `
+      <form class="form-grid" id="seller-form">
+        <label><div class="lbl">Имя</div>
+          <input type="text" name="name" value="${escapeHtml(s.name)}" required placeholder="Иван Петров"></label>
+        <label><div class="lbl">Логин</div>
+          <input type="text" name="login" value="${escapeHtml(s.login)}" required
+                 autocomplete="off" pattern="[A-Za-z0-9_.\\-]{3,32}"
+                 title="Латиница, цифры, _ . - (3–32 символа)"
+                 placeholder="ivan.petrov">
+        </label>
+        <label><div class="lbl">Пароль</div>
+          <input type="text" name="password" value="${escapeHtml(s.password || '')}" ${isNew ? 'required' : ''}
+                 autocomplete="new-password" minlength="6" placeholder="Минимум 6 символов"></label>
+        ${isNew ? '' : `
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" name="is_active" ${s.is_active ? 'checked' : ''}>
+          <span>Активен (может заходить на сайт)</span>
+        </label>`}
+        <div class="row">
+          <button type="submit" class="btn primary">Сохранить</button>
+          <button type="button" class="btn" id="cancel">Отмена</button>
+        </div>
+      </form>`);
+    document.getElementById('cancel').addEventListener('click', closeModal);
+    document.getElementById('seller-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const name = String(fd.get('name')).trim();
+      const login = String(fd.get('login')).trim().toLowerCase();
+      const password = String(fd.get('password') || '');
+      const payload = { name, login };
+      if (!isNew) payload.is_active = fd.has('is_active');
+      if (password) {
+        if (password.length < 6) { toast('Пароль минимум 6 символов', 'error'); return; }
+        payload.password = password;
+      } else if (isNew) {
+        toast('Задайте пароль', 'error'); return;
+      }
+      const btn = e.submitter;
+      btn.disabled = true; btn.textContent = 'Сохраняем…';
+      const { data: saved, error } = isNew
+        ? await sb.from('sellers').insert(payload).select().maybeSingle()
+        : await sb.from('sellers').update(payload).eq('id', id).select().maybeSingle();
+      btn.disabled = false; btn.textContent = 'Сохранить';
+      if (error) {
+        const msg = error.message.includes('sellers_login_key') || error.code === '23505'
+          ? 'Логин уже занят — выберите другой'
+          : 'Ошибка: ' + error.message;
+        toast(msg, 'error'); return;
+      }
+      if (window.audit) audit.save('sellers', isNew, saved?.id || id, {
+        name: payload.name, login: payload.login,
+        is_active: payload.is_active, password_changed: !!payload.password,
+      });
+      closeModal(); toast('Сохранено'); loadSellers();
+    });
+  }
+
+  async function deleteSeller(id) {
+    const s = sellersCache.find(x => x.id === id);
+    if (!s || !confirm(`Удалить менеджера «${s.name}»? Действие необратимо.`)) return;
+    const { error } = await sb.from('sellers').delete().eq('id', id);
+    if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
+    if (window.audit) audit.del('sellers', id, s.name);
+    toast('Удалено'); loadSellers();
+  }
+
+  // ============================================================
   // СТАТИСТИКА ПРОДАЖНИКОВ
   // ============================================================
   // Сводка по seller_daily_reports: KPI-карточки + таблица по менеджерам.
@@ -790,6 +912,7 @@
     btn.addEventListener('click', () => {
       const sec = btn.dataset.section;
       if (sec === 'operators') loadOperators();
+      if (sec === 'sellers') loadSellers();
       if (sec === 'categories') loadCategories();
       if (sec === 'objections') { loadCategories(); loadObjections(); }
       if (sec === 'cheatsheet') loadCheatsheet();
