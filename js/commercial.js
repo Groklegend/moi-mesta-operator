@@ -243,11 +243,11 @@
       <form class="form-grid" id="seller-form">
         <label><div class="lbl">Имя</div>
           <input type="text" name="name" value="${escapeHtml(s.name)}" required placeholder="Иван Петров"></label>
-        <label><div class="lbl">Логин</div>
-          <input type="text" name="login" value="${escapeHtml(s.login)}" required
-                 autocomplete="off" pattern="[A-Za-z0-9_.\\-]{3,32}"
-                 title="Латиница, цифры, _ . - (3–32 символа)"
-                 placeholder="ivan.petrov">
+        <label><div class="lbl">Логин (почта)</div>
+          <input type="email" name="login" value="${escapeHtml(s.login)}" required
+                 autocomplete="off"
+                 title="Введите email менеджера"
+                 placeholder="ivan.petrov@example.com">
         </label>
         <label><div class="lbl">Пароль</div>
           <input type="text" name="password" value="${escapeHtml(s.password || '')}" ${isNew ? 'required' : ''}
