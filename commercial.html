@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кабинет коммерческого директора · Мои Места</title>
+<link rel="stylesheet" href="styles.css">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a href="commercial.html" class="logo" aria-label="Мои Места">
+    <img src="assets/logo-horizontal.png" alt="Мои Места">
+  </a>
+  <div class="title">Кабинет коммерческого директора</div>
+  <div class="spacer"></div>
+  <nav class="role-switcher" id="role-switcher" hidden></nav>
+  <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
+  <button class="link" id="logout">Выйти</button>
+</header>
+
+<main class="container wide">
+<div class="seller-layout">
+  <aside class="seller-sidebar" id="commercial-nav">
+    <!-- Переключатель отдела: разделяет видимые пункты меню. -->
+    <div class="dept-switch" id="dept-switch" role="tablist" aria-label="Отдел">
+      <button class="dept-btn active" data-dept="operator" type="button" role="tab" aria-selected="true">
+        <span class="emoji">🎧</span><span>Оператор</span>
+      </button>
+      <button class="dept-btn" data-dept="manager" type="button" role="tab" aria-selected="false">
+        <span class="emoji">💼</span><span>Менеджер</span>
+      </button>
+    </div>
+
+    <!-- Пункты отдела «Оператор» -->
+    <button class="seller-tab active" data-section="operators" data-dept="operator" type="button">
+      <span class="emoji">👥</span><span>Операторы</span>
+    </button>
+    <button class="seller-tab" data-section="categories" data-dept="operator" type="button">
+      <span class="emoji">📚</span><span>Рубрики</span>
+    </button>
+    <button class="seller-tab" data-section="objections" data-dept="operator" type="button">
+      <span class="emoji">💬</span><span>Возражения</span>
+    </button>
+    <button class="seller-tab" data-section="cheatsheet" data-dept="operator" type="button">
+      <span class="emoji">📋</span><span>Шпаргалка</span>
+    </button>
+    <button class="seller-tab" data-section="documents" data-dept="operator" type="button">
+      <span class="emoji">📎</span><span>Документы</span>
+    </button>
+    <button class="seller-tab" data-section="stats-operators" data-dept="operator" type="button">
+      <span class="emoji">📊</span><span>Статистика операторов</span>
+    </button>
+
+    <!-- Пункты отдела «Менеджер» -->
+    <button class="seller-tab" data-section="stats-sellers" data-dept="manager" type="button">
+      <span class="emoji">📈</span><span>Статистика менеджеров</span>
+    </button>
+  </aside>
+
+  <div class="seller-content">
+
+  <!-- ==================== Операторы ==================== -->
+  <section id="section-operators" class="seller-section">
+    <div class="flex between" style="margin-bottom:20px;">
+      <h1 class="page-title">Операторы</h1>
+      <button class="btn primary" id="op-add">+ Добавить оператора</button>
+    </div>
+    <table class="table" id="op-table">
+      <thead><tr><th>Имя</th><th>Логин</th><th>Пароль</th><th>Статус</th><th>Создан</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ==================== Рубрики ==================== -->
+  <section id="section-categories" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:20px;">
+      <h1 class="page-title">Рубрики</h1>
+      <button class="btn primary" id="cat-add">+ Добавить рубрику</button>
+    </div>
+    <table class="table" id="cat-table">
+      <thead><tr><th>Название</th><th>Иконка</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ==================== Возражения ==================== -->
+  <section id="section-objections" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:20px;">
+      <h1 class="page-title">Возражения</h1>
+      <button class="btn primary" id="obj-add">+ Добавить возражение</button>
+    </div>
+    <table class="table" id="obj-table">
+      <thead><tr><th>Заголовок</th><th>Рубрика</th><th>Статус</th><th>Комментарии</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ==================== Шпаргалка ==================== -->
+  <section id="section-cheatsheet" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:20px;">
+      <h1 class="page-title">Шпаргалка</h1>
+      <button class="btn primary" id="cheat-add">+ Добавить блок</button>
+    </div>
+    <table class="table" id="cheat-table">
+      <thead><tr><th>Заголовок</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ==================== Документы ==================== -->
+  <section id="section-documents" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:20px;">
+      <h1 class="page-title">Документы</h1>
+      <button class="btn primary" id="doc-add">+ Добавить документ</button>
+    </div>
+    <table class="table" id="doc-table">
+      <thead><tr><th>Название</th><th>URL</th><th>Порядок</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ==================== Статистика операторов ==================== -->
+  <section id="section-stats-operators" class="seller-section" hidden>
+    <h1 class="page-title" style="margin:0 0 18px;">Статистика операторов</h1>
+
+    <div class="stats-filters">
+      <button data-range="day">За день</button>
+      <button data-range="week" class="active">За неделю</button>
+      <button data-range="month">За месяц</button>
+      <button data-range="all">За всё время</button>
+      <label class="op-filter">
+        <span>Оператор:</span>
+        <select id="op-filter"><option value="">Все операторы</option></select>
+      </label>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stats-card">
+        <h3>Открытий возражений</h3>
+        <div class="kpi" id="kpi-clicks">—</div>
+        <div class="kpi-label">за выбранный период</div>
+      </div>
+      <div class="stats-card">
+        <h3>Поисковых запросов</h3>
+        <div class="kpi" id="kpi-searches">—</div>
+        <div class="kpi-label">за выбранный период</div>
+      </div>
+    </div>
+
+    <div class="stats-card" style="margin-bottom:24px;">
+      <h3>Топ-10 возражений</h3>
+      <canvas id="chart-top" height="140"></canvas>
+      <table class="table" id="top-table" style="margin-top:16px;">
+        <thead><tr><th>#</th><th>Возражение</th><th>Клики</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="stats-card" style="margin-bottom:24px;">
+      <h3>Динамика по дням</h3>
+      <canvas id="chart-days" height="140"></canvas>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stats-card">
+        <h3>Топ рубрик</h3>
+        <table class="table" id="cat-table">
+          <thead><tr><th>Рубрика</th><th>Открытия</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="stats-card">
+        <h3>Топ поисковых запросов</h3>
+        <table class="table" id="search-table">
+          <thead><tr><th>Запрос</th><th>Раз</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="stats-card" style="margin-top:24px;">
+      <h3>По операторам</h3>
+      <table class="table" id="op-stats-table">
+        <thead><tr><th>Оператор</th><th>Клики</th><th>Открытий рубрик</th><th>Поисков</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== Статистика менеджеров ==================== -->
+  <section id="section-stats-sellers" class="seller-section" hidden>
+    <div class="flex between" style="margin-bottom:18px;align-items:flex-end;">
+      <div>
+        <h1 class="page-title" style="margin:0;">Статистика менеджеров</h1>
+        <p style="color:var(--muted);font-size:13px;margin:4px 0 0;">
+          Сводка по таблицам ежедневных отчётов менеджеров.
+        </p>
+      </div>
+      <div class="report-controls">
+        <button class="btn icon" id="ss-prev" type="button" aria-label="Предыдущий период">←</button>
+        <span class="report-month" id="ss-period">—</span>
+        <button class="btn icon" id="ss-next" type="button" aria-label="Следующий период">→</button>
+        <select id="ss-range" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-family:inherit;font-size:13px;">
+          <option value="week">Неделя</option>
+          <option value="month" selected>Месяц</option>
+          <option value="quarter">Квартал</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ss-kpi-grid" id="ss-kpis"></div>
+
+    <div class="stats-card" style="margin-top:18px;">
+      <h3>По менеджерам</h3>
+      <table class="table" id="ss-by-seller">
+        <thead>
+          <tr>
+            <th>Менеджер</th>
+            <th>Встречи назначены</th>
+            <th>Встречи прошли</th>
+            <th>Согласились на тест</th>
+            <th>Запущены на тест</th>
+            <th>Договор + оплата</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  </div><!-- /.seller-content -->
+</div><!-- /.seller-layout -->
+</main>
+
+<div id="modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+  <div class="modal">
+    <button class="close-x" id="modal-close">×</button>
+    <h1 id="modal-title">—</h1>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/operator-auth.js"></script>
+<script src="js/hub-routing.js"></script>
+<script src="js/cabinet-shell.js"></script>
+<script src="js/audit.js"></script>
+<script>
+  cabinetShell.init({ requiredRole: 'commercial', greetingPrefix: 'Здравствуйте' });
+
+  // ---------- Переключатель отделов (Оператор / Менеджер) ----------
+  // Запоминаем выбор в localStorage, чтобы не сбивать пользователя при F5.
+  const DEPT_KEY = 'commercial_dept';
+  // По отделу: какой раздел открыть по умолчанию при переключении.
+  const DEPT_DEFAULT_SECTION = {
+    operator: 'operators',
+    manager: 'stats-sellers',
+  };
+
+  function applyDept(dept) {
+    if (!['operator', 'manager'].includes(dept)) dept = 'operator';
+    localStorage.setItem(DEPT_KEY, dept);
+    // 1) Подсветка кнопки в шапке сайдбара.
+    document.querySelectorAll('#dept-switch .dept-btn').forEach(b => {
+      const on = b.dataset.dept === dept;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    // 2) Видимость пунктов меню по data-dept.
+    document.querySelectorAll('#commercial-nav .seller-tab').forEach(t => {
+      t.hidden = (t.dataset.dept !== dept);
+    });
+    // 3) Если активная сейчас вкладка не относится к выбранному отделу —
+    //    переключаемся на дефолтную для этого отдела.
+    const active = document.querySelector('#commercial-nav .seller-tab.active');
+    if (!active || active.hidden) {
+      const section = DEPT_DEFAULT_SECTION[dept];
+      const target = document.querySelector(
+        `#commercial-nav .seller-tab[data-section="${section}"]`);
+      if (target) target.click();
+    }
+  }
+
+  document.querySelectorAll('#dept-switch .dept-btn').forEach(b => {
+    b.addEventListener('click', () => applyDept(b.dataset.dept));
+  });
+
+  // ---------- Переключение боковых вкладок (как было) ----------
+  document.querySelectorAll('#commercial-nav .seller-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.hidden) return; // защита от клика по скрытым через JS
+      document.querySelectorAll('#commercial-nav .seller-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.seller-section').forEach(s => s.hidden = true);
+      document.getElementById('section-' + btn.dataset.section).hidden = false;
+      location.hash = btn.dataset.section;
+    });
+  });
+
+  // ---------- Старт ----------
+  // Сначала восстанавливаем отдел: если пришли по hash, который относится
+  // к конкретному отделу — переключаемся туда. Иначе берём из localStorage.
+  let startDept = localStorage.getItem(DEPT_KEY) || 'operator';
+  const initial = location.hash.replace('#', '');
+  if (initial) {
+    const link = document.querySelector(
+      `#commercial-nav .seller-tab[data-section="${initial}"]`);
+    if (link?.dataset.dept) startDept = link.dataset.dept;
+  }
+  applyDept(startDept);
+  // Потом активируем нужный пункт.
+  if (initial) {
+    const link = document.querySelector(
+      `#commercial-nav .seller-tab[data-section="${initial}"]`);
+    if (link && !link.hidden) link.click();
+  }
+</script>
+<script src="js/commercial.js"></script>
+<script src="js/stats.js"></script>
+</body>
+</html>

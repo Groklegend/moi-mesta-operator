@@ -298,10 +298,293 @@ async function aggregateSellerReports(request, env) {
   return json({ group, count: data.length, data });
 }
 
+// ---------- /api/v1/dadata/* (прокси для формы подключения компании) ----------
+//
+// Ключ DaData в env.DADATA_TOKEN (Cloudflare Worker secret). Бесплатный план
+// до 10 000 запросов в день. Если ключ не задан — отдаём 503, чтобы UI
+// мог показать понятную ошибку без падения формы.
+
+async function dadataProxy(request, env, kind) {
+  if (!env.DADATA_TOKEN) {
+    return json({ error: 'dadata_not_configured' }, { status: 503 });
+  }
+  const url = new URL(request.url);
+  let body;
+  if (kind === 'party') {
+    const inn = (url.searchParams.get('inn') || '').replace(/\D/g, '');
+    if (!(inn.length === 10 || inn.length === 12)) {
+      return json({ error: 'bad_inn' }, { status: 400 });
+    }
+    body = { query: inn };
+    return await dadataFetch(env, 'rs/findById/party', body);
+  }
+  if (kind === 'address') {
+    const q = (url.searchParams.get('q') || '').trim();
+    if (q.length < 3) return json({ suggestions: [] });
+    body = { query: q, count: 7 };
+    return await dadataFetch(env, 'rs/suggest/address', body);
+  }
+  if (kind === 'bank') {
+    const bik = (url.searchParams.get('bik') || '').replace(/\D/g, '');
+    if (bik.length !== 9) {
+      return json({ error: 'bad_bik' }, { status: 400 });
+    }
+    body = { query: bik };
+    return await dadataFetch(env, 'rs/findById/bank', body);
+  }
+  return json({ error: 'unknown_kind' }, { status: 400 });
+}
+
+async function dadataFetch(env, path, body) {
+  const r = await fetch(`https://suggestions.dadata.ru/suggestions/api/4_1/${path}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json',
+      authorization: `Token ${env.DADATA_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const detail = await r.text();
+    return json({ error: 'dadata_error', detail }, { status: r.status });
+  }
+  return json(await r.json());
+}
+
+// ---------- /api/v1/applications/* (Гари — service token) ----------
+
+async function listApplications(request, env) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status');
+  const sellerId = url.searchParams.get('seller_id');
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  const params = new URLSearchParams({ select: '*', order: 'created_at.desc' });
+  if (status) params.append('status', `eq.${status}`);
+  if (sellerId) params.append('seller_id', `eq.${sellerId}`);
+  if (from) params.append('created_at', `gte.${from}`);
+  if (to) params.append('created_at', `lte.${to}`);
+  const r = await supaFetch(env, `/rest/v1/applications?${params}`);
+  if (!r.ok) {
+    const detail = await r.text();
+    return json({ error: 'fetch_failed', detail }, { status: r.status });
+  }
+  return json(await r.json());
+}
+
+async function getApplication(request, env, id) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  const r = await supaFetch(env, `/rest/v1/applications?select=*&id=eq.${id}`);
+  if (!r.ok) return json({ error: 'fetch_failed' }, { status: r.status });
+  const rows = await r.json();
+  if (!rows.length) return json({ error: 'not_found' }, { status: 404 });
+  return json(rows[0]);
+}
+
+async function patchApplicationStatus(request, env, id) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, { status: 400 }); }
+  const status = body?.status;
+  const allowed = ['draft','new','in_progress','images_pending','text_pending','creating_cabinet','ready','launched'];
+  if (!allowed.includes(status)) return json({ error: 'bad_status', allowed }, { status: 400 });
+  const r = await supaFetch(env, `/rest/v1/applications?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { prefer: 'return=representation' },
+    body: JSON.stringify({ status }),
+  });
+  if (!r.ok) return json({ error: 'update_failed' }, { status: r.status });
+  const rows = await r.json();
+  const app = rows[0];
+  if (!app) return json({ error: 'not_found' }, { status: 404 });
+  await writeAudit(env, request, {
+    is_agent: true,
+    action: 'application_status_change',
+    target_type: 'application',
+    target_id: id,
+    metadata: { status },
+  });
+  // Системное уведомление менеджеру.
+  await supaFetch(env, '/rest/v1/notifications', {
+    method: 'POST',
+    headers: { prefer: 'return=minimal' },
+    body: JSON.stringify({
+      user_id: app.seller_id,
+      title: 'Статус заявки изменён',
+      body: `«${app.company_name || '—'}» → ${status}`,
+      link: `seller.html#deals`,
+    }),
+  });
+  return json(app);
+}
+
+async function postApplicationMessage(request, env, id) {
+  const guard = await requireServiceToken(request, env);
+  if (guard.error) return guard.error;
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, { status: 400 }); }
+  const text = (body?.body || '').trim();
+  if (!text) return json({ error: 'body_required' }, { status: 400 });
+  // Получаем seller_id заявки.
+  const ar = await supaFetch(env, `/rest/v1/applications?select=seller_id,company_name&id=eq.${id}`);
+  const arows = ar.ok ? await ar.json() : [];
+  if (!arows.length) return json({ error: 'application_not_found' }, { status: 404 });
+  const app = arows[0];
+  const r = await supaFetch(env, '/rest/v1/application_messages', {
+    method: 'POST',
+    headers: { prefer: 'return=representation' },
+    body: JSON.stringify({ application_id: id, author: 'gary', body: text }),
+  });
+  if (!r.ok) {
+    const detail = await r.text();
+    return json({ error: 'insert_failed', detail }, { status: r.status });
+  }
+  // Уведомление менеджеру.
+  await supaFetch(env, '/rest/v1/notifications', {
+    method: 'POST',
+    headers: { prefer: 'return=minimal' },
+    body: JSON.stringify({
+      user_id: app.seller_id,
+      title: 'Гари: новое сообщение',
+      body: text.length > 140 ? text.slice(0, 140) + '…' : text,
+      link: `seller.html#deals`,
+    }),
+  });
+  return json((await r.json())[0]);
+}
+
+// ---------- POST /api/v1/applications/:id/submit (менеджер нажал «Передать Гари») ----------
+//
+// Авторизация — JWT менеджера (он же владелец заявки). Проверяем владение,
+// меняем статус draft → new через service_role, отправляем webhook на
+// env.GARY_WEBHOOK_URL (до 3 попыток с интервалом 30 сек, попытки 2-3
+// уходят в ctx.waitUntil чтобы не держать UI).
+
+async function submitApplication(request, env, ctx, id) {
+  const auth = request.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return json({ error: 'no_token' }, { status: 401 });
+  const user = await getUserFromJwt(env, m[1]);
+  if (!user || !user.id) return json({ error: 'invalid_token' }, { status: 401 });
+
+  // Проверяем, что заявка принадлежит этому менеджеру.
+  const ar = await supaFetch(env, `/rest/v1/applications?select=*&id=eq.${id}`);
+  if (!ar.ok) return json({ error: 'fetch_failed' }, { status: ar.status });
+  const arows = await ar.json();
+  if (!arows.length) return json({ error: 'not_found' }, { status: 404 });
+  const app = arows[0];
+  if (app.seller_id !== user.id) return json({ error: 'forbidden' }, { status: 403 });
+
+  // Минимальная серверная валидация: company_name + lpr_phone + хотя бы 1 филиал + loyalty.type
+  if (!app.company_name || !app.inn || !app.lpr_name || !app.lpr_phone) {
+    return json({ error: 'incomplete', detail: 'Не заполнены обязательные поля' }, { status: 400 });
+  }
+  if (!Array.isArray(app.branches) || app.branches.length === 0) {
+    return json({ error: 'no_branches' }, { status: 400 });
+  }
+  if (!app.loyalty || !app.loyalty.type) {
+    return json({ error: 'no_loyalty' }, { status: 400 });
+  }
+
+  // Меняем статус на 'new' и проставляем submitted_at.
+  const upd = await supaFetch(env, `/rest/v1/applications?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { prefer: 'return=representation' },
+    body: JSON.stringify({ status: 'new', submitted_at: new Date().toISOString() }),
+  });
+  if (!upd.ok) {
+    const detail = await upd.text();
+    return json({ error: 'update_failed', detail }, { status: upd.status });
+  }
+  const fresh = (await upd.json())[0] || app;
+
+  // Аудит.
+  await writeAudit(env, request, {
+    user_id: user.id,
+    user_email: user.email,
+    action: 'application_submit',
+    target_type: 'application',
+    target_id: id,
+    metadata: { company_name: fresh.company_name },
+  });
+
+  // Webhook на Гари.
+  const payload = {
+    event: 'new_application',
+    application_id: id,
+    seller_id: user.id,
+    data: fresh,
+  };
+  const firstAttempt = await tryWebhook(env, request, payload, 1);
+  if (firstAttempt.ok) {
+    return json({ ok: true, webhook_status: 'delivered', attempt: 1 });
+  }
+  // Не получилось с первого раза — повторим в фоне ещё 2 раза с задержкой 30 сек.
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(retryWebhook(env, request, payload, 2));
+  }
+  return json({ ok: true, webhook_status: 'pending_retry', attempt: 1 });
+}
+
+async function tryWebhook(env, request, payload, attempt) {
+  if (!env.GARY_WEBHOOK_URL) {
+    await writeAudit(env, request, {
+      is_agent: false,
+      action: 'webhook_skipped',
+      target_type: 'application',
+      target_id: payload.application_id,
+      metadata: { reason: 'no_GARY_WEBHOOK_URL', attempt },
+    });
+    return { ok: false, status: 0 };
+  }
+  try {
+    const r = await fetch(env.GARY_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(env.GARY_WEBHOOK_SECRET ? { authorization: `Bearer ${env.GARY_WEBHOOK_SECRET}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    await writeAudit(env, request, {
+      is_agent: false,
+      action: r.ok ? 'webhook_sent' : 'webhook_failed',
+      target_type: 'application',
+      target_id: payload.application_id,
+      metadata: { attempt, status: r.status },
+    });
+    return { ok: r.ok, status: r.status };
+  } catch (e) {
+    await writeAudit(env, request, {
+      is_agent: false,
+      action: 'webhook_failed',
+      target_type: 'application',
+      target_id: payload.application_id,
+      metadata: { attempt, error: String(e && e.message || e) },
+    });
+    return { ok: false, status: 0 };
+  }
+}
+
+async function retryWebhook(env, request, payload, attempt) {
+  // До 3-й попытки включительно (1-я была сразу).
+  while (attempt <= 3) {
+    await new Promise(r => setTimeout(r, 30_000));
+    const res = await tryWebhook(env, request, payload, attempt);
+    if (res.ok) return;
+    attempt++;
+  }
+}
+
 // ---------- Router ----------
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
@@ -327,7 +610,7 @@ export default {
         return withCors(await changeEmail(request, env, mEmail[1]));
       }
 
-      // Гари: отчёты продажников
+      // Гари: отчёты менеджеров
       if (url.pathname === '/api/v1/reports/sellers' && request.method === 'GET') {
         return withCors(await listSellerReports(request, env));
       }
@@ -337,6 +620,39 @@ export default {
       const mReport = url.pathname.match(/^\/api\/v1\/reports\/sellers\/([^/]+)\/(\d{4}-\d{2}-\d{2})\/?$/);
       if (mReport && request.method === 'GET') {
         return withCors(await getSellerReport(request, env, mReport[1], mReport[2]));
+      }
+
+      // DaData (для формы подключения компании). Доступен авторизованным менеджерам.
+      if (url.pathname === '/api/v1/dadata/party' && request.method === 'GET') {
+        return withCors(await dadataProxy(request, env, 'party'));
+      }
+      if (url.pathname === '/api/v1/dadata/address' && request.method === 'GET') {
+        return withCors(await dadataProxy(request, env, 'address'));
+      }
+      if (url.pathname === '/api/v1/dadata/bank' && request.method === 'GET') {
+        return withCors(await dadataProxy(request, env, 'bank'));
+      }
+
+      // Гари: заявки.
+      if (url.pathname === '/api/v1/applications' && request.method === 'GET') {
+        return withCors(await listApplications(request, env));
+      }
+      const mAppId = url.pathname.match(/^\/api\/v1\/applications\/([0-9a-f-]{36})\/?$/);
+      if (mAppId && request.method === 'GET') {
+        return withCors(await getApplication(request, env, mAppId[1]));
+      }
+      const mAppStatus = url.pathname.match(/^\/api\/v1\/applications\/([0-9a-f-]{36})\/status\/?$/);
+      if (mAppStatus && request.method === 'PATCH') {
+        return withCors(await patchApplicationStatus(request, env, mAppStatus[1]));
+      }
+      const mAppMsg = url.pathname.match(/^\/api\/v1\/applications\/([0-9a-f-]{36})\/messages\/?$/);
+      if (mAppMsg && request.method === 'POST') {
+        return withCors(await postApplicationMessage(request, env, mAppMsg[1]));
+      }
+      // Менеджер: «Передать Гари».
+      const mAppSubmit = url.pathname.match(/^\/api\/v1\/applications\/([0-9a-f-]{36})\/submit\/?$/);
+      if (mAppSubmit && request.method === 'POST') {
+        return withCors(await submitApplication(request, env, ctx, mAppSubmit[1]));
       }
 
       return withCors(json({ error: 'not_found' }, { status: 404 }));

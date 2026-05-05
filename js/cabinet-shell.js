@@ -20,10 +20,11 @@
   // Кабинеты в порядке отображения в переключателе
   // (operator идёт первым, чтобы знакомым ролям было привычно)
   const CABINETS = [
-    { role: 'operator', label: 'Оператор',   page: 'index.html'   },
-    { role: 'seller',   label: 'Продажник',  page: 'seller.html'  },
-    { role: 'marketer', label: 'Маркетолог', page: 'marketer.html'},
-    { role: 'admin',    label: 'Админка',    page: 'admin.html'   },
+    { role: 'operator',   label: 'Оператор',              page: 'index.html'      },
+    { role: 'seller',     label: 'Менеджер',              page: 'seller.html'     },
+    { role: 'marketer',   label: 'Маркетолог',            page: 'marketer.html'   },
+    { role: 'commercial', label: 'Коммерческий директор', page: 'commercial.html' },
+    { role: 'admin',      label: 'Админка',               page: 'admin.html'      },
   ];
 
   let bellPollTimer = null;

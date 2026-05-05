@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Кабинет продажника · Мои Места</title>
+<title>Кабинет менеджера · Мои Места</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
   <a href="seller.html" class="logo" aria-label="Мои Места">
     <img src="assets/logo-horizontal.png" alt="Мои Места">
   </a>
-  <div class="title">Кабинет продажника</div>
+  <div class="title">Кабинет менеджера</div>
   <div class="spacer"></div>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
@@ -34,13 +34,282 @@
 
   <div class="seller-content">
 
-  <!-- Подключение компании (заглушка под отдельное ТЗ) -->
+  <!-- Подключение компании: пятишаговый мастер (ТЗ «Форма подключения компании») -->
   <section id="section-connect" class="seller-section" hidden>
-    <h1 class="page-title">Подключение компании</h1>
-    <p style="color:var(--muted);">
-      Пятишаговый мастер передачи заявки Гари. Реализуется по отдельному
-      ТЗ «Форма подключения компании».
-    </p>
+    <div class="app-wizard" id="app-wizard">
+      <!-- Шапка мастера -->
+      <div class="wizard-head">
+        <div class="wizard-title">
+          <h1 class="page-title" style="margin:0;">Подключение компании</h1>
+          <p class="wizard-sub" id="wiz-sub">
+            Заявка Гари — пять шагов. Можно сохранить как черновик и вернуться позже.
+          </p>
+        </div>
+        <div class="wizard-head-actions">
+          <span class="wizard-readonly-badge" id="wiz-readonly-badge" hidden>👁 Режим просмотра</span>
+          <span class="wizard-saved" id="wiz-saved" hidden>✓ Сохранено</span>
+          <button class="btn" id="wiz-save-draft" type="button">💾 Сохранить как черновик</button>
+          <button class="btn" id="wiz-back-to-list" type="button" hidden>← К списку</button>
+        </div>
+      </div>
+
+      <!-- Индикатор шагов -->
+      <ol class="wizard-steps" id="wiz-steps">
+        <li class="wiz-step active" data-step="1"><span class="step-num">1</span><span class="step-name">О компании</span></li>
+        <li class="wiz-step" data-step="2"><span class="step-num">2</span><span class="step-name">Реквизиты</span></li>
+        <li class="wiz-step" data-step="3"><span class="step-num">3</span><span class="step-name">Контакты</span></li>
+        <li class="wiz-step" data-step="4"><span class="step-num">4</span><span class="step-name">Филиалы</span></li>
+        <li class="wiz-step" data-step="5"><span class="step-num">5</span><span class="step-name">Программа лояльности</span></li>
+      </ol>
+
+      <!-- Шаг 1. О компании -->
+      <div class="wiz-pane" data-pane="1">
+        <h2 class="pane-title">О компании</h2>
+        <div class="form-grid wiz-grid">
+          <label>
+            <div class="lbl">Название компании <span class="req">*</span></div>
+            <input type="text" data-f="company_name" placeholder="Например: Кафе «Трюфель»">
+          </label>
+          <label>
+            <div class="lbl">Рубрика <span class="req">*</span></div>
+            <select data-f="category_id" id="wiz-category">
+              <option value="">— выберите —</option>
+            </select>
+          </label>
+          <label>
+            <div class="lbl">Логотип компании</div>
+            <div class="file-drop" id="wiz-logo-drop">
+              <input type="file" id="wiz-logo-input" accept="image/jpeg,image/png,image/webp" hidden>
+              <div class="file-hint">JPG, PNG или WEBP, до 5 МБ. Если нет логотипа — приложите фото вывески, меню или интерьера.</div>
+              <div class="file-actions">
+                <button type="button" class="btn sm" id="wiz-logo-pick">Выбрать файл</button>
+              </div>
+              <div class="file-preview" id="wiz-logo-preview" hidden></div>
+            </div>
+          </label>
+          <label>
+            <div class="lbl">Фирменные цвета и стиль</div>
+            <textarea data-f="style_desc" rows="3" placeholder="Опишите стиль: цвета, настроение, особенности подачи."></textarea>
+            <div class="file-drop">
+              <input type="file" id="wiz-style-input" accept="image/jpeg,image/png,image/webp" multiple hidden>
+              <div class="file-hint">Можно приложить фото меню / интерьера / упаковки (несколько файлов).</div>
+              <div class="file-actions">
+                <button type="button" class="btn sm" id="wiz-style-pick">Добавить фото</button>
+              </div>
+              <div class="file-grid" id="wiz-style-grid"></div>
+            </div>
+          </label>
+          <label>
+            <div class="lbl">Краткое описание</div>
+            <textarea data-f="short_desc" rows="2" maxlength="200" placeholder="1–2 предложения для карточки клиента."></textarea>
+          </label>
+          <label>
+            <div class="lbl">Полное описание</div>
+            <textarea data-f="full_desc" rows="5" placeholder="Что предлагает компания, чем отличается, для кого."></textarea>
+          </label>
+        </div>
+      </div>
+
+      <!-- Шаг 2. Реквизиты -->
+      <div class="wiz-pane" data-pane="2" hidden>
+        <h2 class="pane-title">Реквизиты компании</h2>
+        <p class="pane-hint">
+          Два способа заполнить: введите ИНН и нажмите «Заполнить автоматически»
+          (Хаб подтянет данные из DaData), либо загрузите карточку предприятия —
+          распознаем поля из неё.
+        </p>
+
+        <!-- Загрузка карточки предприятия (Word / PDF / TXT) -->
+        <div class="card-upload-block" id="wiz-card-block">
+          <div class="card-upload-head">
+            <div>
+              <div class="lbl" style="margin:0 0 4px;">📎 Карточка предприятия</div>
+              <div class="card-upload-hint">
+                Word (.docx), PDF (.pdf) или текст (.txt). Поля заполнятся автоматически —
+                проверьте и при необходимости поправьте.
+              </div>
+            </div>
+            <input type="file" id="wiz-card-input" accept=".docx,.pdf,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+            <button type="button" class="btn primary" id="wiz-card-pick">Загрузить файл</button>
+          </div>
+          <div class="card-upload-status" id="wiz-card-status" hidden></div>
+        </div>
+
+        <div class="form-grid wiz-grid">
+          <label>
+            <div class="lbl">ИНН <span class="req">*</span></div>
+            <div class="row-inline">
+              <input type="text" data-f="inn" id="wiz-inn" inputmode="numeric" maxlength="12" placeholder="10 цифр для ЮЛ, 12 для ИП">
+              <button type="button" class="btn" id="wiz-inn-fetch">Заполнить автоматически</button>
+            </div>
+            <div class="dadata-status" id="wiz-inn-status"></div>
+          </label>
+          <label><div class="lbl">КПП</div>
+            <input type="text" data-f="kpp"></label>
+          <label><div class="lbl">Юридическое название</div>
+            <input type="text" data-f="legal_name"></label>
+          <label><div class="lbl">ОГРН / ОГРНИП</div>
+            <input type="text" data-f="ogrn"></label>
+          <label><div class="lbl">Юридический адрес</div>
+            <input type="text" data-f="legal_address"></label>
+          <label><div class="lbl">ФИО подписанта</div>
+            <input type="text" data-f="signer_name"></label>
+          <label><div class="lbl">Должность подписанта</div>
+            <input type="text" data-f="signer_position"></label>
+          <label><div class="lbl">Расчётный счёт</div>
+            <input type="text" data-f="bank_account"></label>
+          <label><div class="lbl">БИК банка</div>
+            <div class="row-inline">
+              <input type="text" data-f="bank_bik" id="wiz-bik" inputmode="numeric" maxlength="9" placeholder="9 цифр">
+              <button type="button" class="btn" id="wiz-bik-fetch">Заполнить автоматически</button>
+            </div>
+            <div class="dadata-status" id="wiz-bik-status"></div>
+          </label>
+          <label><div class="lbl">Корреспондентский счёт</div>
+            <input type="text" data-f="bank_corr"></label>
+          <label><div class="lbl">Название банка</div>
+            <input type="text" data-f="bank_name"></label>
+        </div>
+      </div>
+
+      <!-- Шаг 3. Контакты и каналы -->
+      <div class="wiz-pane" data-pane="3" hidden>
+        <h2 class="pane-title">Контакты и каналы</h2>
+        <h3 class="pane-section">Каналы коммуникации</h3>
+        <div class="form-grid wiz-grid">
+          <label><div class="lbl">Сайт</div>
+            <input type="url" data-f="website" placeholder="https://example.com"></label>
+          <label><div class="lbl">Telegram-канал или группа</div>
+            <input type="text" data-f="telegram" placeholder="@username или ссылка"></label>
+          <label><div class="lbl">Max-канал (мессенджер)</div>
+            <input type="text" data-f="max_channel" placeholder="ссылка"></label>
+          <label><div class="lbl">Instagram</div>
+            <input type="text" data-f="instagram" placeholder="@username"></label>
+          <label><div class="lbl">ВКонтакте</div>
+            <input type="text" data-f="vk" placeholder="ссылка на сообщество"></label>
+          <label><div class="lbl">Телефон для покупателей</div>
+            <input type="tel" data-f="customer_phone" placeholder="7 (___) ___ __ __"></label>
+          <label><div class="lbl">E-mail <span class="req">*</span></div>
+            <input type="email" data-f="email" id="wiz-email" placeholder="например: hello@company.ru">
+            <div class="verify-code-row">
+              <input type="text" inputmode="numeric" maxlength="5" id="wiz-email-code" placeholder="Код из письма (5 цифр)" disabled>
+              <button type="button" class="btn primary" id="wiz-email-action" data-st="send">Отправить код</button>
+            </div>
+            <div class="verify-resend" id="wiz-email-resend" hidden></div>
+            <div class="field-hint">На этот e-mail будет проходить регистрация компании.</div>
+          </label>
+        </div>
+
+        <h3 class="pane-section" style="margin-top:24px;">Контактные лица</h3>
+        <div class="form-grid wiz-grid">
+          <label><div class="lbl">ФИО ЛПР (собственника) <span class="req">*</span></div>
+            <input type="text" data-f="lpr_name"></label>
+          <label><div class="lbl">Телефон ЛПР <span class="req">*</span></div>
+            <input type="tel" data-f="lpr_phone" id="wiz-lpr-phone" placeholder="7 (___) ___ __ __">
+            <div class="verify-code-row">
+              <input type="text" inputmode="numeric" maxlength="5" id="wiz-lpr-phone-code" placeholder="Код из СМС (5 цифр)" disabled>
+              <button type="button" class="btn primary" id="wiz-lpr-phone-action" data-st="send">Отправить код</button>
+            </div>
+            <div class="verify-resend" id="wiz-lpr-phone-resend" hidden></div>
+            <div class="field-hint">На этот номер будет проходить регистрация компании.</div>
+          </label>
+          <label><div class="lbl">ФИО маркетолога компании</div>
+            <input type="text" data-f="marketer_name"></label>
+          <label><div class="lbl">Телефон маркетолога</div>
+            <input type="tel" data-f="marketer_phone" placeholder="7 (___) ___ __ __"></label>
+        </div>
+      </div>
+
+      <!-- Шаг 4. Филиалы -->
+      <div class="wiz-pane" data-pane="4" hidden>
+        <h2 class="pane-title">Филиалы</h2>
+        <p class="pane-hint">Минимум один филиал. Адреса подсказываются по DaData.</p>
+        <div class="branches-list" id="wiz-branches"></div>
+        <button type="button" class="btn" id="wiz-add-branch">+ Добавить филиал</button>
+      </div>
+
+      <!-- Шаг 5. Программа лояльности -->
+      <div class="wiz-pane" data-pane="5" hidden>
+        <h2 class="pane-title">Программа лояльности</h2>
+
+        <div class="loyalty-help-row">
+          <button type="button" class="btn" id="wiz-loyalty-help">💡 Помоги выбрать программу</button>
+          <div class="loyalty-help-banner" id="wiz-loyalty-help-banner" hidden>
+            Функция в разработке. Заполни вручную.
+          </div>
+        </div>
+
+        <h3 class="pane-section">Тип программы</h3>
+        <div class="loyalty-types">
+          <label class="loyalty-type">
+            <input type="radio" name="loyalty_type" value="bonus">
+            <div class="lt-card">
+              <div class="lt-emoji">⭐</div>
+              <div class="lt-name">Бонусы</div>
+              <div class="lt-desc">Сумма, составляющая определённый процент от суммы покупки.</div>
+            </div>
+          </label>
+          <label class="loyalty-type">
+            <input type="radio" name="loyalty_type" value="discount">
+            <div class="lt-card">
+              <div class="lt-emoji">🏷️</div>
+              <div class="lt-name">Скидки</div>
+              <div class="lt-desc">Определённый процент скидки на сумму чека.</div>
+            </div>
+          </label>
+          <label class="loyalty-type">
+            <input type="radio" name="loyalty_type" value="external">
+            <div class="lt-card">
+              <div class="lt-emoji">🔗</div>
+              <div class="lt-name">Внешняя программа</div>
+              <div class="lt-desc">У компании уже есть своя система лояльности.</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Подтипы для bonus / discount -->
+        <div class="loyalty-subtypes" id="wiz-subtypes" hidden>
+          <h3 class="pane-section">Подтип</h3>
+          <div class="subtype-tabs" id="wiz-subtype-tabs">
+            <button type="button" class="subtype-tab active" data-sub="basic">Базовая</button>
+            <button type="button" class="subtype-tab" data-sub="cumulative">Накопительная</button>
+            <button type="button" class="subtype-tab" data-sub="cumulative_plus">Накопительная +</button>
+          </div>
+        </div>
+
+        <!-- Зеленая плашка для external -->
+        <div class="loyalty-external-banner" id="wiz-external-banner" hidden>
+          ✅ Действует внешняя программа лояльности
+        </div>
+
+        <!-- Баннер для cumulative+ -->
+        <div class="loyalty-monthly-banner" id="wiz-monthly-banner" hidden>
+          Статус карты Вашего клиента меняется автоматически в начале каждого месяца
+          на основании покупок согласно созданным порогам.
+        </div>
+
+        <!-- Динамические поля программы (рисуются JS-ом) -->
+        <div class="loyalty-fields" id="wiz-loyalty-fields"></div>
+
+        <!-- Поле «Условия» / «Описание программы лояльности» -->
+        <div class="loyalty-conditions" id="wiz-conditions-wrap" hidden>
+          <h3 class="pane-section" id="wiz-conditions-title">Условия</h3>
+          <textarea data-f="conditions" id="wiz-conditions" rows="4" maxlength="300"
+                    placeholder="Опишите программу простыми словами для клиента (до 300 символов)."></textarea>
+          <div class="char-counter" id="wiz-cond-counter"><span id="wiz-cond-count">0</span> / 300 (не менее 100)</div>
+        </div>
+      </div>
+
+      <!-- Нижняя панель действий -->
+      <div class="wizard-foot">
+        <button class="btn" id="wiz-prev" type="button" hidden>← Назад</button>
+        <div class="wizard-foot-spacer"></div>
+        <button class="btn" id="wiz-save-draft-2" type="button">💾 Сохранить как черновик</button>
+        <button class="btn primary" id="wiz-next" type="button" disabled>Далее →</button>
+      </div>
+    </div>
+    <!-- Блок «Режим работы Гари» — появляется когда заявка передана Гари -->
+    <div id="gary-block-container" hidden></div>
   </section>
 
   <!-- Мои действия — ежедневный отчёт -->
@@ -49,7 +318,7 @@
       <div>
         <h1 class="page-title" style="margin:0;">Ежедневный отчёт</h1>
         <p style="color:var(--muted);font-size:13px;margin:4px 0 0;">
-          Кабинет продажника · вкладка «Мои действия»
+          Кабинет менеджера · вкладка «Мои действия»
         </p>
       </div>
       <div class="report-controls">
@@ -95,12 +364,22 @@
     </div>
   </section>
 
-  <!-- Мои сделки (заглушка) -->
+  <!-- Мои сделки -->
   <section id="section-deals" class="seller-section" hidden>
-    <h1 class="page-title">Мои сделки</h1>
-    <p style="color:var(--muted);">
-      Список заявок и их статусы. Реализуется отдельной задачей.
-    </p>
+    <div class="report-head">
+      <div>
+        <h1 class="page-title" style="margin:0;">Мои сделки</h1>
+        <p style="color:var(--muted);font-size:13px;margin:4px 0 0;">
+          Все ваши заявки и их текущие статусы.
+        </p>
+      </div>
+      <div>
+        <button class="btn primary" id="deals-new" type="button">+ Новая заявка</button>
+      </div>
+    </div>
+    <div class="deals-list" id="deals-list">
+      <div class="empty plain">Загрузка…</div>
+    </div>
   </section>
 
   </div><!-- /.seller-content -->
@@ -129,12 +408,25 @@
       location.hash = btn.dataset.section;
     });
   });
-  // Переход по hash при загрузке.
-  const initial = location.hash.replace('#', '');
-  if (initial && document.querySelector(`#seller-nav .seller-tab[data-section="${initial}"]`)) {
-    document.querySelector(`#seller-nav .seller-tab[data-section="${initial}"]`).click();
-  }
+  // Переход по hash при загрузке. Логика:
+  //  • #app:<uuid>      — открываем «Подключение компании», заявку подтянет
+  //                        seller-applications.js.
+  //  • #actions         — «Мои действия» (отчёт продажника).
+  //  • #deals           — «Мои сделки».
+  //  • #connect и пусто — «Мои сделки». Так пользователь, обновивший
+  //                        страницу из формы, видит свой автосохранённый
+  //                        черновик, а не пустую форму.
+  (function () {
+    const initial = location.hash.replace('#', '');
+    let target;
+    if (/^app:[0-9a-f-]{36}$/.test(initial)) target = 'connect';
+    else if (initial === 'actions') target = 'actions';
+    else target = 'deals'; // включая «connect» и пустой hash
+    const tab = document.querySelector(`#seller-nav .seller-tab[data-section="${target}"]`);
+    if (tab) tab.click();
+  })();
 </script>
 <script src="js/seller-reports.js"></script>
+<script src="js/seller-applications.js"></script>
 </body>
 </html>

@@ -25,10 +25,11 @@
     if (status === 'disabled') return null;
     if (roles.length > 1) return 'hub.html';
     const r = roles[0];
-    if (r === 'admin')    return 'admin.html';
-    if (r === 'operator') return 'index.html';
-    if (r === 'seller')   return 'seller.html';
-    if (r === 'marketer') return 'marketer.html';
+    if (r === 'admin')      return 'admin.html';
+    if (r === 'operator')   return 'index.html';
+    if (r === 'seller')     return 'seller.html';
+    if (r === 'marketer')   return 'marketer.html';
+    if (r === 'commercial') return 'commercial.html';
     return 'hub.html';
   }
 
