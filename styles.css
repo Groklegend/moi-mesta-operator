@@ -1783,6 +1783,63 @@ h2.page-title {
   font-weight: 500;
 }
 
+/* ---------- Кабинет продажника: layout с боковым меню ---------- */
+.seller-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.seller-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 88px;
+}
+.seller-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.seller-tab:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.seller-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(238, 117, 31, 0.15);
+}
+.seller-tab .emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+.seller-content { min-width: 0; }
+
+@media (max-width: 900px) {
+  .seller-layout { grid-template-columns: 1fr; }
+  .seller-sidebar {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .seller-tab { flex: 1 1 auto; min-width: 160px; }
+}
+
 /* ---------- Кабинет продажника: ежедневный отчёт ---------- */
 .report-head {
   display: flex;

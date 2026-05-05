@@ -11,17 +11,7 @@
   <a href="seller.html" class="logo" aria-label="Мои Места">
     <img src="assets/logo-horizontal.png" alt="Мои Места">
   </a>
-  <nav class="mode-nav" id="seller-nav">
-    <button class="mode-btn" data-section="connect" type="button">
-      <span>🔌</span> Подключение компании
-    </button>
-    <button class="mode-btn active" data-section="actions" type="button">
-      <span>📊</span> Мои действия
-    </button>
-    <button class="mode-btn" data-section="deals" type="button">
-      <span>💼</span> Мои сделки
-    </button>
-  </nav>
+  <div class="title">Кабинет продажника</div>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <div class="spacer"></div>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
@@ -29,6 +19,20 @@
 </header>
 
 <main class="container wide">
+<div class="seller-layout">
+  <aside class="seller-sidebar" id="seller-nav">
+    <button class="seller-tab" data-section="connect" type="button">
+      <span class="emoji">🔌</span><span>Подключение компании</span>
+    </button>
+    <button class="seller-tab active" data-section="actions" type="button">
+      <span class="emoji">📊</span><span>Мои действия</span>
+    </button>
+    <button class="seller-tab" data-section="deals" type="button">
+      <span class="emoji">💼</span><span>Мои сделки</span>
+    </button>
+  </aside>
+
+  <div class="seller-content">
 
   <!-- Подключение компании (заглушка под отдельное ТЗ) -->
   <section id="section-connect" class="seller-section" hidden>
@@ -98,6 +102,9 @@
       Список заявок и их статусы. Реализуется отдельной задачей.
     </p>
   </section>
+
+  </div><!-- /.seller-content -->
+</div><!-- /.seller-layout -->
 </main>
 
 <div id="toast" class="toast hidden"></div>
@@ -113,9 +120,9 @@
   cabinetShell.init({ requiredRole: 'seller', greetingPrefix: 'Здравствуйте' });
 
   // Переключение вкладок «Мои действия / Подключение / Сделки».
-  document.querySelectorAll('#seller-nav .mode-btn').forEach(btn => {
+  document.querySelectorAll('#seller-nav .seller-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#seller-nav .mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#seller-nav .seller-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('.seller-section').forEach(s => s.hidden = true);
       document.getElementById('section-' + btn.dataset.section).hidden = false;
@@ -124,8 +131,8 @@
   });
   // Переход по hash при загрузке.
   const initial = location.hash.replace('#', '');
-  if (initial && document.querySelector(`#seller-nav .mode-btn[data-section="${initial}"]`)) {
-    document.querySelector(`#seller-nav .mode-btn[data-section="${initial}"]`).click();
+  if (initial && document.querySelector(`#seller-nav .seller-tab[data-section="${initial}"]`)) {
+    document.querySelector(`#seller-nav .seller-tab[data-section="${initial}"]`).click();
   }
 </script>
 <script src="js/seller-reports.js"></script>
