@@ -17,13 +17,18 @@
     return data;
   }
 
-  // Куда вести по ролям. Кабинеты продажника/маркетолога — пустая заглушка hub.html
-  // до появления переключателя ролей с реальными разделами.
+  // Куда вести по ролям после логина.
+  // Если ролей одна — сразу в нужный кабинет.
+  // Если 2+ — на hub.html, чтобы юзер выбрал.
   function pickLandingPage(roles, status) {
     if (!roles || roles.length === 0) return null;
     if (status === 'disabled') return null;
-    if (roles.includes('admin')) return 'admin.html';
-    if (roles.includes('operator')) return 'index.html';
+    if (roles.length > 1) return 'hub.html';
+    const r = roles[0];
+    if (r === 'admin')    return 'admin.html';
+    if (r === 'operator') return 'index.html';
+    if (r === 'seller')   return 'seller.html';
+    if (r === 'marketer') return 'marketer.html';
     return 'hub.html';
   }
 

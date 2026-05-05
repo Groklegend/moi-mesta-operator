@@ -2,16 +2,12 @@
 // Логика админ-панели
 // ============================================================
 
-// Гардинг: без сессии — на логин
-sb.auth.getSession().then(({ data }) => {
-  if (!data?.session) location.replace('login.html');
-  else init();
-});
-
-document.getElementById('logout').addEventListener('click', async () => {
-  await sb.auth.signOut();
-  location.replace('login.html');
-});
+// Гардинг: только админ может видеть админку.
+// cabinetShell проверит роль, нарисует переключатель ролей в шапке и привяжет logout.
+(async () => {
+  await cabinetShell.init({ requiredRole: 'admin', greetingPrefix: 'Админ' });
+  init();
+})();
 
 const tabs = document.querySelectorAll('.admin-nav a[data-tab]');
 tabs.forEach(a => a.addEventListener('click', (e) => {
@@ -36,6 +32,7 @@ function init() {
   loadCheatsheet();
   loadDocuments();
   loadOperators();
+  loadUsers();
 }
 
 // ---------- Модалка (универсальная) ----------
@@ -637,4 +634,162 @@ async function deleteOp(id) {
   const { error } = await sb.from('operators').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
   toast('Удалено'); loadOperators();
+}
+
+// ============================================================
+// ПОЛЬЗОВАТЕЛИ ХАБА (public.users + auth.users)
+// ============================================================
+// Чтение: select из public.users (RLS: админ видит всех).
+// Изменение ролей и status: update public.users (RLS: админ может).
+// Создание (приглашение): требует Auth Admin API → нужен Worker handler;
+// пока заглушка показывает curl-команду для самостоятельного запуска.
+
+const ROLE_LABELS = {
+  admin: 'Админ', operator: 'Оператор', seller: 'Продажник', marketer: 'Маркетолог',
+};
+const ALL_ROLES = ['admin', 'operator', 'seller', 'marketer'];
+let usersCache = [];
+
+async function loadUsers() {
+  const { data, error } = await sb
+    .from('users')
+    .select('id, email, full_name, roles, status, created_at')
+    .order('created_at', { ascending: false });
+  if (error) { toast('Ошибка users: ' + error.message); return; }
+  usersCache = data || [];
+  renderUsers();
+}
+
+function renderUsers() {
+  const tbody = document.querySelector('#user-table tbody');
+  const search = (document.getElementById('user-search')?.value || '').trim().toLowerCase();
+  const activeFilters = ALL_ROLES.filter(r => document.getElementById('filter-' + r)?.checked);
+
+  let list = usersCache;
+  if (search) {
+    list = list.filter(u =>
+      (u.email || '').toLowerCase().includes(search) ||
+      (u.full_name || '').toLowerCase().includes(search)
+    );
+  }
+  if (activeFilters.length) {
+    list = list.filter(u => activeFilters.every(r => (u.roles || []).includes(r)));
+  }
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Никого не найдено</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(u => {
+    const roleBadges = (u.roles || []).map(r =>
+      `<span class="role-badge role-${r}">${ROLE_LABELS[r] || r}</span>`
+    ).join(' ') || '<span style="color:var(--muted);">—</span>';
+    const statusBadge = u.status === 'active'
+      ? '<span class="status-badge status-active">Активен</span>'
+      : '<span class="status-badge status-disabled">Отключён</span>';
+    const created = u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '—';
+    const toggleLabel = u.status === 'active' ? 'Отключить' : 'Включить';
+    const toggleClass = u.status === 'active' ? 'danger' : 'primary';
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.full_name || '—')}</strong></td>
+        <td>${escapeHtml(u.email || '')}</td>
+        <td>${roleBadges}</td>
+        <td>${statusBadge}</td>
+        <td style="white-space:nowrap;">${created}</td>
+        <td class="actions-cell">
+          <button class="btn sm" data-edit-user="${u.id}">Редактировать</button>
+          <button class="btn sm ${toggleClass}" data-toggle-user="${u.id}">${toggleLabel}</button>
+        </td>
+      </tr>`;
+  }).join('');
+  tbody.querySelectorAll('[data-edit-user]').forEach(b =>
+    b.addEventListener('click', () => editUser(b.dataset.editUser)));
+  tbody.querySelectorAll('[data-toggle-user]').forEach(b =>
+    b.addEventListener('click', () => toggleUserStatus(b.dataset.toggleUser)));
+}
+
+document.getElementById('user-add')?.addEventListener('click', () => inviteUserModal());
+document.getElementById('user-search')?.addEventListener('input', renderUsers);
+ALL_ROLES.forEach(r =>
+  document.getElementById('filter-' + r)?.addEventListener('change', renderUsers));
+
+function inviteUserModal() {
+  // Server-side invite endpoint появится в PR-5 (Worker /api/v1/admin/invite).
+  // Пока админ инвайтит через curl с service_role — показываем готовый шаблон.
+  openModal('Пригласить пользователя', `
+    <div style="font-size:14px;color:var(--ink-2);line-height:1.5;">
+      <p>Создание учёток через UI появится в следующей итерации (нужен серверный
+      handler с правами service_role — браузеру эти права давать нельзя).</p>
+      <p>Пока пригласить нового пользователя можно командой в терминале:</p>
+    </div>
+    <pre id="invite-snippet" style="background:var(--bg-soft);padding:12px;border-radius:8px;font-size:12px;line-height:1.4;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">curl -X POST "$SUPABASE_URL/auth/v1/invite" \\
+  -H "apikey: $SUPABASE_SERVICE_ROLE" \\
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "novyy@example.com",
+    "data": {
+      "full_name": "Имя Фамилия",
+      "roles": "seller,marketer"
+    },
+    "redirect_to": "${location.origin}/invite"
+  }'</pre>
+    <div class="form-row" style="margin-top:12px;">
+      <button class="btn" id="copy-invite-cmd">Скопировать команду</button>
+      <button class="btn primary" id="modal-ok">Понятно</button>
+    </div>
+  `);
+  document.getElementById('copy-invite-cmd').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('invite-snippet').textContent);
+    toast('Скопировано');
+  });
+  document.getElementById('modal-ok').addEventListener('click', closeModal);
+}
+
+function editUser(id) {
+  const u = usersCache.find(x => x.id === id);
+  if (!u) return;
+  const checks = ALL_ROLES.map(r => `
+    <label class="inline">
+      <input type="checkbox" name="role" value="${r}" ${(u.roles || []).includes(r) ? 'checked' : ''}>
+      <span>${ROLE_LABELS[r]}</span>
+    </label>`).join('');
+  openModal(`Редактировать «${escapeHtml(u.email)}»`, `
+    <form class="form-grid" id="user-form">
+      <label><div class="lbl">Имя</div>
+        <input type="text" name="full_name" value="${escapeHtml(u.full_name || '')}"></label>
+      <div>
+        <div class="lbl">Роли</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">${checks}</div>
+      </div>
+      <div class="form-row">
+        <button type="button" class="btn" id="user-cancel">Отмена</button>
+        <button type="submit" class="btn primary">Сохранить</button>
+      </div>
+    </form>`);
+  document.getElementById('user-cancel').addEventListener('click', closeModal);
+  document.getElementById('user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const roles = fd.getAll('role');
+    const full_name = fd.get('full_name')?.toString().trim() || '';
+    const { error } = await sb.from('users').update({ full_name, roles }).eq('id', id);
+    if (error) { toast('Ошибка: ' + error.message); return; }
+    toast('Сохранено');
+    closeModal();
+    loadUsers();
+  });
+}
+
+async function toggleUserStatus(id) {
+  const u = usersCache.find(x => x.id === id);
+  if (!u) return;
+  const newStatus = u.status === 'active' ? 'disabled' : 'active';
+  const verb = newStatus === 'active' ? 'включить' : 'отключить';
+  if (!confirm(`Точно ${verb} «${u.email}»?`)) return;
+  const { error } = await sb.from('users').update({ status: newStatus }).eq('id', id);
+  if (error) { toast('Ошибка: ' + error.message); return; }
+  toast(newStatus === 'active' ? 'Включён' : 'Отключён');
+  loadUsers();
 }

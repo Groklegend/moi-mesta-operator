@@ -157,6 +157,79 @@ h1, h2, h3, .topbar .title {
 }
 .topbar a:hover, .topbar button.link:hover { background: var(--bg-soft); color: var(--navy); }
 
+/* ---------- Переключатель ролей в шапке ---------- */
+.role-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-soft);
+  border-radius: 10px;
+  margin-left: 16px;
+}
+.role-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-radius: 7px;
+  transition: background 0.15s, color 0.15s;
+}
+.role-btn:hover { background: rgba(255,255,255,0.6); color: var(--navy); }
+.role-btn.active { background: #fff; color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+/* ---------- Сетка кабинетов на hub.html ---------- */
+.cabinet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+.cabinet-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background: var(--bg-soft);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 16px;
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+.cabinet-card:hover {
+  border-color: var(--navy);
+  transform: translateY(-2px);
+  background: #fff;
+}
+.cabinet-label { line-height: 1.2; }
+
+/* ---------- Бейджи ролей и статусов в админке «Пользователи» ---------- */
+.role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: var(--bg-soft);
+  color: var(--ink-2);
+  margin-right: 4px;
+}
+.role-badge.role-admin    { background: #fef3c7; color: #92400e; }
+.role-badge.role-operator { background: #dbeafe; color: #1e40af; }
+.role-badge.role-seller   { background: #dcfce7; color: #166534; }
+.role-badge.role-marketer { background: #f3e8ff; color: #6b21a8; }
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+.status-badge.status-active   { background: #dcfce7; color: #166534; }
+.status-badge.status-disabled { background: #fee2e2; color: #991b1b; }
+
 /* ---------- Контейнер ---------- */
 .container { max-width: 1120px; margin: 0 auto; padding: 32px 28px; }
 .container.narrow { max-width: 720px; }

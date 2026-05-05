@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кабинет маркетолога · Мои Места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="marketer.html" class="logo" aria-label="Мои Места">
+    <img src="assets/logo-horizontal.png" alt="Мои Места">
+  </a>
+  <div class="title">Кабинет маркетолога</div>
+  <nav class="role-switcher" id="role-switcher" hidden></nav>
+  <div class="spacer"></div>
+  <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
+  <button class="link" id="logout">Выйти</button>
+</header>
+
+<main class="container">
+  <div class="login-card" style="margin:60px auto;max-width:560px;text-align:center;">
+    <h1 id="greeting">Здравствуйте</h1>
+    <p style="color:var(--muted);">Кабинет маркетолога в разработке.</p>
+    <p style="color:var(--muted);font-size:13px;">
+      Здесь появятся: модерация акций, метрики кампаний.
+    </p>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/operator-auth.js"></script>
+<script src="js/hub-routing.js"></script>
+<script src="js/cabinet-shell.js"></script>
+<script>cabinetShell.init({ requiredRole: 'marketer', greetingPrefix: 'Здравствуйте' });</script>
+</body>
+</html>

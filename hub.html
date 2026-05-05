@@ -12,42 +12,42 @@
     <img src="assets/logo-horizontal.png" alt="Мои Места">
   </a>
   <div class="title">Хаб «Мои Места»</div>
+  <nav class="role-switcher" id="role-switcher" hidden></nav>
   <div class="spacer"></div>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
   <button class="link" id="logout">Выйти</button>
 </header>
 
 <main class="container">
-  <div class="login-card" style="margin:60px auto;max-width:560px;text-align:center;">
+  <div class="login-card" style="margin:40px auto;max-width:640px;text-align:center;">
     <h1 id="greeting">Здравствуйте</h1>
-    <p style="color:var(--muted);">Кабинет в разработке.</p>
-    <p style="color:var(--muted);font-size:13px;">Ваши роли: <span id="roles-list">—</span></p>
+    <p style="color:var(--muted);">Выберите кабинет для работы.</p>
+    <div id="cabinet-grid" class="cabinet-grid" style="margin-top:24px;"></div>
+    <p style="color:var(--muted);font-size:13px;margin-top:32px;">
+      Ваши роли: <span id="roles-list">—</span>
+    </p>
   </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
+<script src="js/operator-auth.js"></script>
 <script src="js/hub-routing.js"></script>
+<script src="js/cabinet-shell.js"></script>
 <script>
 (async () => {
-  const row = await hubRouting.getCurrentUserRow();
-  if (!row) { location.replace('login.html'); return; }
-  if (row.status === 'disabled') {
-    await sb.auth.signOut();
-    location.replace('login.html');
-    return;
-  }
-  document.getElementById('user-email').textContent = row.email || '';
-  const name = row.full_name && row.full_name.trim() ? row.full_name : (row.email || '');
-  document.getElementById('greeting').textContent = 'Здравствуйте, ' + name;
-  document.getElementById('roles-list').textContent =
-    (row.roles && row.roles.length) ? row.roles.join(', ') : '—';
+  await cabinetShell.init({ greetingPrefix: 'Здравствуйте' });
 
-  document.getElementById('logout').addEventListener('click', async () => {
-    await sb.auth.signOut();
-    location.replace('login.html');
-  });
+  const row = await hubRouting.getCurrentUserRow();
+  if (!row) return;
+  const roles = row.roles || [];
+  const grid = document.getElementById('cabinet-grid');
+  const cards = cabinetShell.CABINETS
+    .filter(c => roles.includes(c.role))
+    .map(c => `<a href="${c.page}" class="cabinet-card"><div class="cabinet-label">${c.label}</div></a>`)
+    .join('');
+  grid.innerHTML = cards || '<p style="color:var(--muted);">Ролей не назначено. Обратитесь к администратору.</p>';
 })();
 </script>
 </body>
