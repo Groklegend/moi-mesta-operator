@@ -145,17 +145,44 @@
   function renderRoleSwitcher(roles) {
     const nav = document.getElementById('role-switcher');
     if (!nav) return;
-    if (!roles || roles.length < 2) return; // переключатель имеет смысл с 2+ ролями
+    if (!roles || roles.length < 2) return; // меню имеет смысл с 2+ ролями
     const cur = pageOfCurrent();
-    const buttons = CABINETS
+    const items = CABINETS
       .filter(c => roles.includes(c.role))
       .map(c => {
         const active = c.page === cur ? ' active' : '';
-        return `<a href="${c.page}" class="role-btn${active}">${c.label}</a>`;
+        return `<a href="${c.page}" class="role-item${active}">${c.label}</a>`;
       });
-    if (!buttons.length) return;
-    nav.innerHTML = buttons.join('');
+    if (!items.length) return;
+    nav.innerHTML = `
+      <button type="button" class="role-trigger" id="role-trigger" aria-haspopup="true" aria-expanded="false">
+        <span class="emoji">👤</span>
+        <span>Выбор роли</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="role-menu hidden" id="role-menu" role="menu">${items.join('')}</div>`;
     nav.hidden = false;
+
+    const trigger = document.getElementById('role-trigger');
+    const menu = document.getElementById('role-menu');
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = menu.classList.contains('hidden');
+      menu.classList.toggle('hidden');
+      trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    document.addEventListener('click', (e) => {
+      if (!nav.contains(e.target)) {
+        menu.classList.add('hidden');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        menu.classList.add('hidden');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
   }
 
   async function init(opts = {}) {
@@ -199,5 +226,5 @@
     }
   }
 
-  window.cabinetShell = { init, CABINETS, refreshBell, startBellPolling };
+  window.cabinetShell = { init, CABINETS, refreshBell, startBellPolling, renderRoleSwitcher };
 })();

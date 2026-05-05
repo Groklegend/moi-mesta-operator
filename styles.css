@@ -157,26 +157,57 @@ h1, h2, h3, .topbar .title {
 }
 .topbar a:hover, .topbar button.link:hover { background: var(--bg-soft); color: var(--navy); }
 
-/* ---------- Переключатель ролей в шапке ---------- */
+/* ---------- Переключатель ролей в шапке (выпадающий) ---------- */
 .role-switcher {
+  position: relative;
+}
+.role-trigger {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--bg-soft);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
   border-radius: 10px;
-  margin-left: 16px;
-}
-.role-btn {
-  padding: 6px 14px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--ink-2);
-  text-decoration: none;
-  border-radius: 7px;
-  transition: background 0.15s, color 0.15s;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
 }
-.role-btn:hover { background: rgba(255,255,255,0.6); color: var(--navy); }
-.role-btn.active { background: #fff; color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.role-trigger:hover { border-color: var(--accent); }
+.role-trigger .emoji { font-size: 16px; line-height: 1; }
+.role-trigger .arrow { font-size: 11px; color: var(--muted); margin-left: 2px; }
+.role-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 6px;
+  z-index: 50;
+}
+.role-menu.hidden { display: none; }
+.role-menu .role-item {
+  display: block;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+.role-menu .role-item:hover { background: var(--accent-soft); }
+.role-menu .role-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
 
 /* ---------- Сетка кабинетов на hub.html ---------- */
 .cabinet-grid {

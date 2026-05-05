@@ -31,6 +31,7 @@
     </button>
     <div class="cat-menu hidden" id="cat-menu"></div>
   </div>
+  <nav class="role-switcher" id="role-switcher" hidden></nav>
   <div class="operator-box" id="operator-box" hidden>
     <span class="op-name" id="op-name"></span>
     <span id="user-email" style="display:none;"></span>
@@ -103,11 +104,14 @@
       sb.auth.signOut().finally(() => operatorSession.logout());
     });
   })();
-  // Колокольчик уведомлений — только если оператор вошёл через Supabase Auth
-  // (legacy-вход через operator-login.html не имеет JWT, RLS не пустит к notifications).
-  sb.auth.getSession().then(({ data }) => {
-    if (data?.session && cabinetShell.startBellPolling) {
-      cabinetShell.startBellPolling(data.session.user.id);
+  // Колокольчик уведомлений + переключатель ролей — только если оператор
+  // вошёл через Supabase Auth (legacy-вход не имеет JWT, RLS закроет доступ).
+  sb.auth.getSession().then(async ({ data }) => {
+    if (!data?.session) return;
+    if (cabinetShell.startBellPolling) cabinetShell.startBellPolling(data.session.user.id);
+    if (window.hubRouting && cabinetShell.renderRoleSwitcher) {
+      const row = await hubRouting.getCurrentUserRow();
+      if (row?.roles?.length >= 2) cabinetShell.renderRoleSwitcher(row.roles);
     }
   });
 </script>
