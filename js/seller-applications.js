@@ -41,14 +41,33 @@
 
   const STATUS_LABELS = {
     draft:           { label: 'Черновик',       cls: 'muted',   badge: 'badge-draft' },
-    new:             { label: 'Передана Гари',  cls: 'accent',  badge: 'badge-sent' },
-    in_progress:     { label: 'Гари работает',  cls: 'success', badge: 'badge-working', chip: 'В работе' },
-    images_pending:  { label: 'Гари работает',  cls: 'success', badge: 'badge-working', chip: 'Ждёт фото' },
-    text_pending:    { label: 'Гари работает',  cls: 'success', badge: 'badge-working', chip: 'Ждёт тексты' },
-    creating_cabinet:{ label: 'Гари работает',  cls: 'success', badge: 'badge-working', chip: 'Регистрирует' },
+    new:             { label: 'Гари работает',  cls: 'success', badge: 'badge-working' },
+    in_progress:     { label: 'Гари работает',  cls: 'success', badge: 'badge-working' },
+    images_pending:  { label: 'Гари работает',  cls: 'success', badge: 'badge-working' },
+    text_pending:    { label: 'Гари работает',  cls: 'success', badge: 'badge-working' },
+    creating_cabinet:{ label: 'Гари работает',  cls: 'success', badge: 'badge-working' },
     ready:           { label: 'Готово',         cls: 'success', badge: 'badge-done' },
     launched:        { label: 'Запущено',       cls: 'success', badge: 'badge-done' },
   };
+
+  const GARY_CHIP_LABELS = [
+    'Проверяет данные',
+    'Пишет текст',
+    'Создаёт картинки',
+    'На проверке',
+    'Согласовывает',
+    'Регистрирует',
+    'На модерации',
+  ];
+
+  // Стаб: «текущий шаг Гари» для сделки. Пока DB не отдаёт реальный шаг —
+  // выбираем детерминированно по id, чтобы у разной сделки был свой чип.
+  function garyChipForDeal(deal) {
+    if (!deal || !deal.id) return GARY_CHIP_LABELS[0];
+    let h = 0;
+    for (let i = 0; i < deal.id.length; i++) h = (h * 31 + deal.id.charCodeAt(i)) >>> 0;
+    return GARY_CHIP_LABELS[h % GARY_CHIP_LABELS.length];
+  }
 
   // Шаги Гари — маппинг DB-статуса на текущий шаг таймлайна
   const GARY_STEPS = [
@@ -1809,8 +1828,10 @@
       const date = d.submitted_at || d.updated_at || d.created_at;
       const dt = date ? new Date(date).toLocaleString('ru-RU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
       const canDelete = d.status === 'draft';
+      const isGary = st.badge === 'badge-working';
+      const chipText = isGary ? garyChipForDeal(d) : '';
       const badgeHtml = st.badge
-        ? `<span class="deal-badge ${st.badge}">${escapeHtml(st.label)}${st.chip ? ` <span class="gary-step-chip">${escapeHtml(st.chip)}</span>` : ''}</span>`
+        ? `<span class="deal-badge ${st.badge}">${escapeHtml(st.label)}</span>${chipText ? ` <span class="gary-step-chip">${escapeHtml(chipText)}</span>` : ''}`
         : `<span class="badge ${st.cls}">${escapeHtml(st.label)}</span>`;
       return `
         <div class="deal-card" data-id="${d.id}">
@@ -1902,10 +1923,10 @@
     if (currentIdx === -1 && isGaryActive) currentIdx = 1;
     if (isDone) currentIdx = GARY_STEPS.length - 1;
 
-    const chipLabel = STATUS_LABELS[status]?.chip || STATUS_LABELS[status]?.label || 'В работе';
-    const headChipHtml = isDone
-      ? `<span class="gary-status-chip">✓ Завершено</span>`
-      : `<span class="gary-status-chip">▶ ${escapeHtml(chipLabel)}</span>`;
+    const chipLabel = isDone
+      ? '✓ Завершено'
+      : `▶ ${garyChipForDeal(state.app)}`;
+    const headChipHtml = `<span class="gary-status-chip">${escapeHtml(chipLabel)}</span>`;
 
     const stepsHtml = GARY_STEPS.map((step, idx) => {
       let stateClass = 'step-future';

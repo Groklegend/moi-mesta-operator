@@ -21,7 +21,7 @@
 <main class="container wide">
 <div class="seller-layout">
   <aside class="seller-sidebar" id="seller-nav">
-    <button class="seller-tab" data-section="connect" type="button">
+    <button class="seller-tab" data-section="connect" type="button" hidden>
       <span class="emoji">🔌</span><span>Подключение компании</span>
     </button>
     <button class="seller-tab active" data-section="actions" type="button">
@@ -36,6 +36,8 @@
 
   <!-- Подключение компании: пятишаговый мастер (ТЗ «Форма подключения компании») -->
   <section id="section-connect" class="seller-section" hidden>
+    <!-- Блок «Режим работы Гари» — сверху, появляется когда заявка передана Гари -->
+    <div id="gary-block-container" hidden></div>
     <div class="app-wizard" id="app-wizard">
       <!-- Шапка мастера -->
       <div class="wizard-head">
@@ -308,8 +310,6 @@
         <button class="btn primary" id="wiz-next" type="button" disabled>Далее →</button>
       </div>
     </div>
-    <!-- Блок «Режим работы Гари» — появляется когда заявка передана Гари -->
-    <div id="gary-block-container" hidden></div>
   </section>
 
   <!-- Мои действия — ежедневный отчёт -->
