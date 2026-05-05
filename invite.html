@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Задание пароля · Мои Места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="login.html" class="logo" aria-label="Мои Места">
+    <img src="assets/logo-horizontal.png" alt="Мои Места">
+  </a>
+  <div class="title">Хаб «Мои Места»</div>
+  <div class="spacer"></div>
+</header>
+
+<main>
+  <div class="login-card">
+    <h1>Задайте пароль</h1>
+
+    <div id="loading" style="color:var(--muted);">Проверяем приглашение…</div>
+
+    <form class="form-grid" id="set-form" hidden>
+      <div style="font-size:14px;color:var(--muted);">Аккаунт: <b id="email-display">—</b></div>
+      <label>
+        <div class="lbl">Новый пароль</div>
+        <input type="password" id="password" required minlength="8" autocomplete="new-password">
+      </label>
+      <label>
+        <div class="lbl">Повторите пароль</div>
+        <input type="password" id="password2" required minlength="8" autocomplete="new-password">
+      </label>
+      <button type="submit" class="btn primary" id="submit-btn">Сохранить и войти</button>
+      <div class="error" id="error" hidden></div>
+    </form>
+
+    <div id="invalid" hidden style="color:var(--danger);">
+      Ссылка приглашения недействительна или устарела. Попросите администратора
+      выслать новое приглашение.
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/hub-routing.js"></script>
+<script>
+// Supabase JS v2 автоматически парсит #access_token=... из URL и ставит сессию.
+// Ждём его и проверяем результат.
+(async () => {
+  const loading = document.getElementById('loading');
+  const form = document.getElementById('set-form');
+  const invalid = document.getElementById('invalid');
+  const emailEl = document.getElementById('email-display');
+  const errEl = document.getElementById('error');
+  const btn = document.getElementById('submit-btn');
+
+  // Дать клиенту время разобрать hash
+  await new Promise(r => setTimeout(r, 200));
+  const { data: { session } } = await sb.auth.getSession();
+
+  if (!session) {
+    loading.hidden = true;
+    invalid.hidden = false;
+    return;
+  }
+
+  emailEl.textContent = session.user.email || '';
+  loading.hidden = true;
+  form.hidden = false;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.hidden = true;
+    const p1 = document.getElementById('password').value;
+    const p2 = document.getElementById('password2').value;
+    if (p1 !== p2) {
+      errEl.textContent = 'Пароли не совпадают';
+      errEl.hidden = false;
+      return;
+    }
+    if (p1.length < 8) {
+      errEl.textContent = 'Минимум 8 символов';
+      errEl.hidden = false;
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Сохраняем…';
+    try {
+      const { error } = await sb.auth.updateUser({ password: p1 });
+      if (error) {
+        errEl.textContent = 'Ошибка: ' + error.message;
+        errEl.hidden = false;
+        btn.disabled = false; btn.textContent = 'Сохранить и войти';
+        return;
+      }
+      await hubRouting.redirectByRole();
+    } catch (err) {
+      errEl.textContent = 'Сбой: ' + (err?.message || err);
+      errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Сохранить и войти';
+    }
+  });
+})();
+</script>
+</body>
+</html>

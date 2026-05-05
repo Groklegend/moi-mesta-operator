@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Вход · Мои места</title>
+<title>Вход · Мои Места</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
-  <a href="index.html" class="logo" aria-label="Мои Места">
+  <a href="login.html" class="logo" aria-label="Мои Места">
     <img src="assets/logo-horizontal.png" alt="Мои Места">
   </a>
-  <div class="title">Админ-панель</div>
+  <div class="title">Хаб «Мои Места»</div>
   <div class="spacer"></div>
-  <a href="index.html">← На сайт оператора</a>
+  <a href="operator-login.html" style="font-size:13px;color:var(--muted);">Вход для оператора →</a>
 </header>
 
 <main>
   <div class="login-card">
-    <h1>Вход для администратора</h1>
+    <h1>Вход</h1>
     <form class="form-grid" id="login-form">
       <label>
         <div class="lbl">Email</div>
@@ -28,8 +28,11 @@
         <div class="lbl">Пароль</div>
         <input type="password" id="password" required autocomplete="current-password">
       </label>
-      <button type="submit" class="btn primary">Войти</button>
+      <button type="submit" class="btn primary" id="submit-btn">Войти</button>
       <div class="error" id="error" hidden></div>
+      <div style="text-align:center;margin-top:8px;">
+        <a href="reset-password.html" style="font-size:13px;color:var(--muted);">Забыли пароль?</a>
+      </div>
     </form>
   </div>
 </main>
@@ -37,17 +40,21 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
+<script src="js/hub-routing.js"></script>
 <script>
-// Если уже залогинен — сразу в админку
-sb.auth.getSession().then(({ data }) => {
-  if (data?.session) location.replace('admin.html');
+// Если уже залогинен — сразу маршрутизируем по роли
+sb.auth.getSession().then(async ({ data }) => {
+  if (data?.session) hubRouting.redirectByRole();
 });
 
 const form = document.getElementById('login-form');
 const errEl = document.getElementById('error');
+const btn = document.getElementById('submit-btn');
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   errEl.hidden = true;
+  btn.disabled = true; btn.textContent = 'Проверяем…';
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   try {
@@ -55,13 +62,14 @@ form.addEventListener('submit', async (e) => {
     if (error) {
       errEl.textContent = 'Ошибка входа: ' + error.message;
       errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Войти';
       return;
     }
-    location.replace('admin.html');
+    await hubRouting.redirectByRole();
   } catch (err) {
     errEl.textContent = 'Сбой: ' + (err?.message || err);
     errEl.hidden = false;
-    console.error('Login error:', err);
+    btn.disabled = false; btn.textContent = 'Войти';
   }
 });
 </script>
