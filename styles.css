@@ -1039,6 +1039,9 @@ h1, h2, h3, .topbar .title {
   border-top-right-radius: var(--radius-sm);
   border-color: var(--border);
   background: var(--bg-soft);
+  /* Тулбар может переноситься на 2-3 строки — это нормально, главное
+     чтобы он не наезжал на соседнее поле формы. */
+  flex-wrap: wrap;
 }
 .modal .ql-container.ql-snow {
   border-bottom-left-radius: var(--radius-sm);
@@ -1047,9 +1050,21 @@ h1, h2, h3, .topbar .title {
   font-family: inherit;
   font-size: 15px;
   min-height: 150px;
+  /* Ограничиваем рост редактора — иначе при большом тексте он раздувается
+     и визуально «наезжает» на следующие поля формы (Рубрика, ключевые
+     слова и т.д.). Внутренний скролл по вертикали — у .ql-editor. */
+  max-height: 300px;
 }
-.modal .ql-editor { min-height: 140px; }
+.modal .ql-editor {
+  min-height: 140px;
+  max-height: 260px;
+  overflow-y: auto;
+}
 .modal .ql-editor.ql-blank::before { color: var(--muted-2); font-style: italic; }
+/* Gridу-детям нужно min-width:0, иначе длинный текст внутри Quill может
+   расширить колонку формы за её max-width и сломать вёрстку. */
+.modal .form-grid > label,
+.modal .form-grid > div { min-width: 0; }
 .answer-area .answer-text {
   font-size: 19px;
   line-height: 1.65;
