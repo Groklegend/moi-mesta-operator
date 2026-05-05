@@ -64,7 +64,11 @@ function toast(msg) {
 }
 
 async function confirmDelete(name) {
-  return confirm(`Удалить «${name}»? Действие необратимо.`);
+  return confirmDialog({
+    title: 'Удалить?',
+    message: `«${name}» будет удалён. Действие необратимо.`,
+    okText: 'Удалить', cancelText: 'Отмена', danger: true,
+  });
 }
 
 // ============================================================
@@ -308,7 +312,14 @@ async function toggleUserStatus(id) {
   if (!u) return;
   const newStatus = u.status === 'active' ? 'disabled' : 'active';
   const verb = newStatus === 'active' ? 'включить' : 'отключить';
-  if (!confirm(`Точно ${verb} «${u.email}»?`)) return;
+  const ok = await confirmDialog({
+    title: `Точно ${verb}?`,
+    message: `Пользователь «${u.email}» будет ${newStatus === 'active' ? 'включён' : 'отключён'}.`,
+    okText: verb.charAt(0).toUpperCase() + verb.slice(1),
+    cancelText: 'Отмена',
+    danger: newStatus !== 'active',
+  });
+  if (!ok) return;
   const { error } = await sb.from('users').update({ status: newStatus }).eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
   audit.log({ action: 'user_status_change', target_type: 'users', target_id: id, metadata: { email: u.email, new_status: newStatus } });

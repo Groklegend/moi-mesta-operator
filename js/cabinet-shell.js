@@ -228,4 +228,51 @@
   }
 
   window.cabinetShell = { init, CABINETS, refreshBell, startBellPolling, renderRoleSwitcher };
+
+  // ============================================================
+  // Универсальный confirmDialog — заменяет нативный window.confirm().
+  // Возвращает Promise<boolean>. Доступен глобально как window.confirmDialog.
+  // ============================================================
+  function escapeHtmlSafe(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function confirmDialog({ title, message, okText = 'OK', cancelText = 'Отмена', danger = false } = {}) {
+    return new Promise((resolve) => {
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      backdrop.style.zIndex = '9999';
+      backdrop.innerHTML = `
+        <div class="modal-window" role="dialog" aria-modal="true">
+          ${title ? `<h3 class="modal-title">${escapeHtmlSafe(title)}</h3>` : ''}
+          ${message ? `<p class="modal-message">${escapeHtmlSafe(message)}</p>` : ''}
+          <div class="modal-actions">
+            ${cancelText ? `<button type="button" class="btn" data-act="cancel">${escapeHtmlSafe(cancelText)}</button>` : ''}
+            <button type="button" class="btn ${danger ? 'danger' : 'primary'}" data-act="ok">${escapeHtmlSafe(okText)}</button>
+          </div>
+        </div>`;
+      const close = (result) => {
+        document.removeEventListener('keydown', onKey);
+        backdrop.remove();
+        resolve(result);
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') close(false);
+        else if (e.key === 'Enter') close(true);
+      };
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) close(false);
+        const act = e.target.dataset?.act;
+        if (act === 'ok') close(true);
+        else if (act === 'cancel') close(false);
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(backdrop);
+      backdrop.querySelector('[data-act="ok"]')?.focus();
+    });
+  }
+
+  window.confirmDialog = confirmDialog;
 })();

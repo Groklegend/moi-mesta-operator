@@ -243,7 +243,12 @@
     }).join('');
     tbody.querySelectorAll('.token-revoke').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Отозвать токен? После этого Гари с ним больше не сможет ходить в API.')) return;
+        const ok = await confirmDialog({
+          title: 'Отозвать токен?',
+          message: 'После этого Гари с ним больше не сможет ходить в API.',
+          okText: 'Отозвать', cancelText: 'Отмена', danger: true,
+        });
+        if (!ok) return;
         const id = btn.dataset.id;
         const { error } = await sb.from('service_tokens')
           .update({ revoked_at: new Date().toISOString() }).eq('id', id);

@@ -177,7 +177,13 @@
 
   async function deleteOp(id) {
     const op = opsCache.find(x => x.id === id);
-    if (!op || !confirm(`Удалить оператора «${op.name}»? Действие необратимо.`)) return;
+    if (!op) return;
+    const ok = await confirmDialog({
+      title: 'Удалить оператора?',
+      message: `«${op.name}» будет удалён. Действие необратимо.`,
+      okText: 'Удалить', cancelText: 'Отмена', danger: true,
+    });
+    if (!ok) return;
     const { error } = await sb.from('operators').delete().eq('id', id);
     if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
     if (window.audit) audit.del('operators', id, op.name);
@@ -299,7 +305,13 @@
 
   async function deleteSeller(id) {
     const s = sellersCache.find(x => x.id === id);
-    if (!s || !confirm(`Удалить менеджера «${s.name}»? Действие необратимо.`)) return;
+    if (!s) return;
+    const ok = await confirmDialog({
+      title: 'Удалить менеджера?',
+      message: `«${s.name}» будет удалён. Действие необратимо.`,
+      okText: 'Удалить', cancelText: 'Отмена', danger: true,
+    });
+    if (!ok) return;
     const { error } = await sb.from('sellers').delete().eq('id', id);
     if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
     if (window.audit) audit.del('sellers', id, s.name);
@@ -474,7 +486,11 @@
   }
 
   async function confirmDelete(name) {
-    return confirm(`Удалить «${name}»? Действие необратимо.`);
+    return confirmDialog({
+      title: 'Удалить?',
+      message: `«${name}» будет удалён. Действие необратимо.`,
+      okText: 'Удалить', cancelText: 'Отмена', danger: true,
+    });
   }
 
   // ============================================================
@@ -646,7 +662,12 @@
         <div class="text">${escapeHtml(c.comment_text)}</div>
       </div>`).join('')}</div>`;
     container.querySelectorAll('[data-cmt-del]').forEach(b => b.addEventListener('click', async () => {
-      if (!confirm('Удалить этот комментарий?')) return;
+      const ok = await confirmDialog({
+        title: 'Удалить комментарий?',
+        message: 'Действие необратимо.',
+        okText: 'Удалить', cancelText: 'Отмена', danger: true,
+      });
+      if (!ok) return;
       const { error } = await sb.from('objection_comments').delete().eq('id', b.dataset.cmtDel);
       if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
       if (window.audit) audit.del('objection_comments', b.dataset.cmtDel, null);
