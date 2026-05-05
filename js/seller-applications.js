@@ -1816,7 +1816,7 @@
     if (!list) return;
     list.innerHTML = '<div class="empty plain">Загрузка…</div>';
     const { data, error } = await sb.from('applications')
-      .select('id, status, company_name, category_id, created_at, updated_at, submitted_at')
+      .select('id, status, company_name, category_id, short_desc, branches, created_at, updated_at, submitted_at')
       .eq('seller_id', state.sellerId)
       .order('updated_at', { ascending: false });
     if (error) {
