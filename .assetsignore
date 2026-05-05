@@ -1,0 +1,22 @@
+# Исключения для wrangler assets — что НЕ должно лежать в публичном статике.
+# Без этого Worker отдавал sql/schema.sql и .git/config с кодом 200
+# (т.к. assets.directory = ".").
+.git/
+.gitignore
+.claude/
+.DS_Store
+
+# Серверные и dev-артефакты — не для публикации
+sql/
+mockups/
+*.md
+node_modules/
+.env
+.env.*
+.dev.vars*
+.wrangler/
+
+# Локальные конфиги wrangler/cloudflare — нужны для деплоя, но не для раздачи
+wrangler.jsonc
+wrangler.toml
+.assetsignore
