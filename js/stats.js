@@ -112,17 +112,21 @@ async function loadStats(range) {
 
 function renderOpStats(allEvents, opMap) {
   const tbody = document.querySelector('#op-stats-table tbody');
-  // Сгруппировать по operator_id
+  // Стартуем с полного списка операторов из таблицы — даже у тех,
+  // у кого пока нет событий, должна быть строка с нулями. События от
+  // удалённых операторов или анонимов в таблице не показываем.
   const m = {};
+  for (const id of Object.keys(opMap)) {
+    m[id] = { clicks: 0, cats: 0, searches: 0 };
+  }
   for (const e of allEvents) {
-    const key = e.operator_id || '__unknown__';
-    if (!m[key]) m[key] = { clicks: 0, cats: 0, searches: 0 };
-    if (e.event_type === 'objection_click') m[key].clicks++;
-    else if (e.event_type === 'category_open') m[key].cats++;
-    else if (e.event_type === 'search') m[key].searches++;
+    if (!e.operator_id || !(e.operator_id in m)) continue;
+    if (e.event_type === 'objection_click') m[e.operator_id].clicks++;
+    else if (e.event_type === 'category_open') m[e.operator_id].cats++;
+    else if (e.event_type === 'search') m[e.operator_id].searches++;
   }
   const rows = Object.entries(m)
-    .map(([id, v]) => ({ id, name: id === '__unknown__' ? 'Неизвестный' : (opMap[id] || '— удалён —'), ...v }))
+    .map(([id, v]) => ({ id, name: opMap[id] || '—', ...v }))
     .sort((a, b) => b.clicks - a.clicks);
 
   tbody.innerHTML = rows.length
@@ -133,7 +137,7 @@ function renderOpStats(allEvents, opMap) {
         <td>${r.cats}</td>
         <td>${r.searches}</td>
       </tr>`).join('')
-    : '<tr><td colspan="4" class="empty">Нет данных</td></tr>';
+    : '<tr><td colspan="4" class="empty">Операторы пока не добавлены</td></tr>';
 }
 
 function aggregate(events, field) {

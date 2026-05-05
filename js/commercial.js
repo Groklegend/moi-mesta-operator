@@ -377,17 +377,34 @@
     const periodEl = $('#ss-period');
     if (periodEl) periodEl.textContent = periodLabel(ssState.range, start, end);
 
-    // Тянем строки seller_daily_reports + список менеджеров.
-    const [reportsRes, usersRes] = await Promise.all([
+    // Тянем строки seller_daily_reports + список зарегистрированных менеджеров
+    // (из таблицы sellers — только их и показываем) + users для маппинга email→id.
+    const [reportsRes, usersRes, sellersRes] = await Promise.all([
       sb.from('seller_daily_reports').select('*')
         .gte('report_date', isoDate(start))
         .lte('report_date', isoDate(end)),
       sb.from('users').select('id, full_name, email, roles'),
+      sb.from('sellers').select('id, name, login, is_active'),
     ]);
     if (reportsRes.error) { toast(reportsRes.error.message, 'error'); return; }
+    if (sellersRes.error) { toast(sellersRes.error.message, 'error'); return; }
 
-    const rows = reportsRes.data || [];
-    const usersById = Object.fromEntries((usersRes.data || []).map(u => [u.id, u]));
+    // Карта users по email (login в sellers = email менеджера).
+    const userByEmail = {};
+    for (const u of (usersRes.data || [])) {
+      if (u.email) userByEmail[u.email.toLowerCase()] = u;
+    }
+
+    // Множество user.id, которые соответствуют зарегистрированным менеджерам.
+    const allowedUserIds = new Set();
+    const sellersList = sellersRes.data || [];
+    for (const s of sellersList) {
+      const u = userByEmail[(s.login || '').toLowerCase()];
+      if (u) allowedUserIds.add(u.id);
+    }
+
+    // Только отчёты разрешённых менеджеров.
+    const rows = (reportsRes.data || []).filter(r => allowedUserIds.has(r.seller_id));
 
     // KPI: суммы по всем полям.
     const totals = {};
@@ -403,28 +420,23 @@
         </div>`).join('');
     }
 
-    // Группировка по менеджерам.
+    // Группировка по менеджерам — стартуем с полного списка из sellers.
     const bySeller = new Map();
-    for (const r of rows) {
-      if (!bySeller.has(r.seller_id)) {
-        const u = usersById[r.seller_id];
-        bySeller.set(r.seller_id, {
-          name: u?.full_name || u?.email || '—',
-          email: u?.email || '',
-          totals: Object.fromEntries(SS_FIELDS.map(f => [f.key, 0])),
-        });
-      }
-      const b = bySeller.get(r.seller_id);
-      for (const f of SS_FIELDS) b.totals[f.key] += r[f.key] || 0;
+    for (const s of sellersList) {
+      const u = userByEmail[(s.login || '').toLowerCase()];
+      bySeller.set(s.id, {
+        userId: u?.id || null,
+        name: s.name || u?.full_name || s.login || '—',
+        email: s.login || '',
+        totals: Object.fromEntries(SS_FIELDS.map(f => [f.key, 0])),
+      });
     }
-    // Все авторизованные менеджеры, даже без отчётов — чтобы видеть нулевые.
-    for (const u of (usersRes.data || [])) {
-      if ((u.roles || []).includes('seller') && !bySeller.has(u.id)) {
-        bySeller.set(u.id, {
-          name: u.full_name || u.email || '—',
-          email: u.email || '',
-          totals: Object.fromEntries(SS_FIELDS.map(f => [f.key, 0])),
-        });
+    for (const r of rows) {
+      for (const b of bySeller.values()) {
+        if (b.userId === r.seller_id) {
+          for (const f of SS_FIELDS) b.totals[f.key] += r[f.key] || 0;
+          break;
+        }
       }
     }
 
@@ -434,7 +446,7 @@
         (b.totals.signed_and_paid - a.totals.signed_and_paid) ||
         a.name.localeCompare(b.name, 'ru'));
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty">Нет данных за период</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">Менеджеры пока не добавлены — сделайте это во вкладке «Менеджеры».</td></tr>`;
       } else {
         tbody.innerHTML = list.map(s => `
           <tr>
