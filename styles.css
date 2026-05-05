@@ -1921,97 +1921,103 @@ h2.page-title {
   font-weight: 600;
 }
 
+/* Таблица ежедневного отчёта — оформлена в стиле мотивации операторов
+   (см. .mot-table): плотные клетки с border-collapse, инпуты-без-рамок
+   во всю ячейку, текущий день и выходные подсвечены. */
 .report-table-wrap {
-  background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  overflow: auto;
-  max-height: calc(100vh - 220px);
+  overflow-x: clip;
+  overflow-y: visible;
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 .report-table {
+  border-collapse: collapse;
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 14px;
+  font-size: 13px;
+  background: white;
 }
-.report-table th, .report-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
+.report-table th {
+  background: var(--bg-soft);
+  color: var(--ink-2);
+  font-weight: 700;
+  padding: 8px 6px;
+  border: 1px solid var(--border);
   text-align: center;
-  white-space: nowrap;
-}
-.report-table thead th {
+  white-space: normal;
+  line-height: 1.2;
+  font-size: 12px;
   position: sticky;
   top: 0;
-  background: var(--bg-soft, #f5f5f3);
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--ink-2);
-  z-index: 2;
-  border-bottom: 1.5px solid var(--border);
-  padding: 10px 8px;
+  z-index: 10;
 }
+.report-table td {
+  border: 1px solid var(--border);
+  padding: 0;
+  text-align: center;
+  background: white;
+}
+.report-table .col-date,
+.report-table thead .col-date,
+.report-table tfoot .col-date {
+  padding: 6px 10px;
+  font-weight: 600;
+  background: var(--bg-soft);
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  color: var(--navy);
+  min-width: 78px;
+  white-space: nowrap;
+  text-align: left;
+}
+.report-table thead .col-date { z-index: 11; }
 .report-table tfoot th {
   position: sticky;
   bottom: 0;
-  background: var(--bg-soft, #f5f5f3);
+  background: var(--bg-soft);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--ink);
-  border-top: 1.5px solid var(--border);
+  padding: 8px 6px;
+  border: 1px solid var(--border);
+  text-align: center;
 }
-.report-table .col-date {
-  text-align: left;
-  font-weight: 600;
-  width: 90px;
-  position: sticky;
-  left: 0;
-  background: var(--card);
-  z-index: 1;
-}
-.report-table thead .col-date,
-.report-table tfoot .col-date {
-  z-index: 3;
-  background: var(--bg-soft, #f5f5f3);
-}
-.report-table tbody tr.weekend .col-date { color: var(--muted); }
-.report-table tbody tr.weekend td { background: rgba(0, 0, 0, 0.015); }
-.report-table tbody tr.today .col-date { color: var(--accent); font-weight: 700; }
+.report-table tfoot .col-date { z-index: 3; }
+
+.report-table tbody tr.weekend td,
+.report-table tbody tr.weekend .col-date { background: #F6F3ED; color: var(--muted); }
+.report-table tbody tr.weekend td input { color: var(--muted); }
+.report-table tbody tr.today .col-date { color: var(--accent); font-weight: 700; background: var(--accent-soft); }
 .report-table tbody tr.today td { background: var(--accent-soft); }
-.report-table tbody tr.today .col-date { background: var(--accent-soft); }
+.report-table tbody tr:hover td:not(.col-date) { background: #FAF8F2; }
+
 .report-table .wk {
   font-size: 11px;
   color: var(--muted);
   font-weight: 400;
   margin-left: 4px;
 }
-.report-table input[type="number"] {
-  width: 86px;
-  padding: 9px 10px;
-  text-align: center;
-  border: 1.5px solid var(--border-strong);
-  background: #fff;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 500;
+.report-table td input[type="number"] {
+  width: 100%;
+  min-width: 56px;
+  padding: 7px 6px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
   color: var(--ink);
-  font-family: inherit;
+  text-align: center;
   outline: none;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
-  transition: border-color 0.12s, box-shadow 0.12s;
   -moz-appearance: textfield;
 }
-.report-table input[type="number"]::-webkit-outer-spin-button,
-.report-table input[type="number"]::-webkit-inner-spin-button {
+.report-table td input[type="number"]::-webkit-outer-spin-button,
+.report-table td input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-.report-table input[type="number"]:hover {
-  border-color: var(--accent);
-}
-.report-table input[type="number"]:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+.report-table td input[type="number"]:focus {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 /* Секции вкладок менеджера */
