@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Уведомления · Мои Места</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="hub.html" class="logo" aria-label="Мои Места">
+    <img src="assets/logo-horizontal.png" alt="Мои Места">
+  </a>
+  <div class="title">Уведомления</div>
+  <nav class="role-switcher" id="role-switcher" hidden></nav>
+  <div class="spacer"></div>
+  <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
+  <button class="link" id="logout">Выйти</button>
+</header>
+
+<main class="container">
+  <div class="flex between" style="margin-bottom:20px;">
+    <h2 class="page-title">Все уведомления</h2>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <label class="inline"><input type="checkbox" id="only-unread"> <span>Только непрочитанные</span></label>
+      <button class="btn" id="mark-all">Прочитать всё</button>
+      <a class="btn" href="hub.html">← В Хаб</a>
+    </div>
+  </div>
+
+  <div id="list" class="notifications-list">
+    <div style="padding:32px;text-align:center;color:var(--muted);">Загрузка…</div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/operator-auth.js"></script>
+<script src="js/hub-routing.js"></script>
+<script src="js/cabinet-shell.js"></script>
+<script>
+(async () => {
+  await cabinetShell.init({});
+  const row = await hubRouting.getCurrentUserRow();
+  if (!row) return;
+
+  const list = document.getElementById('list');
+  const onlyUnread = document.getElementById('only-unread');
+  const markAllBtn = document.getElementById('mark-all');
+
+  async function load() {
+    let q = sb.from('notifications')
+      .select('id, title, body, link, is_read, created_at')
+      .eq('user_id', row.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (onlyUnread.checked) q = q.eq('is_read', false);
+    const { data, error } = await q;
+    if (error) { list.innerHTML = `<div style="padding:32px;color:var(--danger);">Ошибка: ${escapeHtml(error.message)}</div>`; return; }
+    if (!data || data.length === 0) {
+      list.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted);">Уведомлений нет</div>`;
+      return;
+    }
+    list.innerHTML = data.map(n => {
+      const dt = n.created_at ? new Date(n.created_at).toLocaleString('ru-RU') : '';
+      const cls = n.is_read ? 'notif-row' : 'notif-row unread';
+      const body = n.body ? `<div class="notif-body">${escapeHtml(n.body)}</div>` : '';
+      const link = n.link ? `<a class="notif-link" href="${escapeHtml(n.link)}">Перейти →</a>` : '';
+      const action = n.is_read
+        ? ''
+        : `<button class="btn sm" data-mark="${n.id}">Отметить прочитанным</button>`;
+      return `<div class="${cls}">
+        <div class="notif-time">${dt}</div>
+        <div class="notif-title">${escapeHtml(n.title)}</div>
+        ${body}
+        <div class="notif-actions">${link} ${action}</div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-mark]').forEach(b => {
+      b.addEventListener('click', async () => {
+        await sb.from('notifications').update({ is_read: true }).eq('id', b.dataset.mark);
+        load();
+        cabinetShell.refreshBell();
+      });
+    });
+  }
+
+  onlyUnread.addEventListener('change', load);
+  markAllBtn.addEventListener('click', async () => {
+    await sb.from('notifications').update({ is_read: true })
+      .eq('user_id', row.id).eq('is_read', false);
+    load();
+    cabinetShell.refreshBell();
+  });
+  load();
+})();
+</script>
+</body>
+</html>

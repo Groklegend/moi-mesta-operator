@@ -26,6 +26,117 @@
     { role: 'admin',    label: 'Админка',    page: 'admin.html'   },
   ];
 
+  let bellPollTimer = null;
+  let currentUserId = null;
+
+  // Создаёт элемент колокольчика и вставляет ПЕРЕД элементом-якорем (обычно user-email).
+  // Если в DOM уже есть #bell — переиспользует.
+  function ensureBell() {
+    let bell = document.getElementById('bell');
+    if (bell) return bell;
+    const anchor = document.getElementById('user-email');
+    if (!anchor || !anchor.parentElement) return null;
+    bell = document.createElement('div');
+    bell.id = 'bell';
+    bell.className = 'bell';
+    bell.innerHTML = `
+      <button type="button" class="bell-btn" id="bell-btn" aria-label="Уведомления">
+        <span class="bell-icon">🔔</span>
+        <span class="bell-count" id="bell-count" hidden>0</span>
+      </button>
+      <div class="bell-dropdown hidden" id="bell-dropdown">
+        <div class="bell-head">
+          <span>Уведомления</span>
+          <button type="button" class="link" id="bell-mark-all">Прочитать всё</button>
+        </div>
+        <div class="bell-list" id="bell-list">
+          <div class="bell-empty">Загрузка…</div>
+        </div>
+        <a class="bell-footer" href="notifications.html">Все уведомления →</a>
+      </div>`;
+    anchor.parentElement.insertBefore(bell, anchor);
+    // Тогглы и обработчики
+    document.getElementById('bell-btn').addEventListener('click', toggleBellDropdown);
+    document.getElementById('bell-mark-all').addEventListener('click', markAllRead);
+    document.addEventListener('click', (e) => {
+      if (!bell.contains(e.target)) closeBellDropdown();
+    });
+    return bell;
+  }
+
+  async function refreshBell() {
+    if (!currentUserId) return;
+    const { data, error } = await sb
+      .from('notifications')
+      .select('id, title, body, link, is_read, created_at')
+      .eq('user_id', currentUserId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (error) { console.error('notifications:', error); return; }
+    const unread = (data || []).filter(n => !n.is_read).length;
+    const countEl = document.getElementById('bell-count');
+    if (countEl) {
+      countEl.textContent = unread > 99 ? '99+' : String(unread);
+      countEl.hidden = unread === 0;
+    }
+    const list = document.getElementById('bell-list');
+    if (!list) return;
+    if (!data || data.length === 0) {
+      list.innerHTML = `<div class="bell-empty">Пока нет уведомлений</div>`;
+      return;
+    }
+    list.innerHTML = data.map(n => {
+      const dt = n.created_at ? new Date(n.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+      const unreadCls = n.is_read ? '' : ' unread';
+      const body = n.body ? `<div class="bell-item-body">${escapeHtml(n.body)}</div>` : '';
+      const linkAttr = n.link ? ` data-link="${escapeHtml(n.link)}"` : '';
+      return `<div class="bell-item${unreadCls}" data-id="${n.id}"${linkAttr}>
+        <div class="bell-item-title">${escapeHtml(n.title)}</div>
+        ${body}
+        <div class="bell-item-time">${dt}</div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.bell-item').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id = el.dataset.id;
+        const link = el.dataset.link;
+        await sb.from('notifications').update({ is_read: true }).eq('id', id);
+        if (link) location.href = link;
+        else refreshBell();
+      });
+    });
+  }
+
+  function toggleBellDropdown(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('bell-dropdown');
+    if (!dd) return;
+    const willOpen = dd.classList.contains('hidden');
+    dd.classList.toggle('hidden');
+    if (willOpen) refreshBell();
+  }
+
+  function closeBellDropdown() {
+    document.getElementById('bell-dropdown')?.classList.add('hidden');
+  }
+
+  async function markAllRead(e) {
+    e.stopPropagation();
+    if (!currentUserId) return;
+    await sb.from('notifications').update({ is_read: true })
+      .eq('user_id', currentUserId).eq('is_read', false);
+    refreshBell();
+  }
+
+  function startBellPolling(userId) {
+    currentUserId = userId;
+    if (!ensureBell()) return; // нет места в шапке — пропускаем (например stats.html)
+    refreshBell();
+    if (bellPollTimer) clearInterval(bellPollTimer);
+    // Опрос каждые 60 сек — недорого, real-time не критичен.
+    bellPollTimer = setInterval(refreshBell, 60_000);
+  }
+
   function pageOfCurrent() {
     const path = location.pathname.split('/').pop().toLowerCase();
     return path || 'hub.html';
@@ -73,6 +184,7 @@
     if (rolesEl) rolesEl.textContent = roles.length ? roles.join(', ') : '—';
 
     renderRoleSwitcher(roles);
+    startBellPolling(row.id);
 
     const logoutBtn = document.getElementById('logout');
     if (logoutBtn) {
@@ -85,5 +197,5 @@
     }
   }
 
-  window.cabinetShell = { init, CABINETS };
+  window.cabinetShell = { init, CABINETS, refreshBell, startBellPolling };
 })();

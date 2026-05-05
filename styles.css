@@ -230,6 +230,135 @@ h1, h2, h3, .topbar .title {
 .status-badge.status-active   { background: #dcfce7; color: #166534; }
 .status-badge.status-disabled { background: #fee2e2; color: #991b1b; }
 
+/* ---------- Колокольчик уведомлений (cabinet-shell.js) ---------- */
+.bell { position: relative; display: inline-block; }
+.bell-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.bell-btn:hover { background: var(--bg-soft); }
+.bell-icon { display: inline-block; }
+.bell-count {
+  position: absolute;
+  top: 2px; right: 2px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  background: #dc2626; color: #fff;
+  font-size: 10px; font-weight: 700;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.bell-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  z-index: 100;
+  overflow: hidden;
+}
+.bell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 14px;
+}
+.bell-head .link {
+  font-size: 12px;
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.bell-head .link:hover { background: var(--bg-soft); color: var(--navy); }
+.bell-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.bell-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.bell-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.bell-item:last-child { border-bottom: none; }
+.bell-item:hover { background: var(--bg-soft); }
+.bell-item.unread { background: #eff6ff; }
+.bell-item.unread:hover { background: #dbeafe; }
+.bell-item-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.bell-item-body {
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+.bell-item-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+.bell-footer {
+  display: block;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--bg-soft);
+  color: var(--navy);
+  text-decoration: none;
+  border-top: 1px solid var(--border);
+}
+.bell-footer:hover { background: var(--border); }
+
+/* ---------- Полная страница уведомлений (notifications.html) ---------- */
+.notifications-list {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.notif-row {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.notif-row:last-child { border-bottom: none; }
+.notif-row.unread { background: #eff6ff; }
+.notif-time { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.notif-title { font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 4px; }
+.notif-body { font-size: 14px; color: var(--ink-2); line-height: 1.5; margin-bottom: 8px; }
+.notif-actions { display: flex; gap: 8px; align-items: center; }
+.notif-link {
+  font-size: 13px; font-weight: 600;
+  color: var(--navy); text-decoration: none;
+}
+.notif-link:hover { text-decoration: underline; }
+
 /* ---------- Контейнер ---------- */
 .container { max-width: 1120px; margin: 0 auto; padding: 32px 28px; }
 .container.narrow { max-width: 720px; }
