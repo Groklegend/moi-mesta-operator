@@ -42,6 +42,7 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/operator-auth.js"></script>
 <script src="js/hub-routing.js"></script>
+<script src="js/audit.js"></script>
 <script src="js/pwd-toggle.js"></script>
 <script>
 // Если уже залогинен — сразу маршрутизируем по роли
@@ -62,11 +63,13 @@ form.addEventListener('submit', async (e) => {
   try {
     const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) {
+      audit.log({ action: 'login_failed', user_email: email, metadata: { kind: 'hub_login', reason: error.message } });
       errEl.textContent = 'Ошибка входа: ' + error.message;
       errEl.hidden = false;
       btn.disabled = false; btn.textContent = 'Войти';
       return;
     }
+    audit.log({ action: 'login', metadata: { kind: 'hub_login' } });
     await hubRouting.redirectByRole();
   } catch (err) {
     errEl.textContent = 'Сбой: ' + (err?.message || err);

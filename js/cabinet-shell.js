@@ -189,6 +189,8 @@
     const logoutBtn = document.getElementById('logout');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async () => {
+        // Логируем выход ДО signOut — иначе RLS не пустит anon-инсерт.
+        try { if (window.audit) await window.audit.log({ action: 'logout' }); } catch (_) {}
         // Чистим обе сессии: и Supabase Auth, и legacy operator localStorage.
         try { await sb.auth.signOut(); } catch (_) {}
         if (window.operatorSession) window.operatorSession.clear();

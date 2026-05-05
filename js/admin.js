@@ -121,10 +121,11 @@ function editCategory(id) {
       icon: fd.get('icon'),
       sort_order: Number(fd.get('sort_order')) || 0,
     };
-    const { error } = id
-      ? await sb.from('categories').update(payload).eq('id', id)
-      : await sb.from('categories').insert(payload);
+    const { data: saved, error } = id
+      ? await sb.from('categories').update(payload).eq('id', id).select().maybeSingle()
+      : await sb.from('categories').insert(payload).select().maybeSingle();
     if (error) { toast('Ошибка: ' + error.message); return; }
+    audit.save('categories', !id, saved?.id || id, payload);
     closeModal(); toast('Сохранено'); loadCategories(); loadObjections();
   });
 }
@@ -156,6 +157,7 @@ async function deleteCategory(id) {
   }
   const { error } = await sb.from('categories').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.del('categories', id, c.name);
   toast('Удалено'); loadCategories(); loadObjections();
 }
 
@@ -241,6 +243,7 @@ async function loadCommentsInto(objectionId) {
     if (!confirm('Удалить этот комментарий?')) return;
     const { error } = await sb.from('objection_comments').delete().eq('id', b.dataset.cmtDel);
     if (error) { toast('Ошибка: ' + error.message); return; }
+    audit.del('objection_comments', b.dataset.cmtDel, null);
     toast('Удалено');
     await loadCommentsInto(objectionId);
     loadObjections();
@@ -302,10 +305,11 @@ function editObjection(id) {
       is_active: fd.get('is_active') === 'on',
     };
     if (!payload.answer.trim()) { toast('Заполните текст ответа'); return; }
-    const { error } = id
-      ? await sb.from('objections').update(payload).eq('id', id)
-      : await sb.from('objections').insert(payload);
+    const { data: saved, error } = id
+      ? await sb.from('objections').update(payload).eq('id', id).select().maybeSingle()
+      : await sb.from('objections').insert(payload).select().maybeSingle();
     if (error) { toast('Ошибка: ' + error.message); return; }
+    audit.save('objections', !id, saved?.id || id, { title: payload.title, is_general: payload.is_general, is_active: payload.is_active });
     closeModal(); toast('Сохранено'); loadObjections();
   });
 }
@@ -355,6 +359,7 @@ async function toggleObjection(id) {
   const o = objectionsCache.find(x => x.id === id);
   const { error } = await sb.from('objections').update({ is_active: !o.is_active }).eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.log({ action: 'objections_toggle_active', target_type: 'objections', target_id: id, metadata: { title: o.title, is_active: !o.is_active } });
   loadObjections();
 }
 
@@ -363,6 +368,7 @@ async function deleteObjection(id) {
   if (!o || !await confirmDelete(o.title)) return;
   const { error } = await sb.from('objections').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.del('objections', id, o.title);
   toast('Удалено'); loadObjections();
 }
 
@@ -417,10 +423,11 @@ function editCheat(id) {
       content: fd.get('content'),
       sort_order: Number(fd.get('sort_order')) || 0,
     };
-    const { error } = id
-      ? await sb.from('cheatsheet_blocks').update(payload).eq('id', id)
-      : await sb.from('cheatsheet_blocks').insert(payload);
+    const { data: saved, error } = id
+      ? await sb.from('cheatsheet_blocks').update(payload).eq('id', id).select().maybeSingle()
+      : await sb.from('cheatsheet_blocks').insert(payload).select().maybeSingle();
     if (error) { toast('Ошибка: ' + error.message); return; }
+    audit.save('cheatsheet_blocks', !id, saved?.id || id, { title: payload.title });
     closeModal(); toast('Сохранено'); loadCheatsheet();
   });
 }
@@ -430,6 +437,7 @@ async function deleteCheat(id) {
   if (!b || !await confirmDelete(b.title)) return;
   const { error } = await sb.from('cheatsheet_blocks').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.del('cheatsheet_blocks', id, b.title);
   toast('Удалено'); loadCheatsheet();
 }
 
@@ -488,10 +496,11 @@ function editDoc(id) {
       description: fd.get('description') || null,
       sort_order: Number(fd.get('sort_order')) || 0,
     };
-    const { error } = id
-      ? await sb.from('documents').update(payload).eq('id', id)
-      : await sb.from('documents').insert(payload);
+    const { data: saved, error } = id
+      ? await sb.from('documents').update(payload).eq('id', id).select().maybeSingle()
+      : await sb.from('documents').insert(payload).select().maybeSingle();
     if (error) { toast('Ошибка: ' + error.message); return; }
+    audit.save('documents', !id, saved?.id || id, { name: payload.name, url: payload.url });
     closeModal(); toast('Сохранено'); loadDocuments();
   });
 }
@@ -501,6 +510,7 @@ async function deleteDoc(id) {
   if (!d || !await confirmDelete(d.name)) return;
   const { error } = await sb.from('documents').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.del('documents', id, d.name);
   toast('Удалено'); loadDocuments();
 }
 
@@ -613,9 +623,9 @@ function editOp(id) {
     }
     const btn = e.submitter;
     btn.disabled = true; btn.textContent = 'Сохраняем…';
-    const { error } = isNew
-      ? await sb.from('operators').insert(payload)
-      : await sb.from('operators').update(payload).eq('id', id);
+    const { data: saved, error } = isNew
+      ? await sb.from('operators').insert(payload).select().maybeSingle()
+      : await sb.from('operators').update(payload).eq('id', id).select().maybeSingle();
     btn.disabled = false; btn.textContent = 'Сохранить';
     if (error) {
       const msg = error.message.includes('operators_login_key') || error.code === '23505'
@@ -624,6 +634,8 @@ function editOp(id) {
       toast(msg);
       return;
     }
+    // metadata без password — не пишем сырой пароль в журнал.
+    audit.save('operators', isNew, saved?.id || id, { name: payload.name, login: payload.login, is_active: payload.is_active, password_changed: !!payload.password });
     closeModal(); toast('Сохранено'); loadOperators();
   });
 }
@@ -633,6 +645,7 @@ async function deleteOp(id) {
   if (!op || !await confirmDelete(`оператора «${op.name}»`)) return;
   const { error } = await sb.from('operators').delete().eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.del('operators', id, op.name);
   toast('Удалено'); loadOperators();
 }
 
@@ -853,6 +866,7 @@ function editUser(id) {
       btn.disabled = false; btn.textContent = 'Сохранить';
       return;
     }
+    audit.log({ action: 'user_update', target_type: 'users', target_id: id, metadata: { full_name, roles } });
     toast('Сохранено');
     closeModal();
     loadUsers();
@@ -867,6 +881,7 @@ async function toggleUserStatus(id) {
   if (!confirm(`Точно ${verb} «${u.email}»?`)) return;
   const { error } = await sb.from('users').update({ status: newStatus }).eq('id', id);
   if (error) { toast('Ошибка: ' + error.message); return; }
+  audit.log({ action: 'user_status_change', target_type: 'users', target_id: id, metadata: { email: u.email, new_status: newStatus } });
   toast(newStatus === 'active' ? 'Включён' : 'Отключён');
   loadUsers();
 }
