@@ -60,8 +60,25 @@
     'На модерации',
   ];
 
-  // Стаб: «текущий шаг Гари» для сделки. Пока DB не отдаёт реальный шаг —
-  // выбираем детерминированно по id, чтобы у разной сделки был свой чип.
+  // Город для карточки сделки. Сначала смотрим явный city у первого филиала
+  // (его проставляет DaData при выборе подсказки), иначе пытаемся выкусить
+  // первый сегмент адреса вида «г Москва, ул …».
+  function dealCity(deal) {
+    const branches = Array.isArray(deal.branches) ? deal.branches : [];
+    for (const b of branches) {
+      if (b?.city) return b.city;
+    }
+    for (const b of branches) {
+      const addr = (b?.address || '').trim();
+      if (!addr) continue;
+      const first = addr.split(',')[0].trim();
+      const m = first.match(/^(?:г\.?|город|пгт\.?|с\.?|село|пос\.?|д\.?)\s+(.+)$/i);
+      if (m) return m[1].trim();
+      if (first && first.length < 40) return first;
+    }
+    return '';
+  }
+
   function garyChipForDeal(deal) {
     if (!deal || !deal.id) return GARY_CHIP_LABELS[0];
     let h = 0;
@@ -1360,6 +1377,7 @@
           const data = sug.data || {};
           state.app.branches[idx] = {
             address: sug.value,
+            city: data.city_with_type || data.settlement_with_type || data.region_with_type || '',
             lat: data.geo_lat ? Number(data.geo_lat) : null,
             lon: data.geo_lon ? Number(data.geo_lon) : null,
             fias_id: data.fias_id || null,
@@ -1833,14 +1851,19 @@
       const badgeHtml = st.badge
         ? `<span class="deal-badge ${st.badge}">${escapeHtml(st.label)}</span>${chipText ? ` <span class="gary-step-chip">${escapeHtml(chipText)}</span>` : ''}`
         : `<span class="badge ${st.cls}">${escapeHtml(st.label)}</span>`;
+      const city = dealCity(d);
+      const shortDesc = (d.short_desc || '').trim();
+      const descShort = shortDesc.length > 120 ? shortDesc.slice(0, 117) + '…' : shortDesc;
       return `
         <div class="deal-card" data-id="${d.id}">
           <div class="deal-main">
             <div class="deal-name">${escapeHtml(d.company_name || '— без названия —')}</div>
             <div class="deal-meta">
               ${cat ? `<span>${cat.icon || ''} ${escapeHtml(cat.name)}</span>` : ''}
+              ${city ? `<span>· 📍 ${escapeHtml(city)}</span>` : ''}
               <span>· ${escapeHtml(dt)}</span>
             </div>
+            ${descShort ? `<div class="deal-desc">${escapeHtml(descShort)}</div>` : ''}
           </div>
           ${badgeHtml}
           <button class="btn sm deal-open" data-id="${d.id}">${d.status === 'draft' ? 'Продолжить' : 'Открыть'}</button>
