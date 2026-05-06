@@ -12,9 +12,11 @@
   const state = {
     view: 'month',          // 'month' | 'week'
     cursor: null,           // Date — опорная дата (любой день внутри периода)
-    slots: [],              // [{id, busy_at, duration_minutes, comment}] на видимый период
+    events: [],             // объединённый список событий (leads + blocks) на видимый период
     initialized: false,
     userId: null,
+    selectedDay: null,      // 'YYYY-MM-DD' — выбранный день для sidebar
+    selectedEventId: null,  // id выбранной карточки в sidebar
   };
 
   // ---------- Утилиты ----------
@@ -88,27 +90,66 @@
     return { from: start, to: addDays(start, 6) };
   }
 
-  async function loadSlots() {
+  // Загружаем события менеджера на видимый период:
+  // (а) личные блокировки manager_busy_slots,
+  // (б) встречи из leads (где manager_id = текущий менеджер).
+  // Событие — общий формат для рендеров: { id, type, busy_at, duration_minutes, label, _row }.
+  async function loadEvents() {
     if (!state.userId) {
       const { data: { user } } = await sb.auth.getUser();
       state.userId = user?.id || null;
     }
     if (!state.userId) return;
     const { from, to } = visibleRange();
-    const { data, error } = await sb
-      .from('manager_busy_slots')
-      .select('id, busy_at, duration_minutes, comment')
-      .eq('manager_id', state.userId)
-      .gte('busy_at', from.toISOString())
-      .lt('busy_at', addDays(to, 1).toISOString())
-      .order('busy_at');
-    if (error) { console.error('busy_slots:', error); state.slots = []; return; }
-    state.slots = data || [];
+    const fromIso = from.toISOString();
+    const toIso = addDays(to, 1).toISOString();
+    const [blocksRes, leadsRes] = await Promise.all([
+      sb.from('manager_busy_slots')
+        .select('id, busy_at, duration_minutes, comment')
+        .eq('manager_id', state.userId)
+        .gte('busy_at', fromIso)
+        .lt('busy_at', toIso)
+        .order('busy_at'),
+      sb.from('leads')
+        .select('id, company_name, city, phone, called_phone, lpr_name, meeting_address, meeting_at, comment, has_loyalty, website, telegram, status')
+        .eq('manager_id', state.userId)
+        .not('meeting_at', 'is', null)
+        .gte('meeting_at', fromIso)
+        .lt('meeting_at', toIso)
+        .order('meeting_at'),
+    ]);
+    if (blocksRes.error) console.error('blocks:', blocksRes.error);
+    if (leadsRes.error) console.error('leads:', leadsRes.error);
+
+    const events = [];
+    for (const b of (blocksRes.data || [])) {
+      events.push({
+        id: 'block-' + b.id,
+        _id: b.id,
+        type: 'block',
+        busy_at: b.busy_at,
+        duration_minutes: b.duration_minutes || 60,
+        label: b.comment || '— без комментария',
+        _row: b,
+      });
+    }
+    for (const l of (leadsRes.data || [])) {
+      events.push({
+        id: 'lead-' + l.id,
+        _id: l.id,
+        type: 'lead',
+        busy_at: l.meeting_at,
+        duration_minutes: 60,
+        label: l.company_name || '— без названия',
+        _row: l,
+      });
+    }
+    events.sort((a, b) => a.busy_at.localeCompare(b.busy_at));
+    state.events = events;
   }
 
-  function slotsForDate(date) {
-    return state.slots.filter((s) => sameDate(new Date(s.busy_at), date))
-      .sort((a, b) => a.busy_at.localeCompare(b.busy_at));
+  function eventsForDate(date) {
+    return state.events.filter((e) => sameDate(new Date(e.busy_at), date));
   }
 
   // ---------- Точка входа ----------
@@ -130,21 +171,27 @@
             <button type="button" class="btn cal-prev" id="cal-prev">‹</button>
             <div class="cal-period" id="cal-period"></div>
             <button type="button" class="btn cal-next" id="cal-next">›</button>
-            <button type="button" class="btn cal-today" id="cal-today">Сегодня</button>
           </div>
-          <div class="cal-views">
-            <button type="button" class="btn cal-view-btn" data-view="month">Месяц</button>
-            <button type="button" class="btn cal-view-btn" data-view="week">Неделя</button>
+          <div class="cal-actions">
+            <button type="button" class="btn cal-today" id="cal-today">Сегодня</button>
+            <div class="cal-views">
+              <button type="button" class="btn cal-view-btn" data-view="month">Месяц</button>
+              <button type="button" class="btn cal-view-btn" data-view="week">Неделя</button>
+            </div>
           </div>
         </div>
-        <div class="cal-body" id="cal-body"></div>
-        <p class="cal-hint">Кликните на день, чтобы добавить занятый слот. Эти блокировки видит оператор при назначении встречи.</p>
+        <div class="cal-layout">
+          <aside class="cal-sidebar" id="cal-sidebar" hidden></aside>
+          <div class="cal-body" id="cal-body"></div>
+        </div>
+        <p class="cal-hint">Кликните на день — слева появятся встречи и блокировки этого дня. Клик на слот раскрывает подробности.</p>
       `;
       bindToolbar();
       root.dataset.scaffolded = '1';
     }
-    await loadSlots();
+    await loadEvents();
     render();
+    if (state.selectedDay) renderSidebar();
   }
 
   function bindToolbar() {
@@ -207,13 +254,15 @@
       const d = addDays(gridStart, i);
       const inMonth = d.getMonth() === ms.getMonth();
       const isToday = sameDate(d, today);
-      const slots = slotsForDate(d);
-      const slotsHtml = slots.slice(0, 3).map((s) => `
-        <div class="cal-slot-pill" title="${escapeHtml(s.comment || '')}">${rangeOf(s)}${s.comment ? ' · ' + escapeHtml(s.comment) : ''}</div>
+      const events = eventsForDate(d);
+      const slotsHtml = events.slice(0, 3).map((s) => `
+        <div class="cal-slot-pill cal-slot-${s.type}" title="${escapeHtml(s.label || '')}">${rangeOf(s)} · ${escapeHtml(s.label)}</div>
       `).join('');
-      const moreHtml = slots.length > 3 ? `<div class="cal-slot-more">+ ещё ${slots.length - 3}</div>` : '';
+      const moreHtml = events.length > 3 ? `<div class="cal-slot-more">+ ещё ${events.length - 3}</div>` : '';
+      const dymd = ymd(d);
+      const isSelected = state.selectedDay === dymd;
       cells += `
-        <div class="cal-cell ${inMonth ? '' : 'cal-cell-out'} ${isToday ? 'cal-cell-today' : ''}" data-date="${ymd(d)}">
+        <div class="cal-cell ${inMonth ? '' : 'cal-cell-out'} ${isToday ? 'cal-cell-today' : ''} ${isSelected ? 'cal-cell-selected' : ''}" data-date="${dymd}">
           <div class="cal-cell-num">${d.getDate()}</div>
           <div class="cal-cell-slots">${slotsHtml}${moreHtml}</div>
         </div>`;
@@ -227,7 +276,7 @@
       <div class="cal-month-grid">${cells}</div>`;
 
     body.querySelectorAll('.cal-cell').forEach((cell) => {
-      cell.addEventListener('click', () => openDayModal(parseYmd(cell.dataset.date)));
+      cell.addEventListener('click', () => selectDay(parseYmd(cell.dataset.date)));
     });
   }
 
@@ -239,22 +288,24 @@
     for (let i = 0; i < 7; i++) {
       const d = addDays(start, i);
       const isToday = sameDate(d, today);
-      const slots = slotsForDate(d);
-      const slotsHtml = slots.length
-        ? slots.map((s) => `
-            <div class="cal-week-slot">
+      const events = eventsForDate(d);
+      const slotsHtml = events.length
+        ? events.map((s) => `
+            <div class="cal-week-slot cal-slot-${s.type}">
               <span class="cal-week-time">${rangeOf(s)}</span>
-              <span class="cal-week-comment">${escapeHtml(s.comment || '— без комментария')}</span>
+              <span class="cal-week-comment">${escapeHtml(s.label)}</span>
             </div>`).join('')
         : '<div class="cal-week-empty">— свободен</div>';
+      const dymd = ymd(d);
+      const isSelected = state.selectedDay === dymd;
       html += `
-        <div class="cal-week-row ${isToday ? 'cal-week-row-today' : ''}" data-date="${ymd(d)}">
+        <div class="cal-week-row ${isToday ? 'cal-week-row-today' : ''} ${isSelected ? 'cal-week-row-selected' : ''}" data-date="${dymd}">
           <div class="cal-week-day">
             <div class="cal-week-num">${d.getDate()}</div>
             <div class="cal-week-wd">${WEEKDAYS_SHORT[i]}</div>
           </div>
           <div class="cal-week-slots">${slotsHtml}</div>
-          <button type="button" class="btn cal-week-add" data-date="${ymd(d)}">＋</button>
+          <button type="button" class="btn cal-week-add" data-date="${dymd}">＋</button>
         </div>`;
     }
     html += '</div>';
@@ -267,23 +318,19 @@
       });
     });
     body.querySelectorAll('.cal-week-row').forEach((row) => {
-      row.addEventListener('click', () => openDayModal(parseYmd(row.dataset.date)));
+      row.addEventListener('click', () => selectDay(parseYmd(row.dataset.date)));
     });
   }
 
-  // ---------- Модалка дня ----------
+  // ---------- Модалка добавления блокировки ----------
+  // Список слотов и удаление вынесены в sidebar (renderSidebar).
   function openDayModal(date) {
-    const slots = slotsForDate(date);
-
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop cal-modal';
     backdrop.style.zIndex = '9999';
     backdrop.innerHTML = `
       <div class="modal-window cal-day-window" role="dialog" aria-modal="true">
-        <h3 class="modal-title">${escapeHtml(date.getDate() + ' ' + MONTHS_GEN[date.getMonth()] + ' ' + date.getFullYear())}</h3>
-
-        <div class="cal-day-list" id="cal-day-list">${renderDaySlots(slots)}</div>
-
+        <h3 class="modal-title">Добавить блокировку — ${escapeHtml(date.getDate() + ' ' + MONTHS_GEN[date.getMonth()] + ' ' + date.getFullYear())}</h3>
         <form class="cal-day-add" id="cal-day-add" autocomplete="off">
           <div class="cal-day-add-row">
             <label class="cal-day-add-time">
@@ -300,8 +347,8 @@
             </label>
           </div>
           <div class="cal-day-actions">
-            <button type="button" class="btn" data-act="close">Закрыть</button>
-            <button type="submit" class="btn primary">Добавить слот</button>
+            <button type="button" class="btn" data-act="close">Отмена</button>
+            <button type="submit" class="btn primary">Добавить</button>
           </div>
         </form>
       </div>`;
@@ -334,49 +381,121 @@
         toast('Не получилось сохранить.');
         return;
       }
-      await loadSlots();
-      // Перерисовать список в открытой модалке + календарь под ней
-      $('#cal-day-list').innerHTML = renderDaySlots(slotsForDate(date));
-      bindDeleteHandlers(date);
-      e.target.reset();
+      backdrop.remove();
+      await loadEvents();
       render();
+      // Если этот день уже выбран в sidebar — обновим
+      if (state.selectedDay === ymd(date)) renderSidebar();
+      else selectDay(date);
       toast('Слот добавлен.');
     });
-    bindDeleteHandlers(date);
-
-    function bindDeleteHandlers(d) {
-      backdrop.querySelectorAll('.cal-day-slot-del').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const id = btn.dataset.id;
-          const ok = window.confirmDialog
-            ? await window.confirmDialog({ title: 'Удалить слот?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
-            : confirm('Удалить слот?');
-          if (!ok) return;
-          const { error } = await sb.from('manager_busy_slots').delete().eq('id', id);
-          if (error) { toast('Не получилось удалить.'); return; }
-          await loadSlots();
-          $('#cal-day-list').innerHTML = renderDaySlots(slotsForDate(d));
-          bindDeleteHandlers(d);
-          render();
-          toast('Слот удалён.');
-        });
-      });
-    }
   }
 
-  function renderDaySlots(slots) {
-    if (!slots.length) {
-      return '<div class="cal-day-empty">На этот день блокировок нет. Добавьте первую ниже.</div>';
+  // ---------- Sidebar выбранного дня ----------
+  function selectDay(date) {
+    state.selectedDay = ymd(date);
+    state.selectedEventId = null;
+    // Перерисовать grid с подсветкой выбранного дня
+    render();
+    renderSidebar();
+  }
+
+  function renderSidebar() {
+    const aside = $('#cal-sidebar');
+    if (!aside) return;
+    if (!state.selectedDay) { aside.hidden = true; aside.innerHTML = ''; return; }
+    aside.hidden = false;
+    const date = parseYmd(state.selectedDay);
+    const events = eventsForDate(date);
+
+    const headerHtml = `
+      <div class="cal-side-head">
+        <div>
+          <div class="cal-side-day">${date.getDate()} ${MONTHS_GEN[date.getMonth()]} ${date.getFullYear()}</div>
+          <div class="cal-side-count">${events.length ? events.length + ' событ.' : 'нет событий'}</div>
+        </div>
+        <button type="button" class="btn cal-side-close" id="cal-side-close" title="Скрыть панель">×</button>
+      </div>`;
+
+    const listHtml = events.length
+      ? `<ul class="cal-side-list">
+          ${events.map((e) => `
+            <li class="cal-side-item cal-slot-${e.type} ${state.selectedEventId === e.id ? 'cal-side-active' : ''}" data-event-id="${e.id}">
+              <div class="cal-side-time">${rangeOf(e)}</div>
+              <div class="cal-side-label">${escapeHtml(e.label)}</div>
+              <div class="cal-side-tag">${e.type === 'lead' ? 'встреча' : 'блок'}</div>
+            </li>
+          `).join('')}
+        </ul>`
+      : '<div class="cal-side-empty">На этот день встреч и блокировок нет.</div>';
+
+    let detailsHtml = '';
+    if (state.selectedEventId) {
+      const ev = events.find((e) => e.id === state.selectedEventId);
+      if (ev) detailsHtml = renderEventDetails(ev);
     }
-    return `<ul class="cal-day-slots">
-      ${slots.map((s) => `
-        <li class="cal-day-slot">
-          <span class="cal-day-slot-time">${rangeOf(s)}</span>
-          <span class="cal-day-slot-comment">${escapeHtml(s.comment || '— без комментария')}</span>
-          <button type="button" class="cal-day-slot-del" data-id="${s.id}" title="Удалить">🗑</button>
-        </li>
-      `).join('')}
-    </ul>`;
+
+    const addBtnHtml = `<button type="button" class="btn primary cal-side-add" id="cal-side-add">＋ Добавить блокировку</button>`;
+
+    aside.innerHTML = headerHtml + listHtml + detailsHtml + addBtnHtml;
+
+    $('#cal-side-close').addEventListener('click', () => {
+      state.selectedDay = null;
+      state.selectedEventId = null;
+      aside.hidden = true;
+      render();
+    });
+    $('#cal-side-add').addEventListener('click', () => openDayModal(date));
+
+    aside.querySelectorAll('.cal-side-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        state.selectedEventId = el.dataset.eventId;
+        renderSidebar();
+      });
+    });
+
+    aside.querySelector('.cal-side-del')?.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id;
+      const ok = window.confirmDialog
+        ? await window.confirmDialog({ title: 'Удалить блокировку?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
+        : confirm('Удалить блокировку?');
+      if (!ok) return;
+      const { error } = await sb.from('manager_busy_slots').delete().eq('id', id);
+      if (error) { toast('Не получилось удалить.'); return; }
+      state.selectedEventId = null;
+      await loadEvents();
+      render();
+      renderSidebar();
+      toast('Блокировка удалена.');
+    });
+  }
+
+  function renderEventDetails(ev) {
+    if (ev.type === 'block') {
+      const r = ev._row;
+      return `<div class="cal-side-details cal-side-details-block">
+        <div class="cal-side-details-head">
+          <strong>Личная блокировка</strong>
+          <button class="btn cal-side-del danger" data-id="${ev._id}" type="button">🗑 Удалить</button>
+        </div>
+        <div class="cal-side-row"><span>Время:</span> ${rangeOf(ev)}</div>
+        <div class="cal-side-row"><span>Комментарий:</span> ${escapeHtml(r.comment || '— без комментария')}</div>
+      </div>`;
+    }
+    const r = ev._row;
+    const tel = r.phone ? `<a href="tel:${escapeHtml(r.phone.replace(/[^\d+]/g, ''))}">${escapeHtml(r.phone)}</a>` : '— нет';
+    return `<div class="cal-side-details cal-side-details-lead">
+      <div class="cal-side-details-head">
+        <strong>${escapeHtml(r.company_name)}</strong>
+        <a class="cal-side-link" href="seller#leads">«Мои лиды» →</a>
+      </div>
+      <div class="cal-side-row"><span>Время:</span> ${rangeOf(ev)}</div>
+      ${r.city ? `<div class="cal-side-row"><span>Город:</span> ${escapeHtml(r.city)}</div>` : ''}
+      ${r.meeting_address ? `<div class="cal-side-row"><span>Адрес:</span> ${escapeHtml(r.meeting_address)}</div>` : ''}
+      <div class="cal-side-row"><span>Телефон:</span> ${tel}</div>
+      ${r.lpr_name ? `<div class="cal-side-row"><span>ЛПР:</span> ${escapeHtml(r.lpr_name)}</div>` : ''}
+      ${r.comment ? `<div class="cal-side-row cal-side-row-comment"><span>Комментарий:</span> ${escapeHtml(r.comment)}</div>` : ''}
+    </div>`;
   }
 
   window.sellerCalendar = { show, refresh };
