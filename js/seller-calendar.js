@@ -101,6 +101,16 @@
     const dur = slot.duration_minutes || 60;
     return `${start}–${endOf(slot.busy_at, dur)}`;
   }
+  // Классификация события для CSS-окраски: личное / офлайн / онлайн.
+  function typeClassOf(e) {
+    if (e.type === 'block') return 'cal-tslot-block';
+    return e.isOnline ? 'cal-tslot-lead cal-tslot-online' : 'cal-tslot-lead cal-tslot-offline';
+  }
+  // Подпись типа события (показываем в каждой плашке, чтобы было сразу видно).
+  function kindLabelOf(e) {
+    if (e.type === 'block') return '🔒 личное событие';
+    return e.isOnline ? '🌐 онлайн встреча' : '📍 офлайн встреча';
+  }
   // Парсит «HH:MM» в минуты с полуночи; возвращает null если невалидно.
   function timeToMinutes(s) {
     const m = /^(\d{2}):(\d{2})$/.exec(s || '');
@@ -196,14 +206,19 @@
     for (const l of leadRows) {
       const op = opMap[l.operator_id];
       const opName = op ? ((op.full_name || '').trim() || op.email || '') : '';
+      // Лид считается «онлайн», если у него нет адреса встречи, но есть город
+      // (оператор поставил чекбокс «Онлайн-встреча» — в saveForm meeting_address
+      // обнуляется, а city хранит город встречи).
+      const isOnline = !l.meeting_address && !!l.city;
       events.push({
         id: 'lead-' + l.id,
         _id: l.id,
         type: 'lead',
+        isOnline,
         busy_at: l.meeting_at,
         duration_minutes: 60,
         label: l.company_name || '— без названия',
-        _row: { ...l, _operator_name: opName },
+        _row: { ...l, _operator_name: opName, _is_online: isOnline },
       });
     }
     events.sort((a, b) => a.busy_at.localeCompare(b.busy_at));
@@ -442,11 +457,17 @@
       const isToday = sameDate(d, today);
       const events = eventsForDate(d);
       const slotsHtml = events.length
-        ? events.map((s) => `
-            <div class="cal-week-slot cal-slot-${s.type}">
-              <span class="cal-week-time">${rangeOf(s)}</span>
-              <span class="cal-week-comment">${escapeHtml(s.label)}</span>
-            </div>`).join('')
+        ? events.map((s) => {
+            const cls = s.type === 'block'
+              ? 'cal-slot-block'
+              : (s.isOnline ? 'cal-slot-lead cal-slot-online' : 'cal-slot-lead cal-slot-offline');
+            return `
+              <div class="cal-week-slot ${cls}">
+                <span class="cal-week-time">${rangeOf(s)}</span>
+                <span class="cal-week-comment">${escapeHtml(s.label)}</span>
+                <span class="cal-week-kind">${kindLabelOf(s)}</span>
+              </div>`;
+          }).join('')
         : '<div class="cal-week-empty">— свободен</div>';
       const dymd = ymd(d);
       const isSelected = state.selectedDay === dymd;
@@ -512,12 +533,13 @@
         const span = (next - m) / stepM;
         const e = ev.e;
         const isActive = state.selectedEventId === e.id;
-        const cls = `cal-tslot cal-tslot-${e.type}${isActive ? ' cal-tslot-active' : ''}`;
+        const cls = `cal-tslot ${typeClassOf(e)}${isActive ? ' cal-tslot-active' : ''}`;
         const spanAttr = span > 1 ? ` style="--cal-span:${span};"` : '';
         slotsHtml.push(`<div class="cal-trow"${spanAttr}><div class="cal-trow-time">${timeLabel}</div><div class="cal-trow-cells">
           <button type="button" class="${cls}" data-event-id="${e.id}">
             <span class="cal-tslot-time">${rangeOf(e)}</span>
             <span class="cal-tslot-label">${escapeHtml(e.label)}</span>
+            <span class="cal-tslot-kind">${kindLabelOf(e)}</span>
           </button>
         </div></div>`);
         m = next;
@@ -758,13 +780,19 @@
     const r = ev._row;
     const tel = r.phone ? `<a href="tel:${escapeHtml(r.phone.replace(/[^\d+]/g, ''))}">${escapeHtml(r.phone)}</a>` : '— нет';
     const opName = (r._operator_name || '').trim();
-    return `<div class="cal-side-details cal-side-details-lead">
+    const isOnline = !!ev.isOnline;
+    const cls = `cal-side-details cal-side-details-lead ${isOnline ? 'cal-side-details-online' : 'cal-side-details-offline'}`;
+    const banner = isOnline
+      ? '<div class="cal-side-banner cal-side-banner-online">🌐 Онлайн-встреча</div>'
+      : '<div class="cal-side-banner cal-side-banner-offline">📍 Офлайн-встреча</div>';
+    return `<div class="${cls}">
       <div class="cal-side-details-head">
         <strong>${escapeHtml(r.company_name)}</strong>
         <button type="button" class="cal-side-link cal-side-open-lead" data-lead-id="${escapeHtml(r.id)}">«Мои лиды» →</button>
       </div>
+      ${banner}
       <div class="cal-side-row"><span>Время:</span> ${rangeOf(ev)}</div>
-      ${r.city ? `<div class="cal-side-row"><span>Город:</span> ${escapeHtml(r.city)}</div>` : ''}
+      ${r.city ? `<div class="cal-side-row"><span>${isOnline ? 'Город' : 'Город'}:</span> ${escapeHtml(r.city)}</div>` : ''}
       ${r.meeting_address ? `<div class="cal-side-row"><span>Адрес:</span> ${escapeHtml(r.meeting_address)}</div>` : ''}
       ${r.meeting_address_note ? `<div class="cal-side-row"><span>Уточнение:</span> ${escapeHtml(r.meeting_address_note)}</div>` : ''}
       <div class="cal-side-row"><span>Телефон:</span> ${tel}</div>

@@ -4538,9 +4538,14 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   display: flex;
   gap: 12px;
   font-size: 13px;
+  align-items: baseline;
 }
 .cal-week-time { font-weight: 600; color: var(--accent-dark); min-width: 48px; }
 .cal-week-comment { color: var(--ink); }
+.cal-week-kind { font-size: 11px; color: var(--muted); margin-left: auto; }
+.cal-week-slot.cal-slot-online .cal-week-time { color: #1f5db7; }
+.cal-week-slot.cal-slot-online .cal-week-kind { color: #2c6dc7; }
+.cal-week-slot.cal-slot-offline .cal-week-kind { color: var(--accent-dark); }
 .cal-week-empty { font-size: 13px; color: var(--muted); }
 .cal-week-add {
   width: 36px; height: 36px;
@@ -4992,6 +4997,22 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   font-size: 13px;
 }
 .cal-side-details-block { border-left-color: var(--muted); }
+.cal-side-details-online { border-left-color: #2c6dc7; }
+.cal-side-banner {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 2px 0 4px;
+}
+.cal-side-banner-online {
+  background: rgba(63, 130, 220, 0.15);
+  color: #1f5db7;
+}
+.cal-side-banner-offline {
+  background: rgba(232, 130, 61, 0.15);
+  color: var(--accent-dark);
+}
 .cal-side-details-head {
   display: flex;
   justify-content: space-between;
@@ -5347,14 +5368,31 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   font-size: 12px;
   padding: 4px 12px;
 }
-.cal-tslot-lead {
+/* Три цвета событий: личное (серый) / офлайн-встреча (оранжевый) /
+   онлайн-встреча (синий). Подкласс cal-tslot-online перебивает фон поверх
+   cal-tslot-lead, поэтому общая логика остаётся «лид — это .cal-tslot-lead». */
+.cal-tslot-lead.cal-tslot-offline,
+.cal-tslot-lead:not(.cal-tslot-online) {
   background: rgba(232, 130, 61, 0.12);
   border-color: rgba(232, 130, 61, 0.35);
+}
+.cal-tslot-lead.cal-tslot-online {
+  background: rgba(63, 130, 220, 0.12);
+  border-color: rgba(63, 130, 220, 0.4);
 }
 .cal-tslot-block {
   background: rgba(107, 122, 138, 0.12);
   border-color: rgba(107, 122, 138, 0.35);
 }
+.cal-tslot-kind {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.cal-tslot-lead.cal-tslot-online .cal-tslot-time { color: #1f5db7; }
+.cal-tslot-lead.cal-tslot-online .cal-tslot-kind { color: #2c6dc7; }
+.cal-tslot-lead.cal-tslot-offline .cal-tslot-kind,
+.cal-tslot-lead:not(.cal-tslot-online) .cal-tslot-kind { color: var(--accent-dark); }
 .cal-tslot:hover:not(.cal-tslot-free) { border-color: var(--accent); }
 .cal-tslot-active {
   border-color: var(--accent) !important;
