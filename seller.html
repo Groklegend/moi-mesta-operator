@@ -16,6 +16,11 @@
   <div class="title">Кабинет менеджера</div>
   </div>
   <div class="spacer"></div>
+  <!-- Календарь — standalone-кнопка, не входит в дропдаун -->
+  <button class="section-shortcut" id="section-shortcut-calendar" type="button">
+    <span class="section-dropdown-emoji">🗓</span>
+    <span>Календарь</span>
+  </button>
   <!-- Дропдаун-переключатель разделов кабинета -->
   <div class="section-dropdown" id="section-dropdown">
     <button class="section-dropdown-btn" id="section-dropdown-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
@@ -25,11 +30,6 @@
     </button>
     <div class="section-dropdown-menu" id="section-dropdown-menu" hidden></div>
   </div>
-  <!-- Календарь — standalone-кнопка, не входит в дропдаун -->
-  <button class="section-shortcut" id="section-shortcut-calendar" type="button">
-    <span class="section-dropdown-emoji">🗓</span>
-    <span>Календарь</span>
-  </button>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
   <button class="link" id="logout">Выйти</button>
