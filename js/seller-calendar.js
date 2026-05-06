@@ -68,6 +68,18 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[c]));
   }
+
+  // Город уже выводится отдельной строкой — в адресе оставляем только улицу
+  // и дом, чтобы не дублировать «Краснодарский край, г Новороссийск».
+  // Lookahead вместо \b — \b в JS regex по ASCII \w и не понимает кириллицу.
+  function shortAddress(addr) {
+    if (!addr) return '';
+    const STREET_RE = /^(?:ул|улица|пер|переулок|пр-кт|пр-т|проспект|пр|наб|набережная|ш|шоссе|пл|площадь|б-р|бульвар|тупик|тракт|аллея|проезд|линия|км|мкр|микрорайон)(?=\s|\.|$)/i;
+    const HOUSE_RE = /^(?:д|дом|к|корпус|стр|строение|лит|литер|вл|владение)(?=\s|\.|$)\s*\d/i;
+    const parts = String(addr).split(',').map((s) => s.trim()).filter(Boolean);
+    const kept = parts.filter((p) => STREET_RE.test(p) || HOUSE_RE.test(p));
+    return kept.length ? kept.join(', ') : addr;
+  }
   const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   const MONTHS_GEN  = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
   const WEEKDAYS_SHORT = ['пн','вт','ср','чт','пт','сб','вс'];
@@ -793,7 +805,7 @@
       ${banner}
       <div class="cal-side-row"><span>Время:</span> ${rangeOf(ev)}</div>
       ${r.city ? `<div class="cal-side-row"><span>${isOnline ? 'Город' : 'Город'}:</span> ${escapeHtml(r.city)}</div>` : ''}
-      ${r.meeting_address ? `<div class="cal-side-row"><span>Адрес:</span> ${escapeHtml(r.meeting_address)}</div>` : ''}
+      ${r.meeting_address ? `<div class="cal-side-row"><span>Адрес:</span> ${escapeHtml(shortAddress(r.meeting_address))}</div>` : ''}
       ${r.meeting_address_note ? `<div class="cal-side-row"><span>Уточнение:</span> ${escapeHtml(r.meeting_address_note)}</div>` : ''}
       <div class="cal-side-row"><span>Телефон:</span> ${tel}</div>
       ${r.lpr_name ? `<div class="cal-side-row"><span>ЛПР:</span> ${escapeHtml(r.lpr_name)}</div>` : ''}

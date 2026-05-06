@@ -294,7 +294,7 @@
 
     const meetingHtml = lead.meeting_at
       ? `<div class="lead-meeting-when">${escapeHtml(formatMeetingFull(lead.meeting_at))}</div>
-         <div class="lead-meeting-where">${escapeHtml(lead.meeting_address || '— адрес не указан')}</div>
+         <div class="lead-meeting-where">${escapeHtml(lead.meeting_address ? shortAddress(lead.meeting_address) : '— адрес не указан')}</div>
          ${lead.meeting_address_note ? `<div class="lead-meeting-note">📌 ${escapeHtml(lead.meeting_address_note)}</div>` : ''}`
       : '<span class="lead-no">— встреча не назначена</span>';
 
