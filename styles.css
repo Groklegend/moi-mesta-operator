@@ -3206,7 +3206,47 @@ h2.page-title {
   font-weight: 400;
 }
 
-.lead-section-title { margin: 0 0 14px; font-size: 16px; color: var(--navy); font-weight: 700; }
+.lead-section-title { margin: 0; font-size: 16px; color: var(--navy); font-weight: 700; }
+
+/* Шапка раздела «Рекомендации»: заголовок слева, кнопка «Демонстрация» справа. */
+.lead-recs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+  flex-wrap: wrap;
+}
+.lead-demo-btn {
+  font-size: 13px;
+  padding: 8px 16px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* Питч — связное описание разговора для менеджера, в нормальных абзацах. */
+.lead-pitch {
+  margin: 0 0 22px;
+  padding: 18px 22px;
+  background: var(--bg-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.lead-pitch-p { margin: 0 0 12px; }
+.lead-pitch-p:last-child { margin-bottom: 0; }
+
+/* Подзаголовок над списком инструментов. */
+.lead-tools-subtitle {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 
 /* Структурированные рекомендации: блоки-категории, в каждом
    список «инструмент → результат». Удобнее читать, чем сплошной текст. */
@@ -3574,4 +3614,153 @@ h2.page-title {
   .doc-item { flex-direction: column; align-items: flex-start; }
   .search-wrap input { font-size: 16px; padding: 16px 18px 16px 50px; }
   .search-wrap::before { left: 18px; }
+}
+
+/* ==========================================================================
+   Демонстрация для собственника бизнеса (demo.html?lead=<id>)
+   Открывается отдельной вкладкой из карточки лида. Эту страницу менеджер
+   показывает или присылает клиенту перед/во время встречи.
+   ========================================================================== */
+.demo-body {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+  min-height: 100vh;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+}
+.demo-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.demo-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--navy);
+  text-decoration: none;
+}
+.demo-header .brand-logo {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 18px;
+}
+.demo-tagline { color: var(--muted); font-size: 13px; }
+
+.demo-main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+.demo-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  margin: 0 0 8px;
+}
+.demo-title {
+  margin: 0 0 28px;
+  font-size: 36px;
+  line-height: 1.2;
+  color: var(--navy);
+  font-weight: 800;
+}
+.demo-intro {
+  margin: 0 0 40px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+.demo-intro p { margin: 0 0 16px; }
+.demo-intro p:last-child { margin-bottom: 0; }
+
+.demo-section-title {
+  margin: 40px 0 20px;
+  font-size: 24px;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.demo-recs { display: flex; flex-direction: column; gap: 18px; }
+.demo-rec-block {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-left: 5px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+.demo-rec-title {
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.demo-rec-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.demo-rec-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+}
+.demo-rec-tool {
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.demo-rec-benefit {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--success);
+  background: var(--success-soft);
+  border: 1.5px solid var(--success);
+  padding: 6px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.demo-foot {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+.demo-foot strong { color: var(--navy); }
+
+@media (max-width: 700px) {
+  .demo-main { padding: 32px 20px 60px; }
+  .demo-title { font-size: 28px; }
+  .demo-intro { font-size: 16px; }
+  .demo-section-title { font-size: 20px; }
+  .demo-rec-item { grid-template-columns: 1fr; gap: 8px; }
+  .demo-rec-benefit { justify-self: start; }
 }
