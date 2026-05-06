@@ -3075,8 +3075,7 @@ h2.page-title {
   max-height: calc(100vh - 110px);
   overflow-y: auto;
 }
-.leads-sidebar .leads-title { margin: 0 0 6px; font-size: 18px; }
-.leads-hint { margin: 0 0 14px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.leads-sidebar .leads-title { margin: 0 0 14px; font-size: 18px; }
 .leads-items { display: flex; flex-direction: column; gap: 6px; }
 .lead-item {
   display: flex;
@@ -3098,19 +3097,20 @@ h2.page-title {
   border-color: var(--accent);
 }
 .lead-name { font-weight: 600; color: var(--ink); font-size: 14px; }
-.lead-flags { display: flex; gap: 6px; flex-wrap: wrap; }
-.lead-flag {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--card);
-  border: 1px solid var(--border);
+.lead-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
   color: var(--muted);
+}
+.lead-city { font-weight: 500; }
+.lead-meet {
+  color: var(--accent-dark);
+  font-weight: 600;
   white-space: nowrap;
 }
-.lead-flag.has { color: var(--success); border-color: var(--success); }
-.lead-flag.no { color: var(--danger); border-color: var(--danger); opacity: 0.85; }
-.lead-flag.loyal { color: var(--accent-dark); border-color: var(--accent); }
 
 .leads-pane {
   background: var(--card);
@@ -3133,6 +3133,36 @@ h2.page-title {
 .leads-pane .placeholder .big-icon { font-size: 48px; opacity: 0.6; }
 
 .lead-detail-title { margin: 0 0 20px; font-size: 24px; color: var(--navy); }
+
+.lead-meeting-card {
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-soft));
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lead-meeting-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+.lead-meeting-when {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.lead-meeting-where {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
 .lead-fields { display: flex; flex-direction: column; gap: 8px; margin: 0 0 28px; padding: 0; }
 .lead-row {
   display: grid;
