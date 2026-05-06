@@ -262,8 +262,8 @@
           </div>
         </div>
         <div class="cal-layout">
-          <aside class="cal-sidebar" id="cal-sidebar" hidden></aside>
           <div class="cal-body" id="cal-body"></div>
+          <aside class="cal-sidebar" id="cal-sidebar" hidden></aside>
         </div>
       `;
       bindToolbar();
@@ -275,24 +275,19 @@
   }
 
   function bindToolbar() {
-    $('#cal-prev').addEventListener('click', async () => {
-      if (state.view === 'today') return; // в режиме «Сегодня» листать нечего
-      if (state.view === 'month') {
-        state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() - 1, 1);
+    const stepCursor = (dir) => {
+      if (state.view === 'today') {
+        state.cursor = addDays(state.cursor, dir);
+        state.selectedDay = ymd(state.cursor);
+        state.selectedEventId = null;
+      } else if (state.view === 'month') {
+        state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() + dir, 1);
       } else {
-        state.cursor = addDays(state.cursor, -7);
+        state.cursor = addDays(state.cursor, dir * 7);
       }
-      await refresh();
-    });
-    $('#cal-next').addEventListener('click', async () => {
-      if (state.view === 'today') return;
-      if (state.view === 'month') {
-        state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() + 1, 1);
-      } else {
-        state.cursor = addDays(state.cursor, 7);
-      }
-      await refresh();
-    });
+    };
+    $('#cal-prev').addEventListener('click', async () => { stepCursor(-1); await refresh(); });
+    $('#cal-next').addEventListener('click', async () => { stepCursor(1); await refresh(); });
     document.querySelectorAll('.cal-view-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         state.view = btn.dataset.view;
@@ -360,7 +355,6 @@
   function renderMonth() {
     const body = $('#cal-body');
     const ms = startOfMonth(state.cursor);
-    const me = endOfMonth(state.cursor);
     const gridStart = startOfWeek(ms);
     const today = startOfDay(new Date());
 
@@ -370,21 +364,14 @@
       const inMonth = d.getMonth() === ms.getMonth();
       const isToday = sameDate(d, today);
       const events = eventsForDate(d);
-      const slotsHtml = events.slice(0, 3).map((s) => `
-        <div class="cal-slot-pill cal-slot-${s.type}" title="${escapeHtml(s.label || '')}">${rangeOf(s)} · ${escapeHtml(s.label)}</div>
-      `).join('');
-      const moreHtml = events.length > 3 ? `<div class="cal-slot-more">+ ещё ${events.length - 3}</div>` : '';
+      const summaryHtml = renderMonthDaySummary(events);
       const dymd = ymd(d);
       const isSelected = state.selectedDay === dymd;
       cells += `
         <div class="cal-cell ${inMonth ? '' : 'cal-cell-out'} ${isToday ? 'cal-cell-today' : ''} ${isSelected ? 'cal-cell-selected' : ''}" data-date="${dymd}">
           <div class="cal-cell-num">${d.getDate()}</div>
-          <div class="cal-cell-slots">${slotsHtml}${moreHtml}</div>
+          <div class="cal-cell-slots">${summaryHtml}</div>
         </div>`;
-      if (i === 41 && d < me) {
-        // Если 6 строк не покрыли весь месяц (бывает редко) — добавим ещё неделю
-        // (на 42 ячейки 6 строк × 7 — обычно хватает)
-      }
     }
     body.innerHTML = `
       <div class="cal-month-head">${WEEKDAYS_SHORT.map((d) => `<div>${d}</div>`).join('')}</div>
@@ -392,7 +379,57 @@
 
     body.querySelectorAll('.cal-cell').forEach((cell) => {
       cell.addEventListener('click', () => selectDay(parseYmd(cell.dataset.date)));
+      // Двойной клик — провалиться в режим «Сегодня» с этой датой.
+      cell.addEventListener('dblclick', async () => {
+        state.view = 'today';
+        state.cursor = parseYmd(cell.dataset.date);
+        state.selectedDay = ymd(state.cursor);
+        state.selectedEventId = null;
+        await refresh();
+      });
     });
+  }
+
+  // Сводка для ячейки месяца: вместо строк-событий — счётчик заявок
+  // по операторам («2 заявки от Елены») плюс отдельная строка для
+  // личных блокировок («1 личное событие»).
+  function renderMonthDaySummary(events) {
+    if (!events.length) return '';
+    const leads = events.filter((e) => e.type === 'lead');
+    const blocks = events.filter((e) => e.type === 'block');
+
+    const byOperator = new Map();
+    for (const ev of leads) {
+      const opName = (ev._row?._operator_name || '').trim() || '— оператор';
+      byOperator.set(opName, (byOperator.get(opName) || 0) + 1);
+    }
+    const lines = [];
+    for (const [name, count] of byOperator) {
+      lines.push(
+        `<div class="cal-slot-pill cal-slot-lead">${count} ${pluralLead(count)} от ${escapeHtml(name)}</div>`
+      );
+    }
+    if (blocks.length) {
+      lines.push(
+        `<div class="cal-slot-pill cal-slot-block">${blocks.length} ${pluralBlock(blocks.length)}</div>`
+      );
+    }
+    return lines.join('');
+  }
+
+  function pluralLead(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m100 >= 11 && m100 <= 14) return 'заявок';
+    if (m10 === 1) return 'заявка';
+    if (m10 >= 2 && m10 <= 4) return 'заявки';
+    return 'заявок';
+  }
+  function pluralBlock(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m100 >= 11 && m100 <= 14) return 'личных событий';
+    if (m10 === 1) return 'личное событие';
+    if (m10 >= 2 && m10 <= 4) return 'личных события';
+    return 'личных событий';
   }
 
   function renderWeek() {

@@ -346,16 +346,29 @@
                          autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
-                <label class="ol-field ol-field-wide ol-field-checkbox">
-                  <input type="checkbox" name="ol_loy">
-                  <span>Есть программа лояльности</span>
-                </label>
+                <div class="ol-field ol-field-wide">
+                  <span class="ol-label">Программа лояльности?</span>
+                  <div class="ol-radio">
+                    <label><input type="radio" name="ol_loy" value="yes"> Да</label>
+                    <label><input type="radio" name="ol_loy" value="no"> Нет</label>
+                  </div>
+                </div>
 
-                <label class="ol-field ol-field-wide">
-                  <span class="ol-label">Комментарий</span>
-                  <textarea name="ol_cm" rows="3" maxlength="2000" placeholder="Что обсудили, особенности клиента, договорённости…"
-                            autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"></textarea>
-                </label>
+                <div class="ol-field ol-field-wide" id="ol-loy-yes" hidden>
+                  <span class="ol-label">Тип программы</span>
+                  <div class="ol-radio">
+                    <label><input type="radio" name="ol_loy_kind" value="discount"> Скидка</label>
+                    <label><input type="radio" name="ol_loy_kind" value="bonus"> Бонус</label>
+                  </div>
+                </div>
+
+                <div class="ol-field ol-field-wide" id="ol-loy-no" hidden>
+                  <span class="ol-label">Была ли программа лояльности ранее?</span>
+                  <div class="ol-radio">
+                    <label><input type="radio" name="ol_loy_before" value="yes"> Да</label>
+                    <label><input type="radio" name="ol_loy_before" value="no"> Нет</label>
+                  </div>
+                </div>
               </div>
 
               <div class="ol-actions">
@@ -377,6 +390,7 @@
     $('#ol-cancel').addEventListener('click', () => renderList());
     $('#ol-submit').addEventListener('click', () => saveForm());
     bindLprRadio();
+    bindLoyaltyRadio();
 
     bindDateControl();
     bindOnlineCheckbox();
@@ -845,20 +859,26 @@
   function readForm() {
     const root = $('#ol-form');
     const get = (name) => root.querySelector(`[name="${name}"]`)?.value || '';
+    const checkedVal = (name) => root.querySelector(`input[name="${name}"]:checked`)?.value || '';
     return {
       company_name: get('ol_cn').trim(),
       is_online: !!root.querySelector('[name="ol_online"]:checked'),
       meeting_address: get('ol_addr').trim(),
       meeting_date: get('ol_md').trim(),
       meeting_time: get('ol_mt').trim(),
-      is_lpr: (root.querySelector('input[name="ol_lpr"]:checked')?.value) === 'no' ? 'no' : 'yes',
+      is_lpr: checkedVal('ol_lpr') === 'no' ? 'no' : 'yes',
       phone: get('ol_p1').trim(),
       called_phone: get('ol_p2').trim(),
       lpr_name: get('ol_pname').trim(),
       lpr_position: get('ol_ppos').trim(),
       website: get('ol_site').trim(),
-      has_loyalty: !!root.querySelector('[name="ol_loy"]:checked'),
-      comment: get('ol_cm').trim(),
+      // Программа лояльности — три состояния:
+      //  loy = ''      — оператор не уточнил
+      //  loy = 'yes'   — есть, тип в loy_kind ('discount' | 'bonus')
+      //  loy = 'no'    — нет, была ли ранее в loy_before ('yes' | 'no')
+      loy: checkedVal('ol_loy'),
+      loy_kind: checkedVal('ol_loy_kind'),
+      loy_before: checkedVal('ol_loy_before'),
     };
   }
 
@@ -897,31 +917,40 @@
       if (f.lpr_name && f.lpr_position) lprName = `${f.lpr_name}, ${f.lpr_position}`;
       else lprName = f.lpr_name || f.lpr_position || '';
 
-      // Маркер «не ЛПР» — добавляем в комментарий, чтобы менеджер видел.
-      let comment = f.comment || '';
-      if (f.is_lpr === 'no') {
-        const tag = '⚠️ Контакт — НЕ ЛПР';
-        comment = comment ? `${tag}\n\n${comment}` : tag;
-      }
-      if (f.is_online) {
-        const tag = '🌐 Онлайн-встреча';
-        comment = comment ? `${tag}\n\n${comment}` : tag;
+      // Поле «Комментарий» в форме скрыто. Авто-теги (НЕ ЛПР / Онлайн)
+      // оператор по-прежнему пишет в comment, чтобы менеджер их видел.
+      let comment = '';
+      if (f.is_lpr === 'no') comment = '⚠️ Контакт — НЕ ЛПР';
+      if (f.is_online) comment = comment ? `🌐 Онлайн-встреча\n\n${comment}` : '🌐 Онлайн-встреча';
+
+      // Программа лояльности → has_loyalty + текстовое описание.
+      let hasLoyalty = false;
+      let loyaltyDescription = null;
+      if (f.loy === 'yes') {
+        hasLoyalty = true;
+        if (f.loy_kind === 'discount') loyaltyDescription = 'Скидка';
+        else if (f.loy_kind === 'bonus') loyaltyDescription = 'Бонус';
+      } else if (f.loy === 'no') {
+        hasLoyalty = false;
+        if (f.loy_before === 'yes') loyaltyDescription = 'Ранее была';
+        else if (f.loy_before === 'no') loyaltyDescription = 'Ранее не было';
       }
 
       const payload = {
-        company_name:    f.company_name,
+        company_name:        f.company_name,
         city,
-        meeting_address: meetingAddress,
-        meeting_at:      meetingIso,
-        phone:           f.phone || null,
-        called_phone:    f.called_phone || null,
-        website:         f.website || null,
-        lpr_name:        lprName || null,
-        has_loyalty:     f.has_loyalty,
-        comment:         comment || null,
-        manager_id:      state.activeMgrId,
-        operator_id:     user.id,
-        status:          'meeting_scheduled',
+        meeting_address:     meetingAddress,
+        meeting_at:          meetingIso,
+        phone:               f.phone || null,
+        called_phone:        f.called_phone || null,
+        website:             f.website || null,
+        lpr_name:            lprName || null,
+        has_loyalty:         hasLoyalty,
+        loyalty_description: loyaltyDescription,
+        comment:             comment || null,
+        manager_id:          state.activeMgrId,
+        operator_id:         user.id,
+        status:              'meeting_scheduled',
       };
 
       const { error } = await sb.from('leads').insert(payload);
@@ -945,6 +974,26 @@
         const isLpr = document.querySelector('input[name="ol_lpr"]:checked')?.value === 'yes';
         const phoneLabel = $('#ol-phone-label');
         if (phoneLabel) phoneLabel.innerHTML = isLpr ? 'Телефон ЛПР <em>*</em>' : 'Телефон <em>*</em>';
+      });
+    });
+  }
+
+  // «Программа лояльности? → Да/Нет». При «Да» показываем выбор Скидка/Бонус,
+  // при «Нет» — был ли клиент с программой ранее. Подблоки взаимоисключающие.
+  function bindLoyaltyRadio() {
+    const yesBlock = document.getElementById('ol-loy-yes');
+    const noBlock = document.getElementById('ol-loy-no');
+    document.querySelectorAll('input[name="ol_loy"]').forEach((r) => {
+      r.addEventListener('change', () => {
+        const v = document.querySelector('input[name="ol_loy"]:checked')?.value;
+        if (yesBlock) yesBlock.hidden = v !== 'yes';
+        if (noBlock) noBlock.hidden = v !== 'no';
+        // Очищаем выбор в скрытом подблоке, чтобы readForm не подхватил мусор.
+        if (v === 'yes') {
+          document.querySelectorAll('input[name="ol_loy_before"]').forEach((x) => { x.checked = false; });
+        } else if (v === 'no') {
+          document.querySelectorAll('input[name="ol_loy_kind"]').forEach((x) => { x.checked = false; });
+        }
       });
     });
   }

@@ -4850,7 +4850,7 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
 }
 .cal-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 1fr 300px;
   gap: 16px;
   align-items: start;
 }
