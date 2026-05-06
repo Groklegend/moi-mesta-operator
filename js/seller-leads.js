@@ -12,7 +12,9 @@
       company_name: 'Ресторан «Облака»',
       city: 'Москва',
       phone: '+7 (495) 555-12-34',
+      lpr_name: 'Светлана Морозова, владелица',
       has_loyalty: true,
+      loyalty_description: 'Простой кэшбэк через iiko: 5% от чека возвращается на счёт клиента, без порогов и сроков сгорания.',
       website: 'https://oblaka-rest.ru',
       telegram: '@oblaka_rest',
       meeting_at: '2026-01-15T12:30:00+03:00',
@@ -29,7 +31,9 @@
       company_name: 'Стоматология «Зубики»',
       city: 'Санкт-Петербург',
       phone: '',
+      lpr_name: 'Игорь Васильев, главный врач и собственник',
       has_loyalty: false,
+      loyalty_description: '',
       website: 'https://zubiki.clinic',
       telegram: '',
       meeting_at: '2026-01-16T10:00:00+03:00',
@@ -46,7 +50,9 @@
       company_name: 'Салон «Аура Красоты»',
       city: 'Санкт-Петербург',
       phone: '+7 (812) 333-22-11',
+      lpr_name: 'Ирина Соколова, директор сети',
       has_loyalty: true,
+      loyalty_description: 'Программа в YClients: накопительная скидка с порогами 5% / 10% / 15% по сумме покупок за год. Балансы клиентов хранятся на стороне YClients.',
       website: '',
       telegram: '@aura_beauty_spb',
       meeting_at: '2026-01-17T15:00:00+03:00',
@@ -63,7 +69,9 @@
       company_name: 'Кофейня «Утро»',
       city: 'Казань',
       phone: '+7 (999) 888-77-66',
+      lpr_name: 'Александр Петров, собственник',
       has_loyalty: false,
+      loyalty_description: '',
       website: 'https://utro-coffee.ru',
       telegram: '',
       meeting_at: '2026-01-19T11:00:00+03:00',
@@ -79,7 +87,9 @@
       company_name: 'Барбершоп «Усы»',
       city: 'Москва',
       phone: '+7 (903) 200-15-15',
+      lpr_name: 'Дмитрий Орлов, владелец',
       has_loyalty: true,
+      loyalty_description: 'Бумажные карточки лояльности: каждая 11-я стрижка бесплатно (отметки руками). Учёт ведётся вручную, без CRM.',
       website: 'https://usy-barber.ru',
       telegram: '@usy_barber',
       meeting_at: '2026-01-20T17:00:00+03:00',
@@ -107,6 +117,11 @@
   function tgUrl(handle) {
     const h = handle.replace(/^@/, '');
     return `https://t.me/${encodeURIComponent(h)}`;
+  }
+
+  // Преобразует «+7 (495) 555-12-34» в «tel:+74955551234».
+  function telHref(phone) {
+    return 'tel:' + String(phone || '').replace(/[^\d+]/g, '');
   }
 
   const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн',
@@ -176,12 +191,22 @@
         <dt>${label}</dt>
         <dd>${valueHtml}</dd>
       </div>`;
-    const yesNo = (val, yesText) =>
-      val ? `<span class="lead-yes">✓ есть${yesText ? ' — ' + yesText : ''}</span>`
-          : `<span class="lead-no">— нет</span>`;
     const link = (url, label) => url
       ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label || url)}</a>`
       : `<span class="lead-no">— нет</span>`;
+
+    // Телефон: кликабельная ссылка tel:, рядом — ЛПР в скобках.
+    const phoneCell = lead.phone
+      ? `<a href="${escapeHtml(telHref(lead.phone))}" class="lead-phone">${escapeHtml(lead.phone)}</a>` +
+        (lead.lpr_name ? ` <span class="lead-lpr">(ЛПР: ${escapeHtml(lead.lpr_name)})</span>` : '')
+      : '<span class="lead-no">— нет</span>' +
+        (lead.lpr_name ? ` <span class="lead-lpr">(ЛПР: ${escapeHtml(lead.lpr_name)})</span>` : '');
+
+    // Лояльность: «есть» + описание справа. Если нет — «— нет».
+    const loyaltyCell = lead.has_loyalty
+      ? `<span class="lead-yes">есть</span>` +
+        (lead.loyalty_description ? ` — <span class="lead-loyal-descr">${escapeHtml(lead.loyalty_description)}</span>` : '')
+      : '<span class="lead-no">— нет</span>';
 
     const meetingHtml = lead.meeting_at
       ? `<div class="lead-meeting-when">${escapeHtml(formatMeetingFull(lead.meeting_at))}</div>
@@ -198,8 +223,8 @@
 
       <dl class="lead-fields">
         ${fld('Город', escapeHtml(lead.city || '— не указан'))}
-        ${fld('Телефон', yesNo(lead.phone, escapeHtml(lead.phone || '')))}
-        ${fld('Своя программа лояльности', yesNo(lead.has_loyalty, ''))}
+        ${fld('Телефон', phoneCell)}
+        ${fld('Своя программа лояльности', loyaltyCell)}
         ${fld('Сайт', link(lead.website, lead.website))}
         ${fld('Telegram-канал', lead.telegram ? link(tgUrl(lead.telegram), lead.telegram) : '<span class="lead-no">— нет</span>')}
       </dl>

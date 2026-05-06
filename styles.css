@@ -3187,6 +3187,25 @@ h2.page-title {
 .lead-yes { color: var(--success); font-weight: 600; }
 .lead-no { color: var(--muted); }
 
+/* Телефон-ссылка: контрастный цвет, без «привычной» гиперссылочной синевы. */
+.lead-phone {
+  color: var(--accent-dark) !important;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* ЛПР в скобках — приглушённо, не отвлекает от номера. */
+.lead-lpr {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+/* Описание чужой программы лояльности — мягким серым, основной акцент остаётся
+   на «есть». */
+.lead-loyal-descr {
+  color: var(--ink);
+  font-weight: 400;
+}
+
 .lead-section-title { margin: 0 0 12px; font-size: 16px; color: var(--navy); font-weight: 700; }
 .lead-recommendations {
   padding: 16px 18px;
