@@ -20,8 +20,27 @@
     stepMinutes: 60,        // 60 | 90 | 120 — шаг сетки часов в режиме Today
   };
 
-  const HOUR_FROM = 9;
-  const HOUR_TO = 19;
+  const HOUR_FROM = 8;
+  const HOUR_TO = 20;
+
+  // ---------- Московское время ----------
+  // Все timestamptz в БД хранятся в UTC. На фронте показываем и интерпретируем
+  // как Europe/Moscow (+03:00, без DST), чтобы оператор и менеджер видели
+  // одно и то же время независимо от tz браузера.
+  function _mskParts(date) {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Moscow',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(date).filter((p) => p.type !== 'literal').map((p) => [p.type, p.value])
+    );
+    return { y: +parts.year, mo: +parts.month, d: +parts.day, h: +parts.hour, mi: +parts.minute };
+  }
+  function mskHM(d) { const p = _mskParts(d); return { h: p.h, m: p.mi }; }
+  function mskYmdOf(d) { const p = _mskParts(d); return `${p.y}-${String(p.mo).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`; }
+  function mskToUtcIso(ymdStr, hm) { return `${ymdStr}T${hm || '00:00'}:00+03:00`; }
   // Шаг хранится в БД (users.cal_step_minutes). localStorage — только
   // быстрый кеш до получения свежего значения от сервера.
   const STEP_KEY = 'mm_cal_step_minutes_v1';
@@ -71,10 +90,11 @@
         && a.getMonth() === b.getMonth()
         && a.getDate() === b.getDate();
   }
-  function timeOf(iso) { const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+  function timeOf(iso) { const p = mskHM(new Date(iso)); return `${pad2(p.h)}:${pad2(p.m)}`; }
   function endOf(iso, durationMin) {
     const d = new Date(new Date(iso).getTime() + (durationMin || 60) * 60_000);
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const p = mskHM(d);
+    return `${pad2(p.h)}:${pad2(p.m)}`;
   }
   function rangeOf(slot) {
     const start = timeOf(slot.busy_at);
@@ -177,7 +197,10 @@
   }
 
   function eventsForDate(date) {
-    return state.events.filter((e) => sameDate(new Date(e.busy_at), date));
+    // Сравниваем по календарной дате в МСК — иначе в браузерах в +05/+07
+    // событие в МСК-вечер может «уехать» на следующий день.
+    const dayYmd = ymd(date);
+    return state.events.filter((e) => mskYmdOf(new Date(e.busy_at)) === dayYmd);
   }
 
   // ---------- Точка входа ----------
@@ -415,7 +438,8 @@
 
     const eventOf = (e) => {
       const start = new Date(e.busy_at);
-      const startM = start.getHours() * 60 + start.getMinutes();
+      const sH = mskHM(start);
+      const startM = sH.h * 60 + sH.m;
       const endM = startM + (e.duration_minutes || 60);
       return { startM, endM, e };
     };
@@ -540,7 +564,8 @@
       if (toMin === null) { toast('Укажите время окончания.'); return; }
       if (toMin <= fromMin) { toast('Время «до» должно быть позже времени «с».'); return; }
       const duration = toMin - fromMin;
-      const iso = new Date(`${ymd(date)}T${tFrom}`).toISOString();
+      // Время вводится в МСК → переводим в UTC ISO с явным +03:00.
+      const iso = new Date(mskToUtcIso(ymd(date), tFrom)).toISOString();
       const { error } = await sb.from('manager_busy_slots').insert({
         manager_id: state.userId,
         busy_at: iso,

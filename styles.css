@@ -3988,8 +3988,11 @@ h2.page-title {
    ============================================================ */
 .leads-plus-area {
   width: 100%;
-  padding: 8px 4px 32px;
+  padding: 0 4px 24px;
 }
+/* Когда оператор в режиме «Заявка Плюс» — поджимаем верхний отступ всего main,
+   чтобы белые блоки начинались сразу под шапкой. */
+body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px; }
 .ol-loading {
   padding: 40px;
   text-align: center;
@@ -4078,6 +4081,19 @@ h2.page-title {
   overflow-y: auto;
 }
 .ol-form { display: flex; flex-direction: column; gap: 18px; }
+/* Подавляем иконки/фоновые картинки, которые инжектируют LastPass и 1Password
+   в инпуты «Заявки Плюс». В форме нет настоящего <form>, плюс на инпутах уже
+   стоят data-lpignore/data-1p-ignore + name'ы без чувствительных слов, но
+   менеджеры паролей всё равно могут пытаться рендерить иконку поверх поля. */
+.ol-form input,
+.ol-form textarea {
+  background-image: none !important;
+}
+.ol-form [data-lastpass-icon-root],
+.ol-form [data-lastpass-root],
+.ol-form [data-onepassword-fill-injected],
+.ol-form [data-dashlane-rid],
+.ol-form [data-bitwarden-watching] { display: none !important; }
 .ol-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4210,10 +4226,10 @@ h2.page-title {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--muted);
-  padding: 6px 0;
-  margin-bottom: 14px;
+  padding: 0 0 8px;
+  margin: 0 0 8px;
   font-family: inherit;
   transition: color 0.12s;
 }
@@ -4222,7 +4238,7 @@ h2.page-title {
 .ol-create-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-  gap: 24px;
+  gap: 16px;
   align-items: start;
 }
 .ol-create-col-left,
@@ -4230,9 +4246,9 @@ h2.page-title {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 24px;
+  padding: 18px 20px;
 }
-.ol-create-col-left .ol-title { margin: 0 0 18px; }
+.ol-create-col-left .ol-title { margin: 0 0 14px; font-size: 20px; }
 
 /* Поле адреса с DaData suggest */
 .ol-address-wrap { position: relative; }
@@ -5099,28 +5115,38 @@ h2.page-title {
    ============================================================ */
 .ol-create-col-right { padding: 14px 16px; }
 
-.ol-cal-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.ol-cal-head-right {
+.ol-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-left: auto;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  margin-bottom: 10px;
 }
-.ol-cal-period {
+.ol-toolbar .ol-mgr-tabs {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ol-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.ol-toolbar .ol-cal-period {
   font-size: 13px;
   color: var(--accent);
   font-weight: 500;
   white-space: nowrap;
+  margin: 0;
 }
-.ol-mgr-tabs { margin-bottom: 0; }
-.ol-cal-body { margin-top: 8px; }
+.ol-cal-body { margin-top: 0; }
 .ol-hour { min-height: 36px; }
 .ol-hour-time { width: 50px; }
 .ol-hour-info { padding: 4px 10px; }

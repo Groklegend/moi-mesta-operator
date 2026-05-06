@@ -22,9 +22,30 @@
     dadataCity: '',        // город, прилетевший из DaData при выборе адреса
   };
 
-  const HOUR_FROM = 9;     // рабочий день для почасовой сетки
-  const HOUR_TO = 19;
+  const HOUR_FROM = 8;     // рабочий день для почасовой сетки (МСК)
+  const HOUR_TO = 20;
   const PINNED_KEY = 'mm_op_pinned_managers_v1';
+
+  // ---------- Московское время ----------
+  // Все времена в БД — UTC. На фронте показываем и интерпретируем как МСК (+03:00 без DST).
+  function _mskParts(date) {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Moscow',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(date).filter((p) => p.type !== 'literal').map((p) => [p.type, p.value])
+    );
+    return { y: +parts.year, mo: +parts.month, d: +parts.day, h: +parts.hour, mi: +parts.minute };
+  }
+  function mskHM(d) { const p = _mskParts(d); return { h: p.h, m: p.mi }; }
+  function mskYmd(d) { const p = _mskParts(d); return `${p.y}-${pad2(p.mo)}-${pad2(p.d)}`; }
+  // "YYYY-MM-DD" + "HH:MM" в МСК → UTC ISO
+  function mskToUtcIso(ymd, hm) {
+    return `${ymd}T${hm || '00:00'}:00+03:00`;
+  }
+  function mskNow() { return new Date(); } // объект «сейчас» — компоненты МСК через mskHM/mskYmd
 
   function loadPinned() {
     try {
@@ -59,8 +80,8 @@
   }
   function formatMeetingShort(iso) {
     if (!iso) return '— дата не указана';
-    const d = new Date(iso);
-    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const p = _mskParts(new Date(iso));
+    return `${p.d} ${MONTHS_SHORT[p.mo - 1]}, ${pad2(p.h)}:${pad2(p.mi)}`;
   }
   function formatDayHeader(ymd) {
     if (!ymd) return '';
@@ -137,7 +158,7 @@
   function setActiveMgr(id) {
     state.activeMgrId = id || '';
     renderMgrTabs();
-    const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+    const ymd = document.querySelector('input[name="ol_md"]')?.value || mskYmd(new Date());
     refreshCalendar(ymd);
   }
 
@@ -217,29 +238,41 @@
       return;
     }
 
-    const todayYmd = ymdLocal(new Date());
+    const todayYmd = mskYmd(new Date());
 
     pane.innerHTML = `
       <div class="ol-wrap ol-create">
-        <button class="ol-back-btn" type="button" id="ol-back">← К списку</button>
+        <div class="ol-toolbar">
+          <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
+          <div class="ol-toolbar-right">
+            <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</span>
+            <div class="ol-cal-views">
+              <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
+              <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
+            </div>
+          </div>
+        </div>
         <div class="ol-create-grid">
           <div class="ol-create-col-left">
+            <button class="ol-back-btn" type="button" id="ol-back">← К списку</button>
             <h2 class="ol-title">Новая заявка</h2>
             <div class="ol-form" id="ol-form" autocomplete="off">
               <div class="ol-grid">
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Название компании <em>*</em></span>
-                  <input type="text" name="company_name" maxlength="120">
+                  <input type="text" name="ol_cn" maxlength="120"
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
                 <label class="ol-field ol-field-wide ol-field-checkbox">
-                  <input type="checkbox" name="is_online" id="ol-is-online">
+                  <input type="checkbox" name="ol_online" id="ol-is-online">
                   <span>Онлайн-встреча (без адреса)</span>
                 </label>
 
                 <div class="ol-field ol-field-wide ol-address-wrap">
                   <span class="ol-label" id="ol-address-label">Адрес встречи</span>
-                  <input type="text" name="meeting_address" id="ol-address" maxlength="240" placeholder="Город, улица, дом, офис…">
+                  <input type="text" name="ol_addr" id="ol-address" maxlength="240" placeholder="Город, улица, дом, офис…"
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                   <div class="dadata-suggest ol-suggest" id="ol-suggest" hidden></div>
                 </div>
 
@@ -247,28 +280,30 @@
                   <span class="ol-label">Дата встречи <em>*</em></span>
                   <div class="ol-date-control">
                     <button type="button" class="ol-date-arrow" data-shift="-1" aria-label="Предыдущий день">‹</button>
-                    <input type="date" name="meeting_date" id="ol-meeting-date" value="${todayYmd}">
+                    <input type="date" name="ol_md" id="ol-meeting-date" value="${todayYmd}"
+                           autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                     <button type="button" class="ol-date-arrow" data-shift="1" aria-label="Следующий день">›</button>
                   </div>
                 </div>
 
                 <label class="ol-field">
                   <span class="ol-label">Время встречи</span>
-                  <input type="time" name="meeting_time">
+                  <input type="time" name="ol_mt"
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
                 <div class="ol-field ol-field-wide">
                   <span class="ol-label">Лицо, принимающее решение?</span>
                   <div class="ol-radio">
-                    <label><input type="radio" name="is_lpr" value="yes" checked> Да</label>
-                    <label><input type="radio" name="is_lpr" value="no"> Нет</label>
+                    <label><input type="radio" name="ol_lpr" value="yes" checked> Да</label>
+                    <label><input type="radio" name="ol_lpr" value="no"> Нет</label>
                   </div>
                 </div>
 
                 <div class="ol-phones-row ol-field-wide">
                   <label class="ol-field">
                     <span class="ol-label" id="ol-phone-label">Телефон ЛПР <em>*</em></span>
-                    <input type="text" name="phone" maxlength="22"
+                    <input type="text" name="ol_p1" maxlength="22"
                            placeholder="8 (962) 323-25-47"
                            inputmode="tel"
                            autocomplete="off"
@@ -281,7 +316,7 @@
                           title="Скопировать в «Номер, на который звонили»">→</button>
                   <label class="ol-field">
                     <span class="ol-label">Номер, на который звонили <em>*</em></span>
-                    <input type="text" name="called_phone" maxlength="22"
+                    <input type="text" name="ol_p2" maxlength="22"
                            placeholder="8 (962) 323-25-47"
                            inputmode="tel"
                            autocomplete="off"
@@ -293,27 +328,31 @@
 
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Имя</span>
-                  <input type="text" name="lpr_name" maxlength="80" placeholder="Иван Иванов">
+                  <input type="text" name="ol_pname" maxlength="80" placeholder="Иван Иванов"
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Должность</span>
-                  <input type="text" name="lpr_position" maxlength="80" placeholder="Директор">
+                  <input type="text" name="ol_ppos" maxlength="80" placeholder="Директор"
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Сайт</span>
-                  <input type="text" name="website" maxlength="200" placeholder="https://...">
+                  <input type="text" name="ol_site" maxlength="200" placeholder="https://..."
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
                 <label class="ol-field ol-field-wide ol-field-checkbox">
-                  <input type="checkbox" name="has_loyalty">
+                  <input type="checkbox" name="ol_loy">
                   <span>Есть программа лояльности</span>
                 </label>
 
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Комментарий</span>
-                  <textarea name="comment" rows="3" maxlength="2000" placeholder="Что обсудили, особенности клиента, договорённости…"></textarea>
+                  <textarea name="ol_cm" rows="3" maxlength="2000" placeholder="Что обсудили, особенности клиента, договорённости…"
+                            autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"></textarea>
                 </label>
               </div>
 
@@ -325,16 +364,6 @@
           </div>
 
           <aside class="ol-create-col-right">
-            <div class="ol-cal-head">
-              <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
-              <div class="ol-cal-head-right">
-                <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</span>
-                <div class="ol-cal-views">
-                  <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
-                  <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
-                </div>
-              </div>
-            </div>
             <div class="ol-cal-body" id="ol-cal-body">
               <div class="ol-cal-loading">Загрузка…</div>
             </div>
@@ -362,17 +391,16 @@
     // Календарь на сегодня
     await refreshCalendar(todayYmd);
 
-    $('input[name="company_name"]')?.focus();
+    $('input[name="ol_cn"]')?.focus();
   }
 
   function bindPhoneMasks() {
-    document.querySelectorAll('input[name="phone"], input[name="called_phone"]').forEach(bindPhoneMask);
+    document.querySelectorAll('input[name="ol_p1"], input[name="ol_p2"]').forEach(bindPhoneMask);
     $('#ol-phone-copy')?.addEventListener('click', () => {
-      const src = document.querySelector('input[name="phone"]');
-      const dst = document.querySelector('input[name="called_phone"]');
+      const src = document.querySelector('input[name="ol_p1"]');
+      const dst = document.querySelector('input[name="ol_p2"]');
       if (!src || !dst) return;
       dst.value = src.value;
-      // Триггерим input, чтобы маска применилась повторно (на всякий случай).
       dst.dispatchEvent(new Event('input', { bubbles: true }));
     });
   }
@@ -533,9 +561,10 @@
     for (const s of slots) {
       const start = new Date(s.meeting_at);
       const end = new Date(start.getTime() + (s.duration_minutes || 60) * 60_000);
-      const range = `${pad2(start.getHours())}:${pad2(start.getMinutes())}–${pad2(end.getHours())}:${pad2(end.getMinutes())}`;
-      const slotStart = start.getHours() * 60 + start.getMinutes();
-      const slotEnd = end.getHours() * 60 + end.getMinutes();
+      const sH = mskHM(start), eH = mskHM(end);
+      const range = `${pad2(sH.h)}:${pad2(sH.m)}–${pad2(eH.h)}:${pad2(eH.m)}`;
+      const slotStart = sH.h * 60 + sH.m;
+      const slotEnd = eH.h * 60 + eH.m;
       for (let m = HOUR_FROM * 60; m < HOUR_TO * 60; m += stepM) {
         if (slotEnd > m && slotStart < m + stepM) {
           if (!occupiedBy.has(m)) {
@@ -592,7 +621,7 @@
     document.querySelectorAll('.ol-hour-free').forEach((btn) => {
       btn.addEventListener('click', () => {
         const t = btn.dataset.time;
-        const timeInput = document.querySelector('input[name="meeting_time"]');
+        const timeInput = document.querySelector('input[name="ol_mt"]');
         if (timeInput) {
           timeInput.value = t;
           timeInput.dispatchEvent(new Event('change', { bubbles: true }));
@@ -620,7 +649,8 @@
             .map((s) => {
               const startD = new Date(s.meeting_at);
               const endD = new Date(startD.getTime() + (s.duration_minutes || 60) * 60_000);
-              const range = `${pad2(startD.getHours())}:${pad2(startD.getMinutes())}–${pad2(endD.getHours())}:${pad2(endD.getMinutes())}`;
+              const sH = mskHM(startD), eH = mskHM(endD);
+              const range = `${pad2(sH.h)}:${pad2(sH.m)}–${pad2(eH.h)}:${pad2(eH.m)}`;
               const sourceCls = s.source === 'block' ? ' ol-week-block' : '';
               return `<div class="ol-week-slot${sourceCls}">
                 <span class="ol-week-time">${escapeHtml(range)}</span>
@@ -653,7 +683,7 @@
         document.querySelectorAll('.ol-cal-view-btn').forEach((b) => {
           b.classList.toggle('primary', b.dataset.cv === 'day');
         });
-        const dateInput = document.querySelector('input[name="meeting_date"]');
+        const dateInput = document.querySelector('input[name="ol_md"]');
         if (dateInput) {
           dateInput.value = ymd;
           dateInput.dispatchEvent(new Event('change', { bubbles: true }));
@@ -670,7 +700,7 @@
         document.querySelectorAll('.ol-cal-view-btn').forEach((b) => {
           b.classList.toggle('primary', b === btn);
         });
-        const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+        const ymd = document.querySelector('input[name="ol_md"]')?.value || mskYmd(new Date());
         refreshCalendar(ymd);
       });
     });
@@ -736,10 +766,14 @@
   function removePinned(id) {
     state.pinnedMgrIds = state.pinnedMgrIds.filter((x) => x !== id);
     savePinned(state.pinnedMgrIds);
-    renderMgrTabs();
-    // Если активным был удалённый — оставим в форме, чтобы не терять контекст
-    // (он будет показан как «непрепный» tab без крестика). Если хотим сбросить —
-    // делается ручным кликом на другого менеджера.
+    if (state.activeMgrId === id) {
+      state.activeMgrId = state.pinnedMgrIds[0] || '';
+      const ymd = document.querySelector('input[name="ol_md"]')?.value || mskYmd(new Date());
+      renderMgrTabs();
+      refreshCalendar(ymd);
+    } else {
+      renderMgrTabs();
+    }
   }
 
   function openMgrPicker() {
@@ -790,21 +824,20 @@
   function readForm() {
     const root = $('#ol-form');
     const get = (name) => root.querySelector(`[name="${name}"]`)?.value || '';
-    const checked = (name) => !!root.querySelector(`[name="${name}"]:checked`);
     return {
-      company_name: get('company_name').trim(),
-      is_online: !!root.querySelector('[name="is_online"]:checked'),
-      meeting_address: get('meeting_address').trim(),
-      meeting_date: get('meeting_date').trim(),
-      meeting_time: get('meeting_time').trim(),
-      is_lpr: (root.querySelector('input[name="is_lpr"]:checked')?.value) === 'no' ? 'no' : 'yes',
-      phone: get('phone').trim(),
-      called_phone: get('called_phone').trim(),
-      lpr_name: get('lpr_name').trim(),
-      lpr_position: get('lpr_position').trim(),
-      website: get('website').trim(),
-      has_loyalty: !!root.querySelector('[name="has_loyalty"]:checked'),
-      comment: get('comment').trim(),
+      company_name: get('ol_cn').trim(),
+      is_online: !!root.querySelector('[name="ol_online"]:checked'),
+      meeting_address: get('ol_addr').trim(),
+      meeting_date: get('ol_md').trim(),
+      meeting_time: get('ol_mt').trim(),
+      is_lpr: (root.querySelector('input[name="ol_lpr"]:checked')?.value) === 'no' ? 'no' : 'yes',
+      phone: get('ol_p1').trim(),
+      called_phone: get('ol_p2').trim(),
+      lpr_name: get('ol_pname').trim(),
+      lpr_position: get('ol_ppos').trim(),
+      website: get('ol_site').trim(),
+      has_loyalty: !!root.querySelector('[name="ol_loy"]:checked'),
+      comment: get('ol_cm').trim(),
     };
   }
 
@@ -829,8 +862,9 @@
       if (!f.called_phone) { toast('Укажите номер, на который звонили.'); return; }
 
       // Время необязательно: если указано — берём; иначе 00:00.
+      // Дата/время в форме интерпретируются как МСК (+03:00).
       const t = f.meeting_time || '00:00';
-      const meetingIso = new Date(`${f.meeting_date}T${t}`).toISOString();
+      const meetingIso = new Date(mskToUtcIso(f.meeting_date, t)).toISOString();
 
       // City: при онлайне — то, что оператор написал в поле «Город встречи»;
       // иначе — из DaData при выборе подсказки.
@@ -885,9 +919,9 @@
   }
 
   function bindLprRadio() {
-    document.querySelectorAll('input[name="is_lpr"]').forEach((r) => {
+    document.querySelectorAll('input[name="ol_lpr"]').forEach((r) => {
       r.addEventListener('change', () => {
-        const isLpr = document.querySelector('input[name="is_lpr"]:checked')?.value === 'yes';
+        const isLpr = document.querySelector('input[name="ol_lpr"]:checked')?.value === 'yes';
         const phoneLabel = $('#ol-phone-label');
         if (phoneLabel) phoneLabel.innerHTML = isLpr ? 'Телефон ЛПР <em>*</em>' : 'Телефон <em>*</em>';
       });
