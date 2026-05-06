@@ -9,6 +9,48 @@
   const $ = (sel, el = document) => el.querySelector(sel);
 
   let activeId = null;
+  // Активная вкладка в блоке «Звонок оператора»: 'transcript' | 'audio'.
+  // Запоминается между переключениями лидов в рамках сессии.
+  let activeCallTab = 'transcript';
+
+  // ---------- Записи менеджера (localStorage) ----------
+  // MVP: храним массив записей по каждому лиду в localStorage. Аудио — base64
+  // data URL (FileReader.readAsDataURL). Реалистичные размеры: mp3 64kbps на
+  // 5 минут ≈ 2 МБ. localStorage обычно ограничен ~5–10 МБ на origin —
+  // помещается ~2–3 записи. Для production это переедет в Supabase Storage.
+  const STORAGE_KEY = (leadId) => `mm_lead_recordings_v1__${leadId}`;
+  const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // 4 МБ — лимит на один файл
+
+  function loadRecordings(leadId) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY(leadId));
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveRecordings(leadId, list) {
+    try {
+      localStorage.setItem(STORAGE_KEY(leadId), JSON.stringify(list));
+      return true;
+    } catch (e) {
+      // Quota exceeded — даём знать менеджеру, что место кончилось.
+      toast('Не хватает места в браузере (MVP-ограничение). Удалите старую запись.');
+      return false;
+    }
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.add('hidden'), 2400);
+  }
 
   // ---------- Утилиты ----------
 
@@ -146,7 +188,237 @@
       ${pitchHtml}
 
       <h4 class="lead-tools-subtitle">Инструменты для презентации</h4>
-      ${renderRecommendations(lead.recommendations)}`;
+      ${renderRecommendations(lead.recommendations)}
+
+      ${renderOperatorCall(lead)}
+
+      ${renderManagerRecordingsBlock(lead.id)}`;
+
+    bindCallTabs();
+    bindManagerRecordings(lead);
+  }
+
+  // ---------- Звонок оператора (транскрибация + аудио) ----------
+
+  function renderOperatorCall(lead) {
+    const oc = lead.operator_call || { transcript: [], audio_url: '' };
+    const clientLabel = (lead.lpr_name || '').split(',')[0] || 'Клиент';
+
+    const transcriptHtml = (oc.transcript && oc.transcript.length)
+      ? `<div class="call-transcript">${oc.transcript.map((line) => `
+          <div class="call-line call-line-${line.speaker === 'op' ? 'op' : 'client'}">
+            <span class="call-speaker">${line.speaker === 'op' ? 'Оператор' : escapeHtml(clientLabel)}:</span>
+            <span class="call-text">${escapeHtml(line.text || '')}</span>
+          </div>
+        `).join('')}</div>`
+      : '<div class="call-empty">Транскрибация пока не загружена.</div>';
+
+    const audioHtml = oc.audio_url
+      ? `<audio class="call-audio" controls preload="none" src="${escapeHtml(oc.audio_url)}"></audio>`
+      : `<div class="call-empty">
+           Запись звонка пока не подгружена.
+           <span class="call-empty-hint">Оператор загрузит файл после звонка.</span>
+         </div>`;
+
+    const tab = activeCallTab === 'audio' ? 'audio' : 'transcript';
+
+    return `
+      <h3 class="lead-section-title lead-call-title">Звонок оператора</h3>
+      <div class="lead-call">
+        <div class="lead-tabs" role="tablist">
+          <button class="lead-tab${tab === 'transcript' ? ' active' : ''}" data-tab="transcript" type="button" role="tab">
+            📝 Транскрибация
+          </button>
+          <button class="lead-tab${tab === 'audio' ? ' active' : ''}" data-tab="audio" type="button" role="tab">
+            🎙 Запись звонка
+          </button>
+        </div>
+        <div class="lead-tab-pane" data-pane="transcript"${tab !== 'transcript' ? ' hidden' : ''}>
+          ${transcriptHtml}
+        </div>
+        <div class="lead-tab-pane" data-pane="audio"${tab !== 'audio' ? ' hidden' : ''}>
+          ${audioHtml}
+        </div>
+      </div>`;
+  }
+
+  function bindCallTabs() {
+    const tabs = document.querySelectorAll('.lead-call .lead-tab');
+    tabs.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        activeCallTab = target;
+        tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === target));
+        document.querySelectorAll('.lead-call .lead-tab-pane').forEach((p) => {
+          p.hidden = (p.dataset.pane !== target);
+        });
+      });
+    });
+  }
+
+  // ---------- Записи менеджера (после встречи) ----------
+
+  function renderManagerRecordingsBlock(leadId) {
+    return `
+      <h3 class="lead-section-title lead-mgr-title">Мои записи и комментарии</h3>
+      <p class="lead-mgr-hint">
+        После встречи можно прикрепить аудиозапись разговора и комментарий.
+        Каждая запись сохраняется отдельно.
+      </p>
+      <div id="lead-mgr-list" class="lead-mgr-list" data-lead-id="${escapeHtml(leadId)}"></div>
+      <form class="lead-mgr-add" id="lead-mgr-add" autocomplete="off">
+        <label class="lead-mgr-file">
+          <input type="file" accept="audio/*" id="lead-mgr-file-input" hidden>
+          <span class="btn lead-mgr-file-btn" id="lead-mgr-file-btn">📎 Выбрать аудиофайл</span>
+          <span class="lead-mgr-file-name" id="lead-mgr-file-name">файл не выбран</span>
+        </label>
+        <textarea id="lead-mgr-comment" rows="3" placeholder="Комментарий к записи: что обсудили, что договорились, какие следующие шаги…"></textarea>
+        <div class="lead-mgr-actions">
+          <button class="btn primary" id="lead-mgr-add-btn" type="button">＋ Добавить запись</button>
+          <span class="lead-mgr-add-hint">Файл до 4 МБ, mp3 / m4a / wav. Можно добавить только комментарий без аудио.</span>
+        </div>
+      </form>`;
+  }
+
+  function bindManagerRecordings(lead) {
+    renderManagerRecordingsList(lead.id);
+
+    const fileInput = document.getElementById('lead-mgr-file-input');
+    const fileBtn = document.getElementById('lead-mgr-file-btn');
+    const fileNameEl = document.getElementById('lead-mgr-file-name');
+    const commentEl = document.getElementById('lead-mgr-comment');
+    const addBtn = document.getElementById('lead-mgr-add-btn');
+
+    if (!fileInput || !fileBtn || !addBtn) return;
+
+    let pickedFile = null;
+
+    fileBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) {
+        pickedFile = null;
+        fileNameEl.textContent = 'файл не выбран';
+        return;
+      }
+      if (f.size > MAX_AUDIO_BYTES) {
+        toast('Файл больше 4 МБ — выберите более короткий или с меньшим битрейтом.');
+        fileInput.value = '';
+        pickedFile = null;
+        fileNameEl.textContent = 'файл не выбран';
+        return;
+      }
+      pickedFile = f;
+      fileNameEl.textContent = `${f.name} · ${formatBytes(f.size)}`;
+    });
+
+    addBtn.addEventListener('click', async () => {
+      const comment = (commentEl.value || '').trim();
+      if (!pickedFile && !comment) {
+        toast('Прикрепите файл или напишите комментарий.');
+        return;
+      }
+      addBtn.disabled = true;
+      try {
+        const dataUrl = pickedFile ? await readFileAsDataUrl(pickedFile) : '';
+        const list = loadRecordings(lead.id);
+        list.unshift({
+          id: cryptoId(),
+          uploaded_at: new Date().toISOString(),
+          file_name: pickedFile ? pickedFile.name : '',
+          file_size: pickedFile ? pickedFile.size : 0,
+          mime: pickedFile ? pickedFile.type : '',
+          data_url: dataUrl,
+          comment,
+        });
+        const ok = saveRecordings(lead.id, list);
+        if (ok) {
+          // Сбрасываем форму.
+          fileInput.value = '';
+          pickedFile = null;
+          fileNameEl.textContent = 'файл не выбран';
+          commentEl.value = '';
+          renderManagerRecordingsList(lead.id);
+          toast('Запись добавлена.');
+        }
+      } catch (e) {
+        toast('Не получилось прочитать файл.');
+      } finally {
+        addBtn.disabled = false;
+      }
+    });
+  }
+
+  function renderManagerRecordingsList(leadId) {
+    const wrap = document.getElementById('lead-mgr-list');
+    if (!wrap) return;
+    const list = loadRecordings(leadId);
+    if (!list.length) {
+      wrap.innerHTML = '<div class="lead-mgr-empty">Записей пока нет. Прикрепите первую — после встречи.</div>';
+      return;
+    }
+    wrap.innerHTML = list.map((rec) => `
+      <div class="lead-mgr-card" data-rec-id="${escapeHtml(rec.id)}">
+        <div class="lead-mgr-card-head">
+          <span class="lead-mgr-when">${escapeHtml(formatRecordingTime(rec.uploaded_at))}</span>
+          <button class="btn lead-mgr-del" type="button" data-rec-id="${escapeHtml(rec.id)}" title="Удалить запись">🗑</button>
+        </div>
+        ${rec.data_url ? `
+          <audio class="lead-mgr-audio" controls preload="none" src="${escapeHtml(rec.data_url)}"></audio>
+          <div class="lead-mgr-filename">${escapeHtml(rec.file_name || 'аудиозапись')} · ${formatBytes(rec.file_size || 0)}</div>
+        ` : ''}
+        ${rec.comment ? `<div class="lead-mgr-comment">${escapeHtml(rec.comment)}</div>` : ''}
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.lead-mgr-del').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const ok = window.confirmDialog
+          ? await window.confirmDialog({
+              title: 'Удалить запись?',
+              message: 'Аудио и комментарий будут удалены безвозвратно.',
+              okText: 'Удалить',
+              cancelText: 'Отмена',
+              danger: true,
+            })
+          : confirm('Удалить запись?');
+        if (!ok) return;
+        const recId = btn.dataset.recId;
+        const list2 = loadRecordings(leadId).filter((r) => r.id !== recId);
+        if (saveRecordings(leadId, list2)) {
+          renderManagerRecordingsList(leadId);
+          toast('Запись удалена.');
+        }
+      });
+    });
+  }
+
+  // ---------- Утилиты для записей менеджера ----------
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+
+  function cryptoId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'r_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes) return '0 Б';
+    if (bytes < 1024) return `${bytes} Б`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+  }
+
+  function formatRecordingTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getDate()} ${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
   function renderRecommendations(recs) {
