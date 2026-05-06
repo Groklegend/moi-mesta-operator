@@ -41,7 +41,10 @@
     <button class="seller-tab" data-section="deals" type="button">
       <span class="emoji">💼</span><span>Мои сделки</span>
     </button>
-    <button class="seller-tab" data-section="kb-categories" type="button">
+    <!-- «Рубрики» спрятаны из дропдауна — выбор рубрики уже есть справа
+         в секции «Возражения». Сама вкладка осталась для прямого перехода
+         по #kb-categories, но в меню не показывается. -->
+    <button class="seller-tab" data-section="kb-categories" type="button" hidden>
       <span class="emoji">📚</span><span>Рубрики</span>
     </button>
     <button class="seller-tab" data-section="kb-objections" type="button">
@@ -59,29 +62,29 @@
     <!-- Блок «Режим работы Гари» — сверху, появляется когда заявка передана Гари -->
     <div id="gary-block-container" hidden></div>
     <div class="app-wizard" id="app-wizard">
-      <!-- Шапка мастера -->
+      <!-- Шапка мастера. Заголовок «Подключение компании» убран — он
+           дублируется активным пунктом дропдауна в шапке кабинета. -->
       <div class="wizard-head">
         <div class="wizard-title">
-          <h1 class="page-title" style="margin:0;">Подключение компании</h1>
           <p class="wizard-sub" id="wiz-sub">
-            Заявка Гари — пять шагов. Можно сохранить как черновик и вернуться позже.
+            Заявка Гари — шесть шагов. Заполняйте в любой последовательности, можно сохранить и вернуться позже.
           </p>
         </div>
         <div class="wizard-head-actions">
-          <span class="wizard-readonly-badge" id="wiz-readonly-badge" hidden>👁 Режим просмотра</span>
           <span class="wizard-saved" id="wiz-saved" hidden>✓ Сохранено</span>
-          <button class="btn" id="wiz-save-draft" type="button">💾 Сохранить как черновик</button>
-          <button class="btn" id="wiz-back-to-list" type="button" hidden>← К списку</button>
+          <button class="btn" id="wiz-save-draft" type="button">💾 Сохранить</button>
+          <button class="btn" id="wiz-back-to-list" type="button">← К списку</button>
         </div>
       </div>
 
       <!-- Индикатор шагов -->
       <ol class="wizard-steps" id="wiz-steps">
         <li class="wiz-step active" data-step="1"><span class="step-num">1</span><span class="step-name">О компании</span></li>
-        <li class="wiz-step" data-step="2"><span class="step-num">2</span><span class="step-name">Реквизиты</span></li>
-        <li class="wiz-step" data-step="3"><span class="step-num">3</span><span class="step-name">Контакты</span></li>
-        <li class="wiz-step" data-step="4"><span class="step-num">4</span><span class="step-name">Филиалы</span></li>
-        <li class="wiz-step" data-step="5"><span class="step-num">5</span><span class="step-name">Программа лояльности</span></li>
+        <li class="wiz-step" data-step="2"><span class="step-num">2</span><span class="step-name">Интеграция</span></li>
+        <li class="wiz-step" data-step="3"><span class="step-num">3</span><span class="step-name">Реквизиты</span></li>
+        <li class="wiz-step" data-step="4"><span class="step-num">4</span><span class="step-name">Контакты</span></li>
+        <li class="wiz-step" data-step="5"><span class="step-num">5</span><span class="step-name">Филиалы</span></li>
+        <li class="wiz-step" data-step="6"><span class="step-num">6</span><span class="step-name">Программа лояльности</span></li>
       </ol>
 
       <!-- Шаг 1. О компании -->
@@ -99,41 +102,74 @@
             </select>
           </label>
           <label>
-            <div class="lbl">Логотип компании</div>
+            <div class="lbl">Логотип компании <span class="muted" style="font-weight:400;">(до 10 файлов)</span></div>
             <div class="file-drop" id="wiz-logo-drop">
-              <input type="file" id="wiz-logo-input" accept="image/jpeg,image/png,image/webp" hidden>
-              <div class="file-hint">JPG, PNG или WEBP, до 5 МБ. Если нет логотипа — приложите фото вывески, меню или интерьера.</div>
+              <input type="file" id="wiz-logo-input" accept="image/jpeg,image/png,image/webp" multiple hidden>
+              <div class="file-hint">JPG, PNG или WEBP, до 5 МБ за файл. Если нет логотипа — приложите фото вывески, меню или интерьера.</div>
               <div class="file-actions">
-                <button type="button" class="btn sm" id="wiz-logo-pick">Выбрать файл</button>
+                <button type="button" class="btn sm" id="wiz-logo-pick">+ Добавить фото</button>
+                <span class="muted" id="wiz-logo-count" style="font-size:13px;"></span>
               </div>
-              <div class="file-preview" id="wiz-logo-preview" hidden></div>
+              <div class="file-grid" id="wiz-logo-grid"></div>
             </div>
           </label>
           <label>
             <div class="lbl">Фирменные цвета и стиль</div>
-            <textarea data-f="style_desc" rows="3" placeholder="Опишите стиль: цвета, настроение, особенности подачи."></textarea>
-            <div class="file-drop">
-              <input type="file" id="wiz-style-input" accept="image/jpeg,image/png,image/webp" multiple hidden>
-              <div class="file-hint">Можно приложить фото меню / интерьера / упаковки (несколько файлов).</div>
-              <div class="file-actions">
-                <button type="button" class="btn sm" id="wiz-style-pick">Добавить фото</button>
-              </div>
-              <div class="file-grid" id="wiz-style-grid"></div>
-            </div>
+            <textarea data-f="style_desc" rows="5" placeholder="Опишите стиль:&#10;• Цвета: например, сиреневый, голубой&#10;• Настроение: например, серьёзность заведения&#10;• Особенности подачи: например, минимализм, светлые фото"></textarea>
           </label>
           <label>
             <div class="lbl">Краткое описание</div>
-            <textarea data-f="short_desc" rows="2" maxlength="200" placeholder="1–2 предложения для карточки клиента."></textarea>
-          </label>
-          <label>
-            <div class="lbl">Полное описание</div>
-            <textarea data-f="full_desc" rows="5" placeholder="Что предлагает компания, чем отличается, для кого."></textarea>
+            <textarea data-f="short_desc" rows="2" maxlength="200" placeholder="Одно предложение для карточки клиента. Например: салон красоты, полуфабрикаты, кафе домашней кухни."></textarea>
           </label>
         </div>
       </div>
 
-      <!-- Шаг 2. Реквизиты -->
+      <!-- Шаг 2. Интеграция -->
       <div class="wiz-pane" data-pane="2" hidden>
+        <h2 class="pane-title">Интеграция</h2>
+        <p class="pane-hint">
+          Если у клиента уже стоит учётная система — отметим её и согласуем подключение.
+        </p>
+
+        <div class="integ-block">
+          <div class="lbl">Требуется интеграция? <span class="req">*</span></div>
+          <div class="seg-row" id="wiz-integ-required">
+            <label class="seg-btn"><input type="radio" name="integ-required" value="yes"><span>Да</span></label>
+            <label class="seg-btn"><input type="radio" name="integ-required" value="no"><span>Нет</span></label>
+          </div>
+        </div>
+
+        <div class="integ-details" id="wiz-integ-details" hidden>
+          <div class="integ-block">
+            <div class="lbl">Какие системы интегрировать? <span class="req">*</span></div>
+            <p class="muted" style="font-size:13px;margin:0 0 10px;">
+              Отметьте нужные. Для каждой можно указать версию.
+            </p>
+            <div class="integ-presets" id="wiz-integ-presets">
+              <!-- Заполняется JS из INTEG_PRESETS = ['1С', 'iiko', 'R-Keeper', 'Эвотор'] -->
+            </div>
+          </div>
+
+          <div class="integ-block">
+            <div class="lbl">Своя система</div>
+            <div class="integ-custom-list" id="wiz-integ-custom-list">
+              <!-- Сюда динамически добавляются строки {Название + Версия + Удалить} -->
+            </div>
+            <button type="button" class="btn sm" id="wiz-integ-custom-add" style="margin-top:8px;">+ Добавить свою систему</button>
+          </div>
+
+          <div class="integ-block">
+            <div class="lbl">Когда нужна интеграция? <span class="req">*</span></div>
+            <div class="seg-row" id="wiz-integ-when">
+              <label class="seg-btn"><input type="radio" name="integ-when" value="before_test"><span>До тестового периода</span></label>
+              <label class="seg-btn"><input type="radio" name="integ-when" value="after_test"><span>После тестового периода</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Шаг 3. Реквизиты -->
+      <div class="wiz-pane" data-pane="3" hidden>
         <h2 class="pane-title">Реквизиты компании</h2>
         <p class="pane-hint">
           Два способа заполнить: введите ИНН и нажмите «Заполнить автоматически»
@@ -194,8 +230,8 @@
         </div>
       </div>
 
-      <!-- Шаг 3. Контакты и каналы -->
-      <div class="wiz-pane" data-pane="3" hidden>
+      <!-- Шаг 4. Контакты и каналы -->
+      <div class="wiz-pane" data-pane="4" hidden>
         <h2 class="pane-title">Контакты и каналы</h2>
         <h3 class="pane-section">Каналы коммуникации</h3>
         <div class="form-grid wiz-grid">
@@ -242,16 +278,16 @@
         </div>
       </div>
 
-      <!-- Шаг 4. Филиалы -->
-      <div class="wiz-pane" data-pane="4" hidden>
+      <!-- Шаг 5. Филиалы -->
+      <div class="wiz-pane" data-pane="5" hidden>
         <h2 class="pane-title">Филиалы</h2>
         <p class="pane-hint">Минимум один филиал. Адреса подсказываются по DaData.</p>
         <div class="branches-list" id="wiz-branches"></div>
         <button type="button" class="btn" id="wiz-add-branch">+ Добавить филиал</button>
       </div>
 
-      <!-- Шаг 5. Программа лояльности -->
-      <div class="wiz-pane" data-pane="5" hidden>
+      <!-- Шаг 6. Программа лояльности -->
+      <div class="wiz-pane" data-pane="6" hidden>
         <h2 class="pane-title">Программа лояльности</h2>
 
         <div class="loyalty-help-row">
@@ -326,7 +362,7 @@
       <div class="wizard-foot">
         <button class="btn" id="wiz-prev" type="button" hidden>← Назад</button>
         <div class="wizard-foot-spacer"></div>
-        <button class="btn" id="wiz-save-draft-2" type="button">💾 Сохранить как черновик</button>
+        <button class="btn" id="wiz-save-draft-2" type="button">💾 Сохранить</button>
         <button class="btn primary" id="wiz-next" type="button" disabled>Далее →</button>
       </div>
     </div>
@@ -418,25 +454,51 @@
     </table>
   </section>
 
-  <!-- Возражения -->
+  <!-- Возражения: 2-колоночный режим как у оператора (список слева + ответ справа) -->
   <section id="section-kb-objections" class="seller-section" hidden>
-    <div class="flex between" style="margin-bottom:20px;align-items:flex-start;gap:16px;">
-      <div>
-        <h1 class="page-title" style="margin:0;">Возражения</h1>
-        <p style="color:var(--muted);font-size:13px;margin:4px 0 0;">
-          Готовые ответы на типовые вопросы и возражения клиентов.
-        </p>
+    <!-- Заголовок и подпись убраны — они занимали много места впустую,
+         как и у оператора, сразу идёт контент. Дропдаун рубрик прижат к
+         правому краю над двухколоночным layout. -->
+    <div class="kb-obj-head kb-obj-head--compact">
+      <div class="category-dropdown" id="kb-obj-cat-dropdown">
+        <button class="cat-trigger" id="kb-obj-cat-trigger" type="button">
+          <span class="emoji" id="kb-obj-cat-emoji">🗂️</span>
+          <span id="kb-obj-cat-label">Все рубрики</span>
+          <span class="arrow">▾</span>
+        </button>
+        <div class="cat-menu hidden" id="kb-obj-cat-menu"></div>
       </div>
-      <input type="search" id="kb-obj-search" placeholder="Поиск…" style="min-width:280px;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);font-family:inherit;font-size:14px;">
     </div>
-    <div id="kb-obj-list" class="kb-obj-list">
-      <div class="empty plain">Загрузка…</div>
+    <div class="kb-docs-layout">
+      <aside class="kb-docs-sidebar">
+        <div class="kb-obj-search-wrap">
+          <input id="kb-obj-search" type="search" placeholder="Поиск возражения…" autocomplete="off">
+        </div>
+        <div class="kb-obj-section" id="kb-obj-results-section" hidden>
+          <h3 class="kb-obj-section-title">Результаты поиска</h3>
+          <div id="kb-obj-results" class="kb-docs-items"></div>
+        </div>
+        <div class="kb-obj-section" id="kb-obj-general-section">
+          <h3 class="kb-obj-section-title">Общие возражения</h3>
+          <div id="kb-obj-general" class="kb-docs-items"></div>
+        </div>
+        <div class="kb-obj-section" id="kb-obj-specific-section" hidden>
+          <h3 class="kb-obj-section-title" id="kb-obj-specific-title">Специфичные</h3>
+          <div id="kb-obj-specific" class="kb-docs-items"></div>
+        </div>
+      </aside>
+      <div class="kb-docs-pane" id="kb-obj-pane">
+        <div class="placeholder">
+          <span class="big-icon">💬</span>
+          Выберите возражение слева — ответ появится здесь
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- Документы — двухколоночный режим как у оператора -->
+  <!-- Документы — двухколоночный режим как у оператора. Заголовок убран
+       намеренно, чтобы не терять полезное пространство, как в «Возражениях». -->
   <section id="section-kb-documents" class="seller-section" hidden>
-    <h1 class="page-title" style="margin-bottom:20px;">Документы</h1>
     <div class="kb-docs-layout">
       <aside class="kb-docs-sidebar">
         <div id="kb-doc-list" class="kb-docs-items">
@@ -489,8 +551,15 @@
   const ddEmoji = document.querySelector('.section-dropdown-emoji');
   function syncDropdownLabel(activeTab) {
     if (!activeTab) return;
-    const emoji = activeTab.querySelector('.emoji')?.textContent || '';
-    const label = activeTab.querySelector('span:not(.emoji)')?.textContent || '';
+    // «Подключение компании» — под-режим раздела «Мои сделки» (заявку
+    // открываем оттуда). Сама вкладка connect скрыта и в меню дропдауна
+    // её нет, поэтому в шапке показываем родительский раздел «Мои сделки».
+    let displayTab = activeTab;
+    if (activeTab.dataset.section === 'connect') {
+      displayTab = document.querySelector('#seller-nav .seller-tab[data-section="deals"]') || activeTab;
+    }
+    const emoji = displayTab.querySelector('.emoji')?.textContent || '';
+    const label = displayTab.querySelector('span:not(.emoji)')?.textContent || '';
     if (ddEmoji) ddEmoji.textContent = emoji;
     if (ddLabel) ddLabel.textContent = label;
   }

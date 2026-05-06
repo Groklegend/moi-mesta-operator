@@ -1929,6 +1929,7 @@ h2.page-title {
   position: sticky;
   top: 88px;
 }
+.seller-sidebar[hidden] { display: none !important; }
 .seller-tab[hidden] { display: none !important; }
 .seller-tab {
   display: flex;
@@ -2275,27 +2276,15 @@ h2.page-title {
   margin-bottom: 20px;
 }
 .wizard-title h1 { margin: 0; font-size: 22px; font-weight: 800; color: var(--navy); }
-.wizard-sub { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.wizard-sub { color: var(--ink-2); font-size: 14px; margin: 0; font-weight: 500; }
 .wizard-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wizard-saved { color: var(--success); font-size: 13px; font-weight: 600; }
-.wizard-readonly-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--accent-soft);
-  color: var(--accent-dark);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
 
 /* Индикатор шагов */
 .wizard-steps {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
   padding: 0;
   margin: 0 0 24px;
@@ -2304,28 +2293,35 @@ h2.page-title {
 .wiz-step {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 10px 10px;
   background: var(--bg-soft);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   font-weight: 600;
   cursor: not-allowed;
   transition: all 0.15s;
   position: relative;
+  min-width: 0;
+}
+.wiz-step .step-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .wiz-step.clickable { cursor: pointer; }
 .wiz-step.clickable:hover { border-color: var(--accent); color: var(--ink); }
 .wiz-step .step-num {
-  width: 26px; height: 26px;
+  width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   background: var(--card);
   border: 1.5px solid var(--border);
   border-radius: 50%;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   flex-shrink: 0;
 }
@@ -2366,7 +2362,7 @@ h2.page-title {
 }
 
 @media (max-width: 900px) {
-  .wizard-steps { grid-template-columns: repeat(5, auto); overflow-x: auto; }
+  .wizard-steps { grid-template-columns: repeat(6, auto); overflow-x: auto; }
   .wiz-step .step-name { display: none; }
 }
 
@@ -2780,6 +2776,67 @@ h2.page-title {
 .seg-btn:hover { color: var(--navy); }
 .seg-btn.active { background: var(--card); color: var(--navy); box-shadow: var(--shadow-sm); }
 
+/* Сегментированные радио в виде <label> с <input type="radio"> внутри
+   (используется в шаге «Интеграция»). */
+.seg-row {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: var(--bg-soft); border-radius: 10px;
+  flex-wrap: wrap;
+}
+.seg-row .seg-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  position: relative;
+}
+.seg-row .seg-btn input {
+  position: absolute; opacity: 0; pointer-events: none;
+}
+.seg-row .seg-btn:has(input:checked) {
+  background: var(--card); color: var(--navy); box-shadow: var(--shadow-sm);
+}
+
+/* Шаг 2: Интеграция */
+.integ-block { margin-bottom: 22px; }
+.integ-block:last-child { margin-bottom: 0; }
+.integ-details { padding-top: 4px; }
+.integ-presets { display: flex; flex-direction: column; gap: 8px; }
+.integ-preset-row {
+  display: grid; grid-template-columns: 220px 1fr; gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card);
+  transition: border-color 0.15s, background 0.15s;
+}
+.integ-preset-row.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.integ-preset-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer; font-weight: 600; color: var(--ink);
+}
+.integ-preset-toggle input { width: 18px; height: 18px; cursor: pointer; }
+.integ-preset-version {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font: inherit; font-size: 14px;
+  background: var(--card); color: var(--ink);
+}
+.integ-preset-version:disabled { background: var(--bg-soft); color: var(--muted); cursor: not-allowed; }
+
+.integ-custom-list { display: flex; flex-direction: column; gap: 8px; }
+.integ-custom-row {
+  display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px;
+  align-items: center;
+}
+.integ-custom-row input {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font: inherit; font-size: 14px; background: var(--card); color: var(--ink);
+}
+
+@media (max-width: 700px) {
+  .integ-preset-row { grid-template-columns: 1fr; }
+  .integ-custom-row { grid-template-columns: 1fr; }
+}
+
 /* Процент: число + ползунок */
 .pct-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pct-input {
@@ -2938,51 +2995,7 @@ h2.page-title {
   padding: 14px 18px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-/* ---------- База знаний у менеджера (read-only) ---------- */
-.kb-obj-list { display: flex; flex-direction: column; gap: 10px; }
-.kb-obj-item {
-  background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.kb-obj-item[open] { border-color: var(--accent); box-shadow: var(--shadow-sm); }
-.kb-obj-item summary {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 18px; cursor: pointer;
-  font-weight: 600; color: var(--ink);
-  list-style: none;
-}
-.kb-obj-item summary::-webkit-details-marker { display: none; }
-.kb-obj-item summary::before {
-  content: '▸'; color: var(--muted); transition: transform 0.15s;
-  font-size: 14px;
-}
-.kb-obj-item[open] summary::before { transform: rotate(90deg); }
-.kb-obj-title { flex: 1; }
-.kb-cat-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; font-weight: 500;
-  padding: 3px 10px; border-radius: 12px;
-  background: var(--bg-soft); color: var(--ink-2);
-  white-space: nowrap;
-}
-.kb-obj-body {
-  padding: 0 18px 18px 36px;
-  color: var(--ink-2);
-  font-size: 14px; line-height: 1.6;
-}
-.kb-obj-answer { margin-bottom: 10px; }
-.kb-obj-details {
-  margin-top: 10px; padding-top: 10px;
-  border-top: 1px dashed var(--border);
-  font-size: 13px; color: var(--muted);
-}
-.kb-obj-body p { margin: 6px 0; }
-.kb-obj-body ul, .kb-obj-body ol { margin: 6px 0; padding-left: 22px; }
-
-/* Документы у менеджера — двухколоночно как у оператора */
+/* ---------- База знаний у менеджера: документы — двухколоночно как у оператора ---------- */
 .kb-docs-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -3056,6 +3069,80 @@ h2.page-title {
   .kb-docs-layout { grid-template-columns: 1fr; }
   .kb-docs-sidebar { position: relative; top: auto; max-height: none; }
 }
+
+/* ---------- Возражения у менеджера: 2-колоночный режим (как у оператора) ---------- */
+.kb-obj-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+/* Компактный режим — без заголовка/подписи, только дропдаун справа.
+   Используется в секции «Возражения» у менеджера, чтобы не терять
+   полезное пространство, как у оператора. */
+.kb-obj-head--compact {
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.kb-obj-search-wrap { position: relative; margin-bottom: 16px; }
+.kb-obj-search-wrap input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font: inherit;
+  font-size: 14px;
+}
+.kb-obj-search-wrap input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--card);
+}
+.kb-obj-search-wrap::before {
+  content: '🔍';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.kb-obj-section { margin-bottom: 18px; }
+.kb-obj-section:last-child { margin-bottom: 0; }
+.kb-obj-section-title {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+/* Текст ответа в правой панели — тот же стиль, что у оператора */
+.kb-obj-pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.kb-obj-pane-head h1 { margin: 0; flex: 1 1 auto; font-size: 24px; color: var(--navy); }
+.kb-obj-text {
+  font-size: 18px;
+  line-height: 1.6;
+  max-width: 68ch;
+  color: var(--ink);
+  margin-bottom: 22px;
+}
+.kb-obj-text p { margin: 0 0 14px; }
+.kb-obj-text ul, .kb-obj-text ol { padding-left: 24px; margin: 10px 0; }
+.kb-obj-text li { margin-bottom: 10px; }
+.kb-obj-text strong { color: var(--navy); font-weight: 700; }
+.kb-obj-text.details { color: var(--ink-2); font-size: 16px; }
 
 .deal-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .deal-main { flex: 1; min-width: 0; }

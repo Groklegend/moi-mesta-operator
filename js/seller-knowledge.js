@@ -8,7 +8,15 @@
   if (!document.getElementById('section-kb-categories')) return;
 
   const AUDIENCE = 'seller';
-  const state = { cats: [], objs: [], docs: [], objSearch: '', loaded: { cats: false, objs: false, docs: false } };
+  const state = {
+    cats: [], objs: [], docs: [],
+    objSearch: '',
+    objActiveCatId: null,   // id выбранной рубрики для секции «Специфичные» (null = все)
+    objCurrent: null,       // открытое сейчас возражение
+    objView: 'answer',      // 'answer' | 'details'
+    loaded: { cats: false, objs: false, docs: false },
+    objBoundUI: false,      // одноразовая привязка обработчиков поиска и дропдауна
+  };
 
   function $(s, r = document) { return r.querySelector(s); }
   function esc(s) {
@@ -48,58 +56,218 @@
     state.loaded.cats = true;
   }
 
-  // ---------- Возражения ----------
+  // ---------- Возражения (2-колоночный режим как у оператора) ----------
   async function loadObjs() {
-    const list = $('#kb-obj-list');
-    if (!list) return;
+    if (!$('#kb-obj-pane')) return;
     if (!state.loaded.cats) await loadCats();
     const { data, error } = await sb.from('objections').select('*')
       .eq('audience', AUDIENCE).eq('is_active', true).order('sort_order');
-    if (error) { list.innerHTML = `<div class="empty">Ошибка: ${esc(error.message)}</div>`; return; }
-    state.objs = data || [];
-    state.loaded.objs = true;
-    renderObjs();
-  }
-
-  function renderObjs() {
-    const list = $('#kb-obj-list');
-    if (!list) return;
-    const catsById = Object.fromEntries(state.cats.map(c => [c.id, c]));
-    const q = state.objSearch.trim().toLowerCase();
-    let items = state.objs;
-    if (q) {
-      items = items.filter(o =>
-        (o.title || '').toLowerCase().includes(q) ||
-        (o.keywords || '').toLowerCase().includes(q) ||
-        (o.answer || '').toLowerCase().includes(q));
-    }
-    if (!items.length) {
-      list.innerHTML = `<div class="empty plain">${q ? 'Ничего не найдено' : 'Возражения пока не добавлены'}</div>`;
+    if (error) {
+      $('#kb-obj-pane').innerHTML = `<div class="placeholder"><span class="big-icon">⚠️</span>Ошибка: ${esc(error.message)}</div>`;
       return;
     }
-    list.innerHTML = items.map(o => {
-      const cat = catsById[o.category_id];
-      const catBadge = o.is_general
-        ? '<span class="kb-cat-badge">Общее</span>'
-        : (cat ? `<span class="kb-cat-badge">${esc(cat.icon || '')} ${esc(cat.name)}</span>` : '');
-      return `
-        <details class="kb-obj-item">
-          <summary>
-            <span class="kb-obj-title">${esc(o.title)}</span>
-            ${catBadge}
-          </summary>
-          <div class="kb-obj-body">
-            <div class="kb-obj-answer">${safeHtml(o.answer)}</div>
-            ${o.details ? `<div class="kb-obj-details">${safeHtml(o.details)}</div>` : ''}
-          </div>
-        </details>`;
-    }).join('');
+    state.objs = data || [];
+    state.loaded.objs = true;
+    renderObjCatDropdown();
+    renderObjLists();
+    bindObjUIOnce();
   }
 
-  $('#kb-obj-search')?.addEventListener('input', (e) => {
-    state.objSearch = e.target.value || '';
-    renderObjs();
-  });
+  // ----- Дропдаун рубрик в шапке секции -----
+  function renderObjCatDropdown() {
+    const menu = $('#kb-obj-cat-menu');
+    if (!menu) return;
+    const items = [
+      { id: null, name: 'Все рубрики', icon: '🗂️' },
+      ...state.cats.map(c => ({ id: c.id, name: c.name, icon: c.icon || '📁' })),
+    ];
+    menu.innerHTML = items.map(c => `
+      <button data-id="${c.id === null ? 'all' : esc(c.id)}" class="${c.id === state.objActiveCatId ? 'active' : ''}">
+        <span class="emoji">${esc(c.icon)}</span><span>${esc(c.name)}</span>
+      </button>`).join('');
+    menu.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        state.objActiveCatId = b.dataset.id === 'all' ? null : b.dataset.id;
+        // При смене рубрики чистим поиск, чтобы пользователь увидел список
+        const search = $('#kb-obj-search');
+        if (search && search.value) { search.value = ''; state.objSearch = ''; }
+        renderObjCatDropdown();
+        updateObjCatTriggerLabel();
+        renderObjLists();
+        closeObjCatMenu();
+      });
+    });
+    updateObjCatTriggerLabel();
+  }
+
+  function updateObjCatTriggerLabel() {
+    const label = $('#kb-obj-cat-label');
+    const emoji = $('#kb-obj-cat-emoji');
+    if (!label || !emoji) return;
+    if (state.objActiveCatId === null) {
+      label.textContent = 'Все рубрики';
+      emoji.textContent = '🗂️';
+    } else {
+      const c = state.cats.find(x => x.id === state.objActiveCatId);
+      label.textContent = c?.name || 'Рубрика';
+      emoji.textContent = c?.icon || '📁';
+    }
+  }
+
+  function closeObjCatMenu() {
+    $('#kb-obj-cat-menu')?.classList.add('hidden');
+    $('#kb-obj-cat-dropdown')?.classList.remove('open');
+  }
+
+  // ----- Левый сайдбар: список общих + специфичных, или результаты поиска -----
+  function renderObjLists() {
+    const q = (state.objSearch || '').trim().toLowerCase();
+    const resultsSec = $('#kb-obj-results-section');
+    const generalSec = $('#kb-obj-general-section');
+    const specificSec = $('#kb-obj-specific-section');
+    if (!resultsSec || !generalSec || !specificSec) return;
+
+    if (q) {
+      const matches = state.objs.filter(o => {
+        const hay = [o.title, o.answer, o.details || '', o.keywords || ''].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+      resultsSec.hidden = false;
+      generalSec.hidden = true;
+      specificSec.hidden = true;
+      const el = $('#kb-obj-results');
+      if (!matches.length) {
+        el.innerHTML = `<div class="empty plain" style="font-size:13px;padding:12px;color:var(--muted);">Ничего не найдено по запросу «${esc(q)}»</div>`;
+      } else {
+        el.innerHTML = matches.map(objBtn).join('');
+      }
+      bindObjItemClicks();
+      highlightActiveObj();
+      return;
+    }
+
+    resultsSec.hidden = true;
+    generalSec.hidden = false;
+
+    const general = state.objs.filter(o => o.is_general);
+    $('#kb-obj-general').innerHTML = general.length
+      ? general.map(objBtn).join('')
+      : '<div class="empty plain" style="font-size:13px;padding:12px;color:var(--muted);">Пока нет общих возражений</div>';
+
+    const specific = state.objActiveCatId === null
+      ? state.objs.filter(o => !o.is_general)
+      : state.objs.filter(o => !o.is_general && o.category_id === state.objActiveCatId);
+    if (specific.length) {
+      specificSec.hidden = false;
+      $('#kb-obj-specific-title').textContent = state.objActiveCatId
+        ? (state.cats.find(c => c.id === state.objActiveCatId)?.name || 'Рубрика')
+        : 'Специфичные';
+      $('#kb-obj-specific').innerHTML = specific.map(objBtn).join('');
+    } else {
+      specificSec.hidden = true;
+    }
+
+    bindObjItemClicks();
+    highlightActiveObj();
+  }
+
+  function objBtn(o) {
+    return `<button class="kb-doc-item" type="button" data-obj-id="${esc(o.id)}">${esc(o.title)}</button>`;
+  }
+
+  function bindObjItemClicks() {
+    document.querySelectorAll('.kb-docs-sidebar .kb-doc-item[data-obj-id]').forEach(b => {
+      b.onclick = () => openObj(b.dataset.objId);
+    });
+  }
+
+  function highlightActiveObj() {
+    const cur = state.objCurrent?.id;
+    document.querySelectorAll('.kb-docs-sidebar .kb-doc-item[data-obj-id]').forEach(b => {
+      b.classList.toggle('active', !!cur && b.dataset.objId === cur);
+    });
+  }
+
+  function openObj(id) {
+    const o = state.objs.find(x => x.id === id);
+    if (!o) return;
+    state.objCurrent = o;
+    state.objView = 'answer'; // при смене возражения возвращаемся к режиму «Ответ»
+    renderObjPane();
+    highlightActiveObj();
+  }
+
+  // ----- Правая панель: ответ / описание + копирование -----
+  function renderObjPane() {
+    const pane = $('#kb-obj-pane');
+    const o = state.objCurrent;
+    if (!pane || !o) return;
+    const hasDetails = !!(o.details && String(o.details).trim());
+    const isDetails = state.objView === 'details' && hasDetails;
+    const visible = isDetails ? o.details : o.answer;
+    const detailsBtnLabel = isDetails ? '← К ответу' : '📖 Подробно о возражении';
+    const copyBtnLabel = isDetails ? '📋 Скопировать описание' : '📋 Скопировать ответ';
+    pane.innerHTML = `
+      <div class="kb-obj-pane-head">
+        <h1>${esc(o.title)}</h1>
+        ${hasDetails ? `<button class="btn details-toggle${isDetails ? ' active' : ''}" id="kb-obj-details-toggle" type="button">${esc(detailsBtnLabel)}</button>` : ''}
+      </div>
+      <div class="kb-obj-text${isDetails ? ' details' : ''}">${safeHtml(visible)}</div>
+      <div class="kb-doc-actions">
+        <button class="btn primary" id="kb-obj-copy" type="button">${esc(copyBtnLabel)}</button>
+      </div>`;
+    pane.querySelector('#kb-obj-copy').addEventListener('click', async () => {
+      const plain = htmlToPlain(visible);
+      try {
+        await navigator.clipboard.writeText(plain);
+        toast(isDetails ? 'Описание скопировано' : 'Ответ скопирован в буфер');
+      } catch { toast('Не удалось скопировать'); }
+    });
+    pane.querySelector('#kb-obj-details-toggle')?.addEventListener('click', () => {
+      state.objView = isDetails ? 'answer' : 'details';
+      renderObjPane();
+    });
+  }
+
+  function htmlToPlain(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html || '';
+    return (tmp.textContent || '').trim();
+  }
+
+  // ----- Одноразовая привязка обработчиков поиска и дропдауна -----
+  function bindObjUIOnce() {
+    if (state.objBoundUI) return;
+    state.objBoundUI = true;
+
+    const search = $('#kb-obj-search');
+    if (search) {
+      let t;
+      search.addEventListener('input', () => {
+        state.objSearch = search.value || '';
+        clearTimeout(t);
+        t = setTimeout(renderObjLists, 180);
+      });
+    }
+
+    const trigger = $('#kb-obj-cat-trigger');
+    const menu = $('#kb-obj-cat-menu');
+    const dropdown = $('#kb-obj-cat-dropdown');
+    if (trigger && menu && dropdown) {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = menu.classList.contains('hidden');
+        menu.classList.toggle('hidden');
+        dropdown.classList.toggle('open', willOpen);
+      });
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target)) closeObjCatMenu();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeObjCatMenu();
+      });
+    }
+  }
 
   // ---------- Документы (оператор-стиль: список слева, детали справа) ----------
   async function loadDocs() {

@@ -14,29 +14,33 @@
 
   // ---------- Константы ----------
 
-  const STEP_NAMES = ['О компании', 'Реквизиты', 'Контакты', 'Филиалы', 'Программа лояльности'];
-  const TOTAL_STEPS = 5;
+  const STEP_NAMES = ['О компании', 'Интеграция', 'Реквизиты', 'Контакты', 'Филиалы', 'Программа лояльности'];
+  const TOTAL_STEPS = 6;
   const STORAGE_BUCKET = 'application-files';
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  // Преднастроенные системы для шага «Интеграция». Меняется здесь — UI обновляется автоматически.
+  const INTEG_PRESETS = ['1С', 'iiko', 'R-Keeper', 'Эвотор'];
 
   // Поля по шагам — для записи в БД и для валидации.
   const STEP_FIELDS = {
-    1: ['company_name', 'category_id', 'logo_url', 'style_photos', 'style_desc', 'short_desc', 'full_desc'],
-    2: ['inn', 'kpp', 'legal_name', 'ogrn', 'legal_address', 'signer_name',
+    1: ['company_name', 'category_id', 'logo_urls', 'style_desc', 'short_desc'],
+    2: ['integration'],
+    3: ['inn', 'kpp', 'legal_name', 'ogrn', 'legal_address', 'signer_name',
         'signer_position', 'bank_account', 'bank_bik', 'bank_corr', 'bank_name'],
-    3: ['website', 'telegram', 'max_channel', 'instagram', 'vk', 'customer_phone', 'email',
+    4: ['website', 'telegram', 'max_channel', 'instagram', 'vk', 'customer_phone', 'email',
         'lpr_name', 'lpr_phone', 'marketer_name', 'marketer_phone'],
-    4: ['branches'],
-    5: ['loyalty', 'conditions'],
+    5: ['branches'],
+    6: ['loyalty', 'conditions'],
   };
 
   // Обязательные поля по ТЗ (звёздочка `*`).
   const REQUIRED = {
     1: ['company_name', 'category_id'],
-    2: ['inn'],
-    3: ['lpr_name', 'lpr_phone', 'email'],
-    4: ['__branches__'],
-    5: ['__loyalty__'],
+    2: ['__integration__'],
+    3: ['inn'],
+    4: ['lpr_name', 'lpr_phone', 'email'],
+    5: ['__branches__'],
+    6: ['__loyalty__'],
   };
 
   const STATUS_LABELS = {
@@ -122,11 +126,12 @@
       status: 'draft',
       company_name: '',
       category_id: '',
-      logo_url: '',
-      style_photos: [],
+      logo_url: '',          // legacy — оставлено для обратной совместимости с заявками до миграции 17
+      logo_urls: [],         // массив URL до 10 элементов (миграция 17)
+      style_photos: [],      // legacy — стилевые фото убраны из UI, поле в БД остаётся
       style_desc: '',
       short_desc: '',
-      full_desc: '',
+      full_desc: '',         // legacy — поле в БД остаётся для старых заявок
       inn: '', kpp: '', legal_name: '', ogrn: '', legal_address: '',
       signer_name: '', signer_position: '',
       bank_account: '', bank_bik: '', bank_corr: '', bank_name: '',
@@ -137,6 +142,11 @@
       branches: [],
       loyalty: null,
       conditions: '',
+      // Шаг 2 «Интеграция». Структура:
+      //   { required: 'yes'|'no'|null, presets: { '1С': 'версия', ... },
+      //     custom: [{name, version}], when: 'before_test'|'after_test'|null }
+      // Если required != 'yes' — остальные поля игнорируются при отправке.
+      integration: { required: null, presets: {}, custom: [], when: null },
     };
   }
 
@@ -472,7 +482,7 @@
     }
 
     state.saving = false;
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Сохранить как черновик'; }
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Сохранить'; }
 
     if (result.error) {
       toast('Ошибка сохранения: ' + result.error.message, 'error');
@@ -518,8 +528,10 @@
       out[f] = (state.app[f] === '' || state.app[f] === undefined) ? null : state.app[f];
     }
     out.style_photos = state.app.style_photos || [];
+    out.logo_urls = state.app.logo_urls || [];
     out.branches = state.app.branches || [];
     out.loyalty = state.app.loyalty || null;
+    out.integration = state.app.integration || { required: null, presets: {}, custom: [], when: null };
     return out;
   }
 
@@ -546,6 +558,23 @@
           errors.push('Добавьте хотя бы один филиал');
         else if (state.app.branches.some(b => !b.address || !b.address.trim()))
           errors.push('У всех филиалов должен быть заполнен адрес');
+        continue;
+      }
+      if (f === '__integration__') {
+        const ig = state.app.integration || {};
+        if (ig.required !== 'yes' && ig.required !== 'no') {
+          errors.push('Укажите, требуется ли интеграция');
+          continue;
+        }
+        if (ig.required === 'no') continue; // больше нечего проверять
+        const presetCount = Object.keys(ig.presets || {}).length;
+        const customCount = (ig.custom || []).filter(s => s && s.name && s.name.trim()).length;
+        if (presetCount + customCount === 0) {
+          errors.push('Выберите хотя бы одну систему для интеграции');
+        }
+        if (ig.when !== 'before_test' && ig.when !== 'after_test') {
+          errors.push('Укажите, когда нужна интеграция (до или после тестового периода)');
+        }
         continue;
       }
       if (f === '__loyalty__') {
@@ -586,11 +615,11 @@
         fields.push(f);
       }
     }
-    if (step === 2 && state.app.inn && !isInnValid(state.app.inn)) {
+    if (step === 3 && state.app.inn && !isInnValid(state.app.inn)) {
       errors.push('ИНН должен содержать 10 или 12 цифр');
       fields.push('inn');
     }
-    if (step === 3) {
+    if (step === 4) {
       if (state.app.lpr_phone && !isPhoneValid(state.app.lpr_phone)) {
         errors.push('Заполните телефон ЛПР полностью (11 цифр)');
         fields.push('lpr_phone');
@@ -662,6 +691,7 @@
     renderSteps();
     renderPanes();
     bindFieldInputs();
+    renderIntegration();
     renderBranches();
     renderLoyalty();
     renderConditions();
@@ -676,8 +706,6 @@
     const wiz = $('#app-wizard');
     if (!wiz) return;
     wiz.classList.toggle('is-readonly', !!state.readOnly);
-    const badge = $('#wiz-readonly-badge');
-    if (badge) badge.hidden = !state.readOnly;
 
     // Все простые поля.
     $$('#app-wizard input, #app-wizard textarea, #app-wizard select').forEach(el => {
@@ -703,7 +731,7 @@
       '#wiz-inn-fetch', '#wiz-bik-fetch',
       '#wiz-email-action', '#wiz-lpr-phone-action',
       '#wiz-email-resend', '#wiz-lpr-phone-resend',
-      '#wiz-logo-pick', '#wiz-style-pick',
+      '#wiz-logo-pick',
       '#wiz-loyalty-help', '#wiz-loyalty-help-banner',
     ];
     HIDE_IDS.forEach(sel => {
@@ -731,14 +759,19 @@
     $$('#wiz-steps .wiz-step').forEach(li => {
       const step = Number(li.dataset.step);
       li.classList.toggle('active', step === state.currentStep);
-      // В режиме просмотра ВСЕ шаги отмечаем как «done» (зелёные с галочкой) —
-      // заявка уже передана дальше, все шаги были пройдены полностью.
-      // Активный шаг просто получает оранжевую обводку через .active.
+      // Зелёная галочка ставится только когда все обязательные поля шага
+      // заполнены (isStepValid). Не привязано к посещению — пользователь
+      // может прыгать в любой последовательности, шаг подсветится зелёным
+      // ровно тогда, когда там действительно всё в порядке.
+      // В режиме просмотра — все шаги done (заявка уже отправлена).
+      // Текущий шаг не помечаем как done — он подсвечен оранжевым через .active.
       const done = state.readOnly
         ? true
-        : state.visitedSteps.has(step) && step < state.currentStep;
+        : (step !== state.currentStep && isStepValid(step));
       li.classList.toggle('done', done);
-      li.classList.toggle('clickable', state.visitedSteps.has(step));
+      // Все шаги всегда кликабельны — пользователь заполняет в любой
+      // последовательности, валидация происходит только при «Передать Гари».
+      li.classList.add('clickable');
     });
   }
 
@@ -790,6 +823,18 @@
 
   // ---------- Шаг 1: файлы ----------
 
+  const LOGO_MAX = 10;
+
+  // Возвращает актуальный массив URL логотипов. Если в legacy-поле logo_url
+  // что-то есть, а в logo_urls пусто — миграция на лету.
+  function getLogoUrls() {
+    if (!Array.isArray(state.app.logo_urls)) state.app.logo_urls = [];
+    if (state.app.logo_urls.length === 0 && state.app.logo_url) {
+      state.app.logo_urls = [state.app.logo_url];
+    }
+    return state.app.logo_urls;
+  }
+
   function bindFileInputs() {
     const logoPick = $('#wiz-logo-pick');
     const logoInp = $('#wiz-logo-input');
@@ -797,81 +842,57 @@
       logoPick._wired = true;
       logoPick.addEventListener('click', () => logoInp.click());
       logoInp.addEventListener('change', async (e) => {
-        const f = e.target.files[0];
-        if (!f) return;
-        await uploadLogo(f);
-        e.target.value = '';
-      });
-    }
-
-    const stylePick = $('#wiz-style-pick');
-    const styleInp = $('#wiz-style-input');
-    if (stylePick && !stylePick._wired) {
-      stylePick._wired = true;
-      stylePick.addEventListener('click', () => styleInp.click());
-      styleInp.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files || []);
-        for (const f of files) await uploadStylePhoto(f);
+        for (const f of files) {
+          const list = getLogoUrls();
+          if (list.length >= LOGO_MAX) {
+            toast(`Максимум ${LOGO_MAX} файлов`, 'error');
+            break;
+          }
+          await uploadLogo(f);
+        }
         e.target.value = '';
       });
     }
-    renderLogoPreview();
-    renderStyleGrid();
+    renderLogoGallery();
   }
 
-  function renderLogoPreview() {
-    const wrap = $('#wiz-logo-preview');
-    if (!wrap) return;
-    if (!state.app.logo_url) { wrap.hidden = true; wrap.innerHTML = ''; return; }
-    wrap.hidden = false;
-    wrap.innerHTML = `
-      <div class="file-thumb">
-        <img src="${escapeHtml(state.app.logo_url)}" alt="logo">
-        <button type="button" class="file-remove" title="Удалить">×</button>
-      </div>`;
-    wrap.querySelector('.file-remove').addEventListener('click', () => {
-      state.app.logo_url = '';
-      setDirty();
-      renderLogoPreview();
-    });
-  }
-
-  function renderStyleGrid() {
-    const grid = $('#wiz-style-grid');
+  function renderLogoGallery() {
+    const grid = $('#wiz-logo-grid');
+    const count = $('#wiz-logo-count');
+    const pickBtn = $('#wiz-logo-pick');
     if (!grid) return;
-    const photos = state.app.style_photos || [];
-    if (photos.length === 0) { grid.innerHTML = ''; return; }
-    grid.innerHTML = photos.map((url, i) => `
+    const urls = getLogoUrls();
+
+    grid.innerHTML = urls.map((url, i) => `
       <div class="file-thumb">
-        <img src="${escapeHtml(url)}" alt="">
+        <img src="${escapeHtml(url)}" alt="logo ${i + 1}">
         <button type="button" class="file-remove" data-idx="${i}" title="Удалить">×</button>
       </div>`).join('');
     grid.querySelectorAll('.file-remove').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.idx);
-        state.app.style_photos.splice(i, 1);
+        state.app.logo_urls.splice(i, 1);
+        // Синхронизируем legacy-поле с первым элементом, чтобы не зависало старое значение.
+        state.app.logo_url = state.app.logo_urls[0] || '';
         setDirty();
-        renderStyleGrid();
+        renderLogoGallery();
       });
     });
+
+    if (count) count.textContent = `${urls.length} / ${LOGO_MAX}`;
+    if (pickBtn) pickBtn.disabled = urls.length >= LOGO_MAX || !!state.readOnly;
   }
 
   async function uploadLogo(file) {
     const url = await uploadFile(file, 'logo');
     if (url) {
-      state.app.logo_url = url;
+      const list = getLogoUrls();
+      list.push(url);
+      // Обновляем legacy-поле для обратной совместимости с Гари / админкой.
+      state.app.logo_url = list[0];
       setDirty();
-      renderLogoPreview();
-      toast('Логотип загружен');
-    }
-  }
-
-  async function uploadStylePhoto(file) {
-    const url = await uploadFile(file, 'style');
-    if (url) {
-      state.app.style_photos = [...(state.app.style_photos || []), url];
-      setDirty();
-      renderStyleGrid();
+      renderLogoGallery();
     }
   }
 
@@ -1303,7 +1324,144 @@
     }
   }
 
-  // ---------- Шаг 4: филиалы ----------
+  // ---------- Шаг 2: интеграция ----------
+
+  function renderIntegration() {
+    const root = document.getElementById('wiz-integ-required');
+    if (!root) return;
+    if (!state.app.integration) state.app.integration = { required: null, presets: {}, custom: [], when: null };
+    const ig = state.app.integration;
+
+    // Required radio
+    root.querySelectorAll('input[name="integ-required"]').forEach(inp => {
+      inp.checked = inp.value === ig.required;
+    });
+    document.getElementById('wiz-integ-details').hidden = ig.required !== 'yes';
+
+    // When radio
+    document.querySelectorAll('input[name="integ-when"]').forEach(inp => {
+      inp.checked = inp.value === ig.when;
+    });
+
+    // Presets list (чекбокс + поле версии)
+    const presetsRoot = document.getElementById('wiz-integ-presets');
+    if (presetsRoot) {
+      presetsRoot.innerHTML = INTEG_PRESETS.map(name => {
+        const checked = Object.prototype.hasOwnProperty.call(ig.presets || {}, name);
+        const version = (ig.presets && ig.presets[name]) || '';
+        const safeId = 'wiz-integ-preset-' + btoa(unescape(encodeURIComponent(name))).replace(/=/g,'');
+        return `
+          <div class="integ-preset-row${checked ? ' is-on' : ''}">
+            <label class="integ-preset-toggle">
+              <input type="checkbox" id="${safeId}" data-preset="${escapeHtml(name)}" ${checked ? 'checked' : ''}>
+              <span>${escapeHtml(name)}</span>
+            </label>
+            <input type="text" class="integ-preset-version" data-preset-ver="${escapeHtml(name)}"
+                   placeholder="Укажите версию ${escapeHtml(name)}" value="${escapeHtml(version)}" ${checked ? '' : 'disabled'}>
+          </div>`;
+      }).join('');
+    }
+
+    // Custom systems list
+    const customRoot = document.getElementById('wiz-integ-custom-list');
+    if (customRoot) {
+      const list = ig.custom || [];
+      if (list.length === 0) {
+        customRoot.innerHTML = '<div class="muted" style="font-size:13px;">Нет своих систем — нажмите «+ Добавить свою систему» ниже.</div>';
+      } else {
+        customRoot.innerHTML = list.map((s, i) => `
+          <div class="integ-custom-row">
+            <input type="text" class="integ-custom-name" data-custom-i="${i}" placeholder="Название системы" value="${escapeHtml(s.name || '')}">
+            <input type="text" class="integ-custom-ver"  data-custom-i="${i}" placeholder="Версия" value="${escapeHtml(s.version || '')}">
+            <button type="button" class="btn sm danger integ-custom-del" data-custom-i="${i}">🗑</button>
+          </div>`).join('');
+      }
+    }
+
+    bindIntegrationHandlers();
+  }
+
+  // Привязка обработчиков шага «Интеграция». Безопасно вызывать
+  // несколько раз — внутри используется делегирование через _bound флаги.
+  function bindIntegrationHandlers() {
+    const required = document.getElementById('wiz-integ-required');
+    if (required && !required._bound) {
+      required._bound = true;
+      required.addEventListener('change', (e) => {
+        if (e.target?.name !== 'integ-required') return;
+        if (!state.app.integration) state.app.integration = {};
+        state.app.integration.required = e.target.value;
+        renderIntegration();
+        setDirty();
+      });
+    }
+
+    const when = document.getElementById('wiz-integ-when');
+    if (when && !when._bound) {
+      when._bound = true;
+      when.addEventListener('change', (e) => {
+        if (e.target?.name !== 'integ-when') return;
+        state.app.integration.when = e.target.value;
+        setDirty();
+      });
+    }
+
+    const presetsRoot = document.getElementById('wiz-integ-presets');
+    if (presetsRoot && !presetsRoot._bound) {
+      presetsRoot._bound = true;
+      // Чекбоксы
+      presetsRoot.addEventListener('change', (e) => {
+        const name = e.target.dataset.preset;
+        if (!name) return;
+        const ig = state.app.integration;
+        if (e.target.checked) ig.presets[name] = ig.presets[name] || '';
+        else delete ig.presets[name];
+        renderIntegration();
+        setDirty();
+      });
+      // Версии
+      presetsRoot.addEventListener('input', (e) => {
+        const name = e.target.dataset.presetVer;
+        if (!name) return;
+        state.app.integration.presets[name] = e.target.value;
+        setDirty();
+      });
+    }
+
+    const customRoot = document.getElementById('wiz-integ-custom-list');
+    if (customRoot && !customRoot._bound) {
+      customRoot._bound = true;
+      customRoot.addEventListener('input', (e) => {
+        const i = Number(e.target.dataset.customI);
+        if (Number.isNaN(i)) return;
+        const row = state.app.integration.custom[i];
+        if (!row) return;
+        if (e.target.classList.contains('integ-custom-name')) row.name = e.target.value;
+        if (e.target.classList.contains('integ-custom-ver')) row.version = e.target.value;
+        setDirty();
+      });
+      customRoot.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('integ-custom-del')) return;
+        const i = Number(e.target.dataset.customI);
+        state.app.integration.custom.splice(i, 1);
+        renderIntegration();
+        setDirty();
+      });
+    }
+
+    const addBtn = document.getElementById('wiz-integ-custom-add');
+    if (addBtn && !addBtn._bound) {
+      addBtn._bound = true;
+      addBtn.addEventListener('click', () => {
+        if (!state.app.integration.custom) state.app.integration.custom = [];
+        state.app.integration.custom.push({ name: '', version: '' });
+        renderIntegration();
+        setDirty();
+      });
+    }
+  }
+
+  // ---------- Шаг 5: филиалы ----------
 
   function renderBranches() {
     const list = $('#wiz-branches');
@@ -1742,21 +1900,18 @@
 
   function goStep(n) {
     if (n < 1 || n > TOTAL_STEPS) return;
-    if (n > state.currentStep && !state.readOnly) {
-      // Идти вперёд — только если текущий шаг валиден. В режиме просмотра
-      // листать можно свободно — данные уже зафиксированы в БД.
-      const errors = validateStep(state.currentStep);
-      if (errors.length) { toast(errors[0], 'error'); return; }
-    } else if (!state.visitedSteps.has(n)) {
-      return;
-    }
+    // Свободная навигация: пользователь может прыгать по любым шагам
+    // в любой последовательности. Валидация выполняется только при
+    // нажатии «Передать Гари» (см. submitToGary).
     state.currentStep = n;
     state.visitedSteps.add(n);
     renderAll();
     bindFileInputs();
-    if (n === 4) renderBranches();
-    if (n === 5) renderLoyalty();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (n === 2) renderIntegration();
+    if (n === 5) renderBranches();
+    if (n === 6) renderLoyalty();
+    // Намеренно НЕ скроллим страницу при переключении шагов — пользователь
+    // остаётся ровно там, где кликнул по индикатору.
   }
 
   // ---------- Передать Гари ----------
@@ -1919,8 +2074,8 @@
   }
 
   function showWizard() {
-    const back = $('#wiz-back-to-list');
-    if (back) back.hidden = !state.app.id;
+    // Кнопка «← К списку» теперь всегда видима в шапке мастера —
+    // и для новой заявки (вернуться без сохранения), и для существующей.
     renderGaryBlock();
   }
 
@@ -1985,30 +2140,36 @@
   function wireActions() {
     const nextBtn = $('#wiz-next');
     nextBtn.addEventListener('click', async () => {
-      // В режиме просмотра — простая навигация, без валидации.
+      // В режиме просмотра — простая навигация по шагам.
       if (state.readOnly) {
         if (state.currentStep < TOTAL_STEPS) goStep(state.currentStep + 1);
         return;
       }
-      const issues = getStepIssues(state.currentStep);
-      if (issues.errors.length) {
-        // Подсвечиваем пустые / невалидные поля красной рамкой.
-        highlightInvalidFields(issues.fields);
-        // Показываем модалку с перечнем — чтобы пользователь точно увидел,
-        // чего именно не хватает.
+      // На промежуточных шагах «Далее» НЕ блокирует — пользователь может
+      // заполнять в любой последовательности. Валидация ВСЕХ шагов
+      // выполняется только при «Передать Гари» на последнем шаге.
+      if (state.currentStep < TOTAL_STEPS) {
+        goStep(state.currentStep + 1);
+        return;
+      }
+      const allErrors = [];
+      const allFields = [];
+      for (let s = 1; s <= TOTAL_STEPS; s++) {
+        const issues = getStepIssues(s);
+        allErrors.push(...issues.errors);
+        if (issues.fields) allFields.push(...issues.fields);
+      }
+      if (allErrors.length) {
+        highlightInvalidFields(allFields);
         await confirmDialog({
           title: 'Заполните, пожалуйста',
-          message: issues.errors.map(e => '• ' + e).join('\n'),
+          message: allErrors.map(e => '• ' + e).join('\n'),
           okText: 'Понятно',
           cancelText: '',
         });
         return;
       }
-      if (state.currentStep === TOTAL_STEPS) {
-        submitToGary();
-      } else {
-        goStep(state.currentStep + 1);
-      }
+      submitToGary();
     });
 
     // Всплывающая подсказка при наведении на «Далее», если шаг не валиден.
@@ -2037,11 +2198,11 @@
     $('#wiz-save-draft-2').addEventListener('click', () => saveDraft({ silent: false }));
     $('#wiz-back-to-list')?.addEventListener('click', () => switchToDeals());
 
-    // Клик по индикатору шагов — навигация на посещённые.
+    // Клик по индикатору шагов — свободная навигация по любому шагу.
     $$('#wiz-steps .wiz-step').forEach(li => {
       li.addEventListener('click', () => {
         const n = Number(li.dataset.step);
-        if (state.visitedSteps.has(n)) goStep(n);
+        if (n) goStep(n);
       });
     });
 
