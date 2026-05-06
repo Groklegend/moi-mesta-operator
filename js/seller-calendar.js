@@ -10,14 +10,24 @@
   const $ = (sel, el = document) => el.querySelector(sel);
 
   const state = {
-    view: 'month',          // 'month' | 'week'
+    view: 'today',          // 'today' | 'month' | 'week'
     cursor: null,           // Date — опорная дата (любой день внутри периода)
     events: [],             // объединённый список событий (leads + blocks) на видимый период
     initialized: false,
     userId: null,
-    selectedDay: null,      // 'YYYY-MM-DD' — выбранный день для sidebar
-    selectedEventId: null,  // id выбранной карточки в sidebar
+    selectedDay: null,      // 'YYYY-MM-DD' — выбранный день для sidebar (Month/Week)
+    selectedEventId: null,  // id выбранной карточки
+    stepMinutes: 60,        // 60 | 90 | 120 — шаг сетки часов в режиме Today
   };
+
+  const HOUR_FROM = 9;
+  const HOUR_TO = 19;
+  const STEP_KEY = 'mm_cal_step_minutes_v1';
+  function loadStep() {
+    const v = parseInt(localStorage.getItem(STEP_KEY) || '60', 10);
+    return [60, 90, 120].includes(v) ? v : 60;
+  }
+  function saveStep(min) { try { localStorage.setItem(STEP_KEY, String(min)); } catch (_) {} }
 
   // ---------- Утилиты ----------
   function escapeHtml(s) {
@@ -77,6 +87,10 @@
 
   // ---------- Загрузка слотов ----------
   function visibleRange() {
+    if (state.view === 'today') {
+      const start = startOfDay(state.cursor);
+      return { from: start, to: start };
+    }
     if (state.view === 'month') {
       // Берём всю сетку месяца (с учётом недельных «хвостов»)
       const ms = startOfMonth(state.cursor);
@@ -157,6 +171,9 @@
     if (!state.initialized) {
       state.initialized = true;
       state.cursor = startOfDay(new Date());
+      state.stepMinutes = loadStep();
+      // По умолчанию открываем «Сегодня» — это самый частый сценарий.
+      state.selectedDay = ymd(state.cursor);
     }
     await refresh();
   }
@@ -173,8 +190,13 @@
             <button type="button" class="btn cal-next" id="cal-next">›</button>
           </div>
           <div class="cal-actions">
-            <button type="button" class="btn cal-today" id="cal-today">Сегодня</button>
+            <div class="cal-steps" id="cal-steps">
+              <button type="button" class="btn cal-step-btn" data-step="60">1 ч</button>
+              <button type="button" class="btn cal-step-btn" data-step="90">1½ ч</button>
+              <button type="button" class="btn cal-step-btn" data-step="120">2 ч</button>
+            </div>
             <div class="cal-views">
+              <button type="button" class="btn cal-view-btn" data-view="today">Сегодня</button>
               <button type="button" class="btn cal-view-btn" data-view="month">Месяц</button>
               <button type="button" class="btn cal-view-btn" data-view="week">Неделя</button>
             </div>
@@ -184,7 +206,6 @@
           <aside class="cal-sidebar" id="cal-sidebar" hidden></aside>
           <div class="cal-body" id="cal-body"></div>
         </div>
-        <p class="cal-hint">Кликните на день — слева появятся встречи и блокировки этого дня. Клик на слот раскрывает подробности.</p>
       `;
       bindToolbar();
       root.dataset.scaffolded = '1';
@@ -196,6 +217,7 @@
 
   function bindToolbar() {
     $('#cal-prev').addEventListener('click', async () => {
+      if (state.view === 'today') return; // в режиме «Сегодня» листать нечего
       if (state.view === 'month') {
         state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() - 1, 1);
       } else {
@@ -204,6 +226,7 @@
       await refresh();
     });
     $('#cal-next').addEventListener('click', async () => {
+      if (state.view === 'today') return;
       if (state.view === 'month') {
         state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() + 1, 1);
       } else {
@@ -211,24 +234,46 @@
       }
       await refresh();
     });
-    $('#cal-today').addEventListener('click', async () => {
-      state.cursor = startOfDay(new Date());
-      await refresh();
-    });
     document.querySelectorAll('.cal-view-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         state.view = btn.dataset.view;
+        if (state.view === 'today') {
+          state.cursor = startOfDay(new Date());
+          state.selectedDay = ymd(state.cursor); // в today всегда сегодня
+        }
+        state.selectedEventId = null;
         await refresh();
       });
     });
+    document.querySelectorAll('.cal-step-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        state.stepMinutes = parseInt(btn.dataset.step, 10);
+        saveStep(state.stepMinutes);
+        if (state.view === 'today') await refresh();
+        else syncStepButtons();
+      });
+    });
+  }
+
+  function syncStepButtons() {
+    document.querySelectorAll('.cal-step-btn').forEach((b) => {
+      b.classList.toggle('primary', parseInt(b.dataset.step, 10) === state.stepMinutes);
+    });
+    // Показываем переключатель шага только в режиме Today
+    const stepsEl = $('#cal-steps');
+    if (stepsEl) stepsEl.style.display = state.view === 'today' ? '' : 'none';
   }
 
   function render() {
     document.querySelectorAll('.cal-view-btn').forEach((b) => {
       b.classList.toggle('primary', b.dataset.view === state.view);
     });
+    syncStepButtons();
     const period = $('#cal-period');
-    if (state.view === 'month') {
+    if (state.view === 'today') {
+      const d = state.cursor;
+      period.textContent = `${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`;
+    } else if (state.view === 'month') {
       period.textContent = `${MONTHS_FULL[state.cursor.getMonth()]} ${state.cursor.getFullYear()}`;
     } else {
       const start = startOfWeek(state.cursor);
@@ -238,7 +283,14 @@
         ? `${start.getDate()}–${end.getDate()} ${MONTHS_GEN[start.getMonth()]} ${start.getFullYear()}`
         : `${start.getDate()} ${MONTHS_GEN[start.getMonth()]} – ${end.getDate()} ${MONTHS_GEN[end.getMonth()]} ${end.getFullYear()}`;
     }
-    if (state.view === 'month') renderMonth();
+    // Sidebar (Month/Week) скрываем в режиме Today — там свой layout.
+    const sidebar = $('#cal-sidebar');
+    if (sidebar && state.view === 'today') {
+      sidebar.hidden = true;
+      sidebar.innerHTML = '';
+    }
+    if (state.view === 'today') renderTodayView();
+    else if (state.view === 'month') renderMonth();
     else renderWeek();
   }
 
@@ -322,6 +374,99 @@
     });
   }
 
+  // ---------- Режим «Сегодня» — почасовая лента + детали справа ----------
+  function renderTodayView() {
+    const body = $('#cal-body');
+    if (!body) return;
+    const date = state.cursor;
+    const events = eventsForDate(date);
+
+    // Генерируем слоты по выбранному шагу. Для каждого считаем, какие
+    // events пересекаются с интервалом [slotStart, slotEnd).
+    const stepM = state.stepMinutes || 60;
+    const fromM = HOUR_FROM * 60;
+    const toM = HOUR_TO * 60;
+
+    const eventOf = (e) => {
+      const start = new Date(e.busy_at);
+      const startM = start.getHours() * 60 + start.getMinutes();
+      const endM = startM + (e.duration_minutes || 60);
+      return { startM, endM, e };
+    };
+    const eventsM = events.map(eventOf);
+
+    const slotsHtml = [];
+    for (let m = fromM; m < toM; m += stepM) {
+      const slotStart = m;
+      const slotEnd = m + stepM;
+      const overlap = eventsM.filter((x) => x.endM > slotStart && x.startM < slotEnd);
+      const timeLabel = `${pad2(Math.floor(m/60))}:${pad2(m % 60)}`;
+      if (overlap.length) {
+        // Если несколько событий накладываются — рисуем все подряд
+        const cells = overlap.map(({ e }) => {
+          const isActive = state.selectedEventId === e.id;
+          const cls = `cal-tslot cal-tslot-${e.type}${isActive ? ' cal-tslot-active' : ''}`;
+          return `<button type="button" class="${cls}" data-event-id="${e.id}">
+            <span class="cal-tslot-time">${rangeOf(e)}</span>
+            <span class="cal-tslot-label">${escapeHtml(e.label)}</span>
+          </button>`;
+        }).join('');
+        slotsHtml.push(`<div class="cal-trow"><div class="cal-trow-time">${timeLabel}</div><div class="cal-trow-cells">${cells}</div></div>`);
+      } else {
+        slotsHtml.push(`<div class="cal-trow"><div class="cal-trow-time">${timeLabel}</div><div class="cal-trow-cells"><div class="cal-tslot cal-tslot-free">— свободно</div></div></div>`);
+      }
+    }
+
+    body.innerHTML = `
+      <div class="cal-today">
+        <div class="cal-today-grid">
+          <div class="cal-today-head">
+            <span>План на сегодня</span>
+            <button type="button" class="btn cal-today-add" id="cal-today-add">＋ Блокировка</button>
+          </div>
+          ${slotsHtml.join('')}
+        </div>
+        <aside class="cal-today-side" id="cal-today-side">${renderTodayDetails()}</aside>
+      </div>`;
+
+    body.querySelectorAll('.cal-tslot[data-event-id]').forEach((el) => {
+      el.addEventListener('click', () => {
+        state.selectedEventId = el.dataset.eventId;
+        body.querySelectorAll('.cal-tslot-active').forEach((a) => a.classList.remove('cal-tslot-active'));
+        el.classList.add('cal-tslot-active');
+        $('#cal-today-side').innerHTML = renderTodayDetails();
+        bindTodayDetailsActions();
+      });
+    });
+    $('#cal-today-add')?.addEventListener('click', () => openDayModal(date));
+    bindTodayDetailsActions();
+  }
+
+  function renderTodayDetails() {
+    if (!state.selectedEventId) {
+      return `<div class="cal-today-empty">Выберите событие слева — здесь появятся детали (компания, контакты, адрес, комментарий).</div>`;
+    }
+    const ev = state.events.find((e) => e.id === state.selectedEventId);
+    if (!ev) return `<div class="cal-today-empty">Событие не найдено — обновите страницу.</div>`;
+    return renderEventDetails(ev);
+  }
+
+  function bindTodayDetailsActions() {
+    $('#cal-today-side .cal-side-del')?.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id;
+      const ok = window.confirmDialog
+        ? await window.confirmDialog({ title: 'Удалить блокировку?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
+        : confirm('Удалить блокировку?');
+      if (!ok) return;
+      const { error } = await sb.from('manager_busy_slots').delete().eq('id', id);
+      if (error) { toast('Не получилось удалить.'); return; }
+      state.selectedEventId = null;
+      await loadEvents();
+      render();
+      toast('Блокировка удалена.');
+    });
+  }
+
   // ---------- Модалка добавления блокировки ----------
   // Список слотов и удаление вынесены в sidebar (renderSidebar).
   function openDayModal(date) {
@@ -384,9 +529,10 @@
       backdrop.remove();
       await loadEvents();
       render();
-      // Если этот день уже выбран в sidebar — обновим
-      if (state.selectedDay === ymd(date)) renderSidebar();
-      else selectDay(date);
+      if (state.view !== 'today') {
+        if (state.selectedDay === ymd(date)) renderSidebar();
+        else selectDay(date);
+      }
       toast('Слот добавлен.');
     });
   }

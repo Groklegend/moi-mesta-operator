@@ -20,11 +20,18 @@
     pinnedMgrIds: [],      // закреплённые менеджеры (localStorage)
     activeMgrId: '',       // активный менеджер (выбранный таб)
     dadataCity: '',        // город, прилетевший из DaData при выборе адреса
+    calStep: 60,           // 60 | 90 | 120 — шаг сетки в режиме День (localStorage)
   };
 
   const HOUR_FROM = 9;     // рабочий день для почасовой сетки
   const HOUR_TO = 19;
   const PINNED_KEY = 'mm_op_pinned_managers_v1';
+  const STEP_KEY = 'mm_cal_step_minutes_v1';
+  function loadCalStep() {
+    const v = parseInt(localStorage.getItem(STEP_KEY) || '60', 10);
+    return [60, 90, 120].includes(v) ? v : 60;
+  }
+  function saveCalStep(min) { try { localStorage.setItem(STEP_KEY, String(min)); } catch (_) {} }
 
   function loadPinned() {
     try {
@@ -148,6 +155,7 @@
     if (!state.initialized) {
       pane.innerHTML = '<div class="ol-loading">Загрузка…</div>';
       state.pinnedMgrIds = loadPinned();
+      state.calStep = loadCalStep();
       await loadData();
       // Чистим pinned от удалённых менеджеров
       state.pinnedMgrIds = state.pinnedMgrIds.filter((id) =>
@@ -316,6 +324,11 @@
               <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
               <div class="ol-cal-head-right">
                 <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</span>
+                <div class="ol-cal-steps" id="ol-cal-steps">
+                  <button type="button" class="ol-cal-step-btn" data-step="60">1ч</button>
+                  <button type="button" class="ol-cal-step-btn" data-step="90">1½ч</button>
+                  <button type="button" class="ol-cal-step-btn" data-step="120">2ч</button>
+                </div>
                 <div class="ol-cal-views">
                   <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
                   <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
@@ -513,37 +526,30 @@
     return slots.filter((s) => s.manager_id === mgrId);
   }
 
-  // Возвращает массив часов 9..18 (включительно), для каждого:
-  // { hour, busy: bool, slot: ?{label, source, range} }.
-  // Час считается занятым, если хотя бы 1 минута пересекается с busy_at..busy_at+duration.
-  function buildHourGrid(slots) {
-    const occupiedBy = new Map(); // hour → { label, range, source }
+  // Возвращает массив ячеек по выбранному шагу (60/90/120 минут).
+  // Ячейка считается занятой, если хотя бы 1 минута пересекается с
+  // событием [busy_at, busy_at+duration_minutes).
+  function buildStepGrid(slots) {
+    const stepM = state.calStep || 60;
+    const occupiedBy = new Map(); // start_minute → { label, range, source }
     for (const s of slots) {
       const start = new Date(s.meeting_at);
       const end = new Date(start.getTime() + (s.duration_minutes || 60) * 60_000);
       const range = `${pad2(start.getHours())}:${pad2(start.getMinutes())}–${pad2(end.getHours())}:${pad2(end.getMinutes())}`;
-      const startH = start.getHours();
-      const startM = start.getMinutes();
-      const endH = end.getHours();
-      const endM = end.getMinutes();
-      // Пробегаемся по часам, на которые слот «накладывается».
-      for (let h = HOUR_FROM; h < HOUR_TO; h++) {
-        const hourStart = h * 60;
-        const hourEnd = (h + 1) * 60;
-        const slotStart = startH * 60 + startM;
-        const slotEnd = endH * 60 + endM;
-        if (slotEnd > hourStart && slotStart < hourEnd) {
-          // Сохраняем только первое попадание — этого хватит для подписи.
-          if (!occupiedBy.has(h)) {
-            occupiedBy.set(h, { label: s.label, range, source: s.source });
+      const slotStart = start.getHours() * 60 + start.getMinutes();
+      const slotEnd = end.getHours() * 60 + end.getMinutes();
+      for (let m = HOUR_FROM * 60; m < HOUR_TO * 60; m += stepM) {
+        if (slotEnd > m && slotStart < m + stepM) {
+          if (!occupiedBy.has(m)) {
+            occupiedBy.set(m, { label: s.label, range, source: s.source });
           }
         }
       }
     }
     const grid = [];
-    for (let h = HOUR_FROM; h < HOUR_TO; h++) {
-      const slot = occupiedBy.get(h);
-      grid.push({ hour: h, busy: !!slot, slot });
+    for (let m = HOUR_FROM * 60; m < HOUR_TO * 60; m += stepM) {
+      const slot = occupiedBy.get(m);
+      grid.push({ minutes: m, label: `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`, busy: !!slot, slot });
     }
     return grid;
   }
@@ -559,15 +565,14 @@
     if (!state.managers.find((m) => m.id === selectedManagerId())) {
       return '<div class="ol-cal-placeholder">Выбранный менеджер удалён.</div>';
     }
-    const grid = buildHourGrid(filtered);
+    const grid = buildStepGrid(filtered);
     return `<div class="ol-hour-grid">
       ${grid.map((cell) => {
-        const label = `${pad2(cell.hour)}:00`;
         if (cell.busy) {
           const sourceCls = cell.slot.source === 'block' ? ' ol-hour-block' : '';
           return `
             <div class="ol-hour ol-hour-busy${sourceCls}">
-              <div class="ol-hour-time">${label}</div>
+              <div class="ol-hour-time">${cell.label}</div>
               <div class="ol-hour-info">
                 <div class="ol-hour-range">${escapeHtml(cell.slot.range)}</div>
                 ${cell.slot.label ? `<div class="ol-hour-label">${escapeHtml(cell.slot.label)}</div>` : ''}
@@ -575,8 +580,8 @@
             </div>`;
         }
         return `
-          <button type="button" class="ol-hour ol-hour-free" data-hour="${pad2(cell.hour)}:00">
-            <div class="ol-hour-time">${label}</div>
+          <button type="button" class="ol-hour ol-hour-free" data-time="${cell.label}">
+            <div class="ol-hour-time">${cell.label}</div>
             <div class="ol-hour-info">
               <span class="ol-hour-take">свободно — кликнуть</span>
             </div>
@@ -588,7 +593,7 @@
   function bindDayHourClicks() {
     document.querySelectorAll('.ol-hour-free').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const t = btn.dataset.hour;
+        const t = btn.dataset.time;
         const timeInput = document.querySelector('input[name="meeting_time"]');
         if (timeInput) {
           timeInput.value = t;
@@ -667,10 +672,36 @@
         document.querySelectorAll('.ol-cal-view-btn').forEach((b) => {
           b.classList.toggle('primary', b === btn);
         });
+        syncCalStepVisibility();
         const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
         refreshCalendar(ymd);
       });
     });
+    document.querySelectorAll('.ol-cal-step-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const step = parseInt(btn.dataset.step, 10);
+        if (step === state.calStep) return;
+        state.calStep = step;
+        saveCalStep(step);
+        syncCalStepButtons();
+        if (state.calView === 'day') {
+          const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+          refreshCalendar(ymd);
+        }
+      });
+    });
+    syncCalStepButtons();
+    syncCalStepVisibility();
+  }
+
+  function syncCalStepButtons() {
+    document.querySelectorAll('.ol-cal-step-btn').forEach((b) => {
+      b.classList.toggle('primary', parseInt(b.dataset.step, 10) === state.calStep);
+    });
+  }
+  function syncCalStepVisibility() {
+    const steps = $('#ol-cal-steps');
+    if (steps) steps.style.display = state.calView === 'day' ? '' : 'none';
   }
 
   // ---------- Закреплённые менеджеры (tabs над календарём) ----------

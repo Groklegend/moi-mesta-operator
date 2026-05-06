@@ -5163,3 +5163,172 @@ h2.page-title {
     transform: rotate(90deg);
   }
 }
+
+/* ============================================================
+   Календарь — режим «Сегодня» (вертикальная лента + детали)
+   ============================================================ */
+.cal-steps {
+  display: inline-flex;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+  margin-right: 8px;
+}
+.cal-step-btn {
+  border: none;
+  border-radius: 0;
+  padding: 6px 12px;
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  font-family: inherit;
+}
+.cal-step-btn:hover { background: var(--bg-soft); }
+.cal-step-btn.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.cal-today {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+  align-items: start;
+}
+.cal-today-grid {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.cal-today-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.cal-today-add {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.cal-trow {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 10px;
+  align-items: stretch;
+  padding: 4px 0;
+  min-height: 36px;
+}
+.cal-trow-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+.cal-trow-cells {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cal-tslot {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  padding: 6px 12px;
+  text-align: left;
+  background: var(--card);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+.cal-tslot.cal-tslot-free {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+  cursor: default;
+  font-size: 12px;
+  padding: 4px 12px;
+}
+.cal-tslot-lead {
+  background: rgba(232, 130, 61, 0.12);
+  border-color: rgba(232, 130, 61, 0.35);
+}
+.cal-tslot-block {
+  background: rgba(107, 122, 138, 0.12);
+  border-color: rgba(107, 122, 138, 0.35);
+}
+.cal-tslot:hover:not(.cal-tslot-free) { border-color: var(--accent); }
+.cal-tslot-active {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.cal-tslot-time {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--accent-dark);
+}
+.cal-tslot-block .cal-tslot-time { color: var(--muted); }
+.cal-tslot-label {
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-today-side {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.cal-today-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 16px 8px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+@media (max-width: 980px) {
+  .cal-today { grid-template-columns: 1fr; }
+  .cal-today-side { position: static; max-height: none; }
+}
+
+/* Переключатель шага у оператора (рядом с «День/Неделя») */
+.ol-cal-steps {
+  display: inline-flex;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+}
+.ol-cal-step-btn {
+  border: none;
+  padding: 4px 10px;
+  background: var(--card);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+}
+.ol-cal-step-btn:hover { background: var(--bg-soft); }
+.ol-cal-step-btn.primary { background: var(--accent); color: white; }
