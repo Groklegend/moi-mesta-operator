@@ -6,6 +6,8 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "workers_dev": true,
+  "preview_urls": true,
   "observability": {
     "enabled": true
   },
@@ -15,5 +17,15 @@
   },
   "vars": {
     "SUPABASE_URL": "https://hcsaqrpsdcyfonuidgmf.supabase.co"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "habmm.pro",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.habmm.pro",
+      "custom_domain": true
+    }
+  ]
 }

@@ -13,6 +13,6 @@
 // его сюда. Реализация прокси — в src/worker.js, функция proxySupabase().
 
 window.SUPABASE_CONFIG = {
-  url: 'https://moi-mesta-operator.eklegendcity.workers.dev/sb',
+  url: 'https://habmm.pro/sb',
   anonKey: 'sb_publishable_Ctf0ncSNnSbQvaRDxud_zQ_qQGlKMQ9'
 };
