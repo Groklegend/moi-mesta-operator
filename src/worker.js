@@ -581,11 +581,82 @@ async function retryWebhook(env, request, payload, attempt) {
   }
 }
 
+// ---------- /sb/* — прокси на Supabase ----------
+//
+// Зачем: некоторые российские провайдеры через DPI режут TCP-соединения
+// к `*.supabase.co`. Сайт открывается (Cloudflare Workers доходят), а
+// auth/rest/storage API — нет, и пользователь видит «Failed to fetch».
+// Решение — ходить на Supabase из браузера через наш же Worker:
+//   js-клиент → workers.dev/sb/auth/v1/...  (виден провайдеру)
+//   Worker     → supabase.co/auth/v1/...    (виден из CF, не из РФ)
+//
+// Обрабатывает auth, rest (PostgREST), storage. Realtime (WebSocket)
+// не проксируется — в проекте не используется.
+
+async function proxySupabase(request, env) {
+  if (!env.SUPABASE_URL) {
+    return new Response('SUPABASE_URL not configured', { status: 503 });
+  }
+  const inUrl = new URL(request.url);
+  // '/sb/auth/v1/health' → '/auth/v1/health'
+  const targetPath = inUrl.pathname.replace(/^\/sb/, '');
+  const targetUrl = env.SUPABASE_URL.replace(/\/$/, '') + (targetPath || '/') + inUrl.search;
+
+  // Чистим заголовки: host подставит fetch, cf-* — служебные CF, cookie
+  // от нашего домена Supabase не ждёт.
+  const headers = new Headers();
+  for (const [k, v] of request.headers) {
+    const kl = k.toLowerCase();
+    if (kl === 'host') continue;
+    if (kl === 'cookie') continue;
+    if (kl === 'connection') continue;
+    if (kl.startsWith('cf-')) continue;
+    headers.set(k, v);
+  }
+
+  const init = {
+    method: request.method,
+    headers,
+    redirect: 'manual',
+  };
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    init.body = request.body;
+  }
+
+  let upstream;
+  try {
+    upstream = await fetch(targetUrl, init);
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: 'upstream_unreachable', detail: String(e && e.message || e) }),
+      { status: 502, headers: { 'content-type': 'application/json' } }
+    );
+  }
+
+  // Возвращаем ответ stream-style, чтобы крупные body (storage) шли потоком.
+  const respHeaders = new Headers(upstream.headers);
+  // Set-Cookie от supabase.co не нужен — у нас всё через Bearer-токены
+  // в localStorage, а domain=supabase.co cookie всё равно бы не сохранялся
+  // на нашем origin.
+  respHeaders.delete('set-cookie');
+  return new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: respHeaders,
+  });
+}
+
 // ---------- Router ----------
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    // Прокси Supabase (для пользователей, у которых провайдер режет supabase.co).
+    // Обрабатываем до /api/, чтобы preflight OPTIONS на /sb/* тоже шёл сюда.
+    if (url.pathname === '/sb' || url.pathname.startsWith('/sb/')) {
+      return await proxySupabase(request, env);
+    }
 
     if (request.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
       return new Response(null, { status: 204, headers: cors });
