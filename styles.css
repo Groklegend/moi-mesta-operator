@@ -2295,7 +2295,7 @@ h2.page-title {
 .wizard-steps {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   padding: 0;
   margin: 0 0 24px;
@@ -2304,35 +2304,28 @@ h2.page-title {
 .wiz-step {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 10px;
+  gap: 10px;
+  padding: 12px 14px;
   background: var(--bg-soft);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   font-weight: 600;
   cursor: not-allowed;
   transition: all 0.15s;
   position: relative;
-  min-width: 0;
-}
-.wiz-step .step-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 .wiz-step.clickable { cursor: pointer; }
 .wiz-step.clickable:hover { border-color: var(--accent); color: var(--ink); }
 .wiz-step .step-num {
-  width: 24px; height: 24px;
+  width: 26px; height: 26px;
   display: flex; align-items: center; justify-content: center;
   background: var(--card);
   border: 1.5px solid var(--border);
   border-radius: 50%;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   flex-shrink: 0;
 }
@@ -2373,7 +2366,7 @@ h2.page-title {
 }
 
 @media (max-width: 900px) {
-  .wizard-steps { grid-template-columns: repeat(6, auto); overflow-x: auto; }
+  .wizard-steps { grid-template-columns: repeat(5, auto); overflow-x: auto; }
   .wiz-step .step-name { display: none; }
 }
 
