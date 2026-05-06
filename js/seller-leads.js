@@ -118,7 +118,7 @@
          </div>`
       : '';
 
-    const demoUrl = `demo.html?lead=${encodeURIComponent(lead.id)}`;
+    const demoUrl = `demo?lead=${encodeURIComponent(lead.id)}`;
 
     pane.innerHTML = `
       <h2 class="lead-detail-title">${escapeHtml(lead.company_name)}</h2>
