@@ -4160,3 +4160,41 @@ h2.page-title {
   line-height: 1.5;
   white-space: pre-wrap;
 }
+
+/* Дата встречи со стрелками ±1 день (operator-leads.js) */
+.ol-date-control {
+  display: flex;
+  align-items: stretch;
+}
+.ol-date-control input[type="date"] {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0;
+  border-left-width: 0;
+  border-right-width: 0;
+}
+.ol-date-arrow {
+  width: 36px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  font-family: inherit;
+  padding: 0;
+}
+.ol-date-arrow:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.ol-date-arrow:active { transform: translateY(1px); }
+.ol-date-control .ol-date-arrow:first-child {
+  border-radius: var(--radius-sm, 8px) 0 0 var(--radius-sm, 8px);
+}
+.ol-date-control .ol-date-arrow:last-child {
+  border-radius: 0 var(--radius-sm, 8px) var(--radius-sm, 8px) 0;
+}

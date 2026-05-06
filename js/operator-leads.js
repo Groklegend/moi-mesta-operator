@@ -128,14 +128,23 @@
               <input type="text" name="city" maxlength="80">
             </label>
 
-            <label class="ol-field">
-              <span class="ol-label">Дата и время встречи</span>
-              <input type="datetime-local" name="meeting_at">
-            </label>
-
             <label class="ol-field ol-field-wide">
               <span class="ol-label">Адрес встречи</span>
               <input type="text" name="meeting_address" maxlength="240" placeholder="Город, улица, дом, офис…">
+            </label>
+
+            <div class="ol-field">
+              <span class="ol-label">Дата встречи</span>
+              <div class="ol-date-control">
+                <button type="button" class="ol-date-arrow" data-shift="-1" aria-label="Предыдущий день">‹</button>
+                <input type="date" name="meeting_date">
+                <button type="button" class="ol-date-arrow" data-shift="1" aria-label="Следующий день">›</button>
+              </div>
+            </div>
+
+            <label class="ol-field">
+              <span class="ol-label">Время встречи</span>
+              <input type="time" name="meeting_time">
             </label>
 
             <label class="ol-field">
@@ -194,8 +203,31 @@
       e.preventDefault();
       saveForm(e.target, backdrop);
     });
+
+    // Дата по умолчанию — сегодня (локальная), время оставляем пустым
+    // (оператор вписывает сам). Стрелки сдвигают дату на ±1 день, без лимита.
+    const dateInput = backdrop.querySelector('input[name="meeting_date"]');
+    dateInput.value = ymdLocal(new Date());
+    backdrop.querySelectorAll('.ol-date-arrow').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const days = parseInt(btn.dataset.shift, 10) || 0;
+        const cur = dateInput.value ? parseYmd(dateInput.value) : new Date();
+        cur.setDate(cur.getDate() + days);
+        dateInput.value = ymdLocal(cur);
+      });
+    });
+
     // Фокус на первом поле
     backdrop.querySelector('input[name="company_name"]')?.focus();
+  }
+
+  function ymdLocal(d) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+  function parseYmd(s) {
+    // 'YYYY-MM-DD' → локальная дата 00:00 (без UTC-сдвига).
+    const [y, m, dd] = s.split('-').map(Number);
+    return new Date(y, m - 1, dd);
   }
 
   async function saveForm(form, modalEl) {
@@ -210,8 +242,16 @@
       }
 
       const fd = new FormData(form);
-      const meetingRaw = (fd.get('meeting_at') || '').trim();
-      const meetingIso = meetingRaw ? new Date(meetingRaw).toISOString() : null;
+      // Дата + время собираются из двух отдельных полей. Если время не
+      // указано — берём 00:00 (полночь). Если даты нет — meeting_at = null
+      // и в карточке у менеджера встреча будет «не назначена».
+      const dateRaw = (fd.get('meeting_date') || '').trim();
+      const timeRaw = (fd.get('meeting_time') || '').trim();
+      let meetingIso = null;
+      if (dateRaw) {
+        const t = timeRaw || '00:00';
+        meetingIso = new Date(`${dateRaw}T${t}`).toISOString();
+      }
 
       const trimOrNull = (k) => {
         const v = (fd.get(k) || '').trim();
