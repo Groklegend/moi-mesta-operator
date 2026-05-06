@@ -589,7 +589,10 @@
   const ddBtn   = document.getElementById('section-dropdown-btn');
   const ddMenu  = document.getElementById('section-dropdown-menu');
   const ddLabel = document.getElementById('section-dropdown-label');
-  const ddEmoji = document.querySelector('.section-dropdown-emoji');
+  // Берём эмодзи именно внутри dropdown-кнопки. Без префикса селектор
+  // подхватил бы первую `.section-dropdown-emoji` в DOM, а ею стал
+  // эмодзи у standalone-shortcut «Календарь» (он теперь стоит раньше).
+  const ddEmoji = document.querySelector('#section-dropdown-btn .section-dropdown-emoji');
   function syncDropdownLabel(activeTab) {
     if (!activeTab) return;
     // «Подключение компании» — под-режим раздела «Мои сделки» (заявку
@@ -661,9 +664,11 @@
     else target = 'deals'; // включая «connect» и пустой hash
     const tab = document.querySelector(`#seller-nav .seller-tab[data-section="${target}"]`);
     if (tab) tab.click();
-    // Подтянем подпись дропдауна на стартовый таб
+    // Подтянем подпись дропдауна на стартовый таб — но только если это
+    // обычный таб. Для standalone (Календарь) dropdown не трогаем,
+    // чтобы он не дублировал лейбл shortcut-кнопки.
     const active = document.querySelector('#seller-nav .seller-tab.active');
-    if (active) syncDropdownLabel(active);
+    if (active && active.dataset.standalone !== '1') syncDropdownLabel(active);
   })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
