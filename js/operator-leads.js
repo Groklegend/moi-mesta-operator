@@ -377,20 +377,21 @@
     if (!state.managers.length) {
       return '<div class="ol-cal-empty">Активных менеджеров нет.</div>';
     }
-    // Группируем занятые слоты по manager_id
+    // Группируем занятые слоты по manager_id (с длительностью).
     const byMgr = new Map();
     for (const s of state.busySlots) {
       const arr = byMgr.get(s.manager_id) || [];
-      arr.push(s.meeting_at);
+      arr.push({ at: s.meeting_at, duration: s.duration_minutes || 60 });
       byMgr.set(s.manager_id, arr);
     }
     return state.managers.map((m) => {
       const slots = (byMgr.get(m.id) || [])
-        .map((iso) => {
-          const d = new Date(iso);
-          return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-        })
-        .sort();
+        .sort((a, b) => a.at.localeCompare(b.at))
+        .map(({ at, duration }) => {
+          const start = new Date(at);
+          const end = new Date(start.getTime() + duration * 60_000);
+          return `${pad2(start.getHours())}:${pad2(start.getMinutes())}–${pad2(end.getHours())}:${pad2(end.getMinutes())}`;
+        });
       const name = (m.full_name || '').trim() || m.email;
       const slotsHtml = slots.length
         ? slots.map((t) => `<span class="ol-cal-busy">${escapeHtml(t)}</span>`).join('')

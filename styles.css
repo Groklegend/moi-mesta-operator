@@ -4603,3 +4603,13 @@ h2.page-title {
   color: white;
 }
 .section-shortcut.active .section-dropdown-emoji { filter: grayscale(0); }
+
+/* Календарь: расширение колонок времени для формата «с–до» */
+.cal-day-add-row { grid-template-columns: 110px 110px 1fr; }
+.cal-day-slot { grid-template-columns: 110px 1fr auto; }
+.cal-week-time { min-width: 110px; }
+
+@media (max-width: 720px) {
+  .cal-day-add-row { grid-template-columns: 1fr 1fr; }
+  .cal-day-add-row .cal-day-add-comment { grid-column: 1 / -1; }
+}

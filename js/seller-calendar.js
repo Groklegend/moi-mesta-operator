@@ -46,6 +46,23 @@
         && a.getDate() === b.getDate();
   }
   function timeOf(iso) { const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+  function endOf(iso, durationMin) {
+    const d = new Date(new Date(iso).getTime() + (durationMin || 60) * 60_000);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  function rangeOf(slot) {
+    const start = timeOf(slot.busy_at);
+    const dur = slot.duration_minutes || 60;
+    return `${start}–${endOf(slot.busy_at, dur)}`;
+  }
+  // Парсит «HH:MM» в минуты с полуночи; возвращает null если невалидно.
+  function timeToMinutes(s) {
+    const m = /^(\d{2}):(\d{2})$/.exec(s || '');
+    if (!m) return null;
+    const h = +m[1], mm = +m[2];
+    if (h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+    return h * 60 + mm;
+  }
 
   function toast(msg) {
     const t = document.getElementById('toast');
@@ -192,7 +209,7 @@
       const isToday = sameDate(d, today);
       const slots = slotsForDate(d);
       const slotsHtml = slots.slice(0, 3).map((s) => `
-        <div class="cal-slot-pill" title="${escapeHtml(s.comment || '')}">${timeOf(s.busy_at)}${s.comment ? ' · ' + escapeHtml(s.comment) : ''}</div>
+        <div class="cal-slot-pill" title="${escapeHtml(s.comment || '')}">${rangeOf(s)}${s.comment ? ' · ' + escapeHtml(s.comment) : ''}</div>
       `).join('');
       const moreHtml = slots.length > 3 ? `<div class="cal-slot-more">+ ещё ${slots.length - 3}</div>` : '';
       cells += `
@@ -226,7 +243,7 @@
       const slotsHtml = slots.length
         ? slots.map((s) => `
             <div class="cal-week-slot">
-              <span class="cal-week-time">${timeOf(s.busy_at)}</span>
+              <span class="cal-week-time">${rangeOf(s)}</span>
               <span class="cal-week-comment">${escapeHtml(s.comment || '— без комментария')}</span>
             </div>`).join('')
         : '<div class="cal-week-empty">— свободен</div>';
@@ -270,8 +287,12 @@
         <form class="cal-day-add" id="cal-day-add" autocomplete="off">
           <div class="cal-day-add-row">
             <label class="cal-day-add-time">
-              <span class="ol-label">Время</span>
-              <input type="time" name="time" required>
+              <span class="ol-label">С</span>
+              <input type="time" name="time_from" required>
+            </label>
+            <label class="cal-day-add-time">
+              <span class="ol-label">До</span>
+              <input type="time" name="time_to" required>
             </label>
             <label class="cal-day-add-comment">
               <span class="ol-label">Комментарий</span>
@@ -292,13 +313,20 @@
     backdrop.querySelector('#cal-day-add').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
-      const t = (fd.get('time') || '').trim();
+      const tFrom = (fd.get('time_from') || '').trim();
+      const tTo = (fd.get('time_to') || '').trim();
       const comment = (fd.get('comment') || '').trim() || null;
-      if (!t) { toast('Укажите время.'); return; }
-      const iso = new Date(`${ymd(date)}T${t}`).toISOString();
+      const fromMin = timeToMinutes(tFrom);
+      const toMin = timeToMinutes(tTo);
+      if (fromMin === null) { toast('Укажите время начала.'); return; }
+      if (toMin === null) { toast('Укажите время окончания.'); return; }
+      if (toMin <= fromMin) { toast('Время «до» должно быть позже времени «с».'); return; }
+      const duration = toMin - fromMin;
+      const iso = new Date(`${ymd(date)}T${tFrom}`).toISOString();
       const { error } = await sb.from('manager_busy_slots').insert({
         manager_id: state.userId,
         busy_at: iso,
+        duration_minutes: duration,
         comment,
       });
       if (error) {
@@ -343,7 +371,7 @@
     return `<ul class="cal-day-slots">
       ${slots.map((s) => `
         <li class="cal-day-slot">
-          <span class="cal-day-slot-time">${timeOf(s.busy_at)}</span>
+          <span class="cal-day-slot-time">${rangeOf(s)}</span>
           <span class="cal-day-slot-comment">${escapeHtml(s.comment || '— без комментария')}</span>
           <button type="button" class="cal-day-slot-del" data-id="${s.id}" title="Удалить">🗑</button>
         </li>
