@@ -3206,16 +3206,73 @@ h2.page-title {
   font-weight: 400;
 }
 
-.lead-section-title { margin: 0 0 12px; font-size: 16px; color: var(--navy); font-weight: 700; }
-.lead-recommendations {
-  padding: 16px 18px;
-  background: var(--accent-soft);
-  border-left: 3px solid var(--accent);
+.lead-section-title { margin: 0 0 14px; font-size: 16px; color: var(--navy); font-weight: 700; }
+
+/* Структурированные рекомендации: блоки-категории, в каждом
+   список «инструмент → результат». Удобнее читать, чем сплошной текст. */
+.lead-recs { display: flex; flex-direction: column; gap: 14px; }
+.lead-recs-empty {
+  padding: 14px 18px;
+  background: var(--bg-soft);
   border-radius: var(--radius-sm);
+  color: var(--muted);
   font-size: 14px;
-  line-height: 1.6;
+}
+.lead-rec-block {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.lead-rec-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+.lead-rec-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lead-rec-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+}
+.lead-rec-tool {
+  font-size: 14px;
   color: var(--ink);
-  white-space: pre-line;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.lead-rec-benefit {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--success);
+  background: var(--success-soft);
+  border: 1px solid var(--success);
+  padding: 4px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .lead-rec-item {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .lead-rec-benefit { justify-self: start; }
 }
 
 @media (max-width: 900px) {
