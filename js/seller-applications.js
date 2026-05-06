@@ -30,7 +30,7 @@
     4: ['website', 'telegram', 'max_channel', 'instagram', 'vk', 'customer_phone', 'email',
         'lpr_name', 'lpr_phone', 'marketer_name', 'marketer_phone'],
     5: ['branches'],
-    6: ['loyalty', 'conditions'],
+    6: ['loyalty'],
   };
 
   // Обязательные поля по ТЗ (звёздочка `*`).
@@ -141,7 +141,6 @@
       email_verified: false, lpr_phone_verified: false,
       branches: [],
       loyalty: null,
-      conditions: '',
       // Шаг 2 «Интеграция». Структура:
       //   { required: 'yes'|'no'|null, presets: { '1С': 'версия', ... },
       //     custom: [{name, version}], when: 'before_test'|'after_test'|null }
@@ -523,7 +522,6 @@
       'bank_account', 'bank_bik', 'bank_corr', 'bank_name',
       'website', 'telegram', 'max_channel', 'instagram', 'vk',
       'customer_phone', 'email', 'lpr_name', 'lpr_phone', 'marketer_name', 'marketer_phone',
-      'conditions',
     ]) {
       out[f] = (state.app[f] === '' || state.app[f] === undefined) ? null : state.app[f];
     }
@@ -582,11 +580,6 @@
         if (!l || !l.type) {
           errors.push('Выберите тип программы лояльности');
           continue;
-        }
-        // Описание программы — обязательное и не короче 100 символов.
-        const cond = (state.app.conditions || '').trim();
-        if (cond.length < 100) {
-          errors.push(`Опишите программу лояльности подробнее (минимум 100 символов, сейчас ${cond.length})`);
         }
         if (l.type === 'external') {
           continue; // для внешней программы остальные проверки не нужны
@@ -694,7 +687,6 @@
     renderIntegration();
     renderBranches();
     renderLoyalty();
-    renderConditions();
     updateNextEnabled();
     applyReadOnlyMode();
   }
@@ -795,7 +787,6 @@
     const PHONE_FIELDS = new Set(['customer_phone', 'lpr_phone', 'marketer_phone']);
     $$('#app-wizard [data-f]').forEach(inp => {
       const f = inp.dataset.f;
-      if (f === 'conditions') return; // отдельная логика
       const v = state.app[f] ?? '';
       inp.value = v == null ? '' : v;
       if (PHONE_FIELDS.has(f)) {
@@ -1568,14 +1559,12 @@
     const banner = $('#wiz-external-banner');
     const monthly = $('#wiz-monthly-banner');
     const fields = $('#wiz-loyalty-fields');
-    const condWrap = $('#wiz-conditions-wrap');
 
     if (!l.type) {
       subWrap.hidden = true;
       banner.hidden = true;
       monthly.hidden = true;
       fields.innerHTML = '';
-      condWrap.hidden = true;
       return;
     }
     if (l.type === 'external') {
@@ -1583,8 +1572,6 @@
       banner.hidden = false;
       monthly.hidden = true;
       fields.innerHTML = '';
-      condWrap.hidden = false;
-      $('#wiz-conditions-title').textContent = 'Описание программы лояльности *';
       return;
     }
     // bonus / discount
@@ -1596,8 +1583,6 @@
     });
     monthly.hidden = sub !== 'cumulative_plus';
     fields.innerHTML = renderLoyaltyFieldsHtml(l.type, sub, l);
-    condWrap.hidden = false;
-    $('#wiz-conditions-title').textContent = 'Условия';
     bindLoyaltyFieldHandlers();
   }
 
@@ -1871,29 +1856,6 @@
         setDirty();
       });
     });
-  }
-
-  function renderConditions() {
-    const ta = $('#wiz-conditions');
-    const cnt = $('#wiz-cond-count');
-    const counter = $('#wiz-cond-counter');
-    if (!ta) return;
-    ta.value = state.app.conditions || '';
-    const refresh = (len) => {
-      if (cnt) cnt.textContent = String(len);
-      // Подсветить счётчик красным, если описание короче 100 символов.
-      if (counter) counter.classList.toggle('too-short', len < 100);
-    };
-    refresh((state.app.conditions || '').length);
-    if (!ta._wired) {
-      ta._wired = true;
-      ta.addEventListener('input', () => {
-        state.app.conditions = ta.value;
-        refresh(ta.value.length);
-        setDirty();
-        updateNextEnabled();
-      });
-    }
   }
 
   // ---------- Навигация ----------
