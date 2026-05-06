@@ -3058,6 +3058,123 @@ h2.page-title {
   .kb-docs-sidebar { position: relative; top: auto; max-height: none; }
 }
 
+/* ---------- Мои лиды: двухколоночный список + панель деталей ---------- */
+.leads-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.leads-sidebar {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+}
+.leads-sidebar .leads-title { margin: 0 0 6px; font-size: 18px; }
+.leads-hint { margin: 0 0 14px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.leads-items { display: flex; flex-direction: column; gap: 6px; }
+.lead-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.lead-item:hover { border-color: var(--accent); }
+.lead-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.lead-name { font-weight: 600; color: var(--ink); font-size: 14px; }
+.lead-flags { display: flex; gap: 6px; flex-wrap: wrap; }
+.lead-flag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lead-flag.has { color: var(--success); border-color: var(--success); }
+.lead-flag.no { color: var(--danger); border-color: var(--danger); opacity: 0.85; }
+.lead-flag.loyal { color: var(--accent-dark); border-color: var(--accent); }
+
+.leads-pane {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  min-height: 360px;
+}
+.leads-pane .placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 15px;
+  padding: 60px 20px;
+  text-align: center;
+}
+.leads-pane .placeholder .big-icon { font-size: 48px; opacity: 0.6; }
+
+.lead-detail-title { margin: 0 0 20px; font-size: 24px; color: var(--navy); }
+.lead-fields { display: flex; flex-direction: column; gap: 8px; margin: 0 0 28px; padding: 0; }
+.lead-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+  align-items: baseline;
+}
+.lead-row dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.lead-row dd { margin: 0; color: var(--ink); font-size: 14px; word-break: break-word; }
+.lead-row dd a { color: var(--accent-dark); text-decoration: none; }
+.lead-row dd a:hover { text-decoration: underline; }
+.lead-yes { color: var(--success); font-weight: 600; }
+.lead-no { color: var(--muted); }
+
+.lead-section-title { margin: 0 0 12px; font-size: 16px; color: var(--navy); font-weight: 700; }
+.lead-recommendations {
+  padding: 16px 18px;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-line;
+}
+
+@media (max-width: 900px) {
+  .leads-layout { grid-template-columns: 1fr; }
+  .leads-sidebar { position: relative; top: auto; max-height: none; }
+  .lead-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
 /* ---------- Возражения у менеджера: 2-колоночный режим (как у оператора) ---------- */
 .kb-obj-head {
   display: flex;

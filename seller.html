@@ -41,6 +41,9 @@
     <button class="seller-tab" data-section="deals" type="button">
       <span class="emoji">💼</span><span>Мои сделки</span>
     </button>
+    <button class="seller-tab" data-section="leads" type="button">
+      <span class="emoji">📍</span><span>Мои лиды</span>
+    </button>
     <!-- «Рубрики» спрятаны из дропдауна — выбор рубрики уже есть справа
          в секции «Возражения». Сама вкладка осталась для прямого перехода
          по #kb-categories, но в меню не показывается. -->
@@ -506,6 +509,25 @@
     </div>
   </section>
 
+  <!-- Мои лиды — список компаний-кандидатов от Гари с рекомендациями -->
+  <section id="section-leads" class="seller-section" hidden>
+    <div class="leads-layout">
+      <aside class="leads-sidebar">
+        <h2 class="page-title leads-title">Мои лиды</h2>
+        <p class="leads-hint">Компании-кандидаты на холодный звонок. Гари собирает их и подбирает рекомендации.</p>
+        <div id="leads-list" class="leads-items">
+          <div class="empty plain">Загрузка…</div>
+        </div>
+      </aside>
+      <div class="leads-pane" id="leads-pane">
+        <div class="placeholder">
+          <span class="big-icon">📍</span>
+          Выберите лид слева — описание появится здесь
+        </div>
+      </div>
+    </div>
+  </section>
+
   </div><!-- /.seller-content -->
 </div><!-- /.seller-layout -->
 </main>
@@ -608,7 +630,7 @@
     let target;
     if (/^app:[0-9a-f-]{36}$/.test(initial)) target = 'connect';
     else if (initial === 'actions') target = 'actions';
-    else if (initial === 'kb-categories' || initial === 'kb-objections' || initial === 'kb-documents') target = initial;
+    else if (initial === 'kb-categories' || initial === 'kb-objections' || initial === 'kb-documents' || initial === 'leads') target = initial;
     else target = 'deals'; // включая «connect» и пустой hash
     const tab = document.querySelector(`#seller-nav .seller-tab[data-section="${target}"]`);
     if (tab) tab.click();
@@ -621,5 +643,6 @@
 <script src="js/seller-reports.js"></script>
 <script src="js/seller-applications.js"></script>
 <script src="js/seller-knowledge.js"></script>
+<script src="js/seller-leads.js"></script>
 </body>
 </html>
