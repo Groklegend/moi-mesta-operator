@@ -4228,8 +4228,8 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   cursor: pointer;
   font-size: 13px;
   color: var(--muted);
-  padding: 0 0 8px;
-  margin: 0 0 8px;
+  padding: 0;
+  margin: 0;
   font-family: inherit;
   transition: color 0.12s;
 }
@@ -4246,9 +4246,17 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 18px 20px;
+  padding: 12px 20px 18px;
 }
-.ol-create-col-left .ol-title { margin: 0 0 14px; font-size: 20px; }
+/* Шапка левого блока: «К списку» слева, «Новая заявка» справа на одной линии. */
+.ol-create-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.ol-create-head .ol-title { margin: 0; font-size: 18px; }
 
 /* Поле адреса с DaData suggest */
 .ol-address-wrap { position: relative; }

@@ -11,7 +11,7 @@ const state = {
   documents: [],
   activeCategoryId: null,
   currentObjection: null,
-  mode: 'objections',
+  mode: 'leads',
   currentDocument: null,
   answerView: 'answer', // 'answer' | 'details' — что показываем в панели ответа
 };
@@ -541,3 +541,9 @@ loadAll().catch(err => {
   document.querySelector('.container').insertAdjacentHTML('afterbegin',
     '<div class="error-banner">Не удалось подключиться к базе. Проверьте <code>js/config.js</code> — URL и anon-ключ Supabase.</div>');
 });
+
+// Стартовая позиция оператора — «Заявка Плюс». Переход по логотипу
+// «Мои Места» (href=index.html) перезагружает страницу и снова попадает сюда.
+// setTimeout(0) — чтобы дождаться загрузки operator-leads.js (он подключается
+// строкой ниже в index.html и регистрирует window.operatorLeads).
+setTimeout(() => setMode('leads'), 0);

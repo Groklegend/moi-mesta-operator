@@ -254,8 +254,10 @@
         </div>
         <div class="ol-create-grid">
           <div class="ol-create-col-left">
-            <button class="ol-back-btn" type="button" id="ol-back">← К списку</button>
-            <h2 class="ol-title">Новая заявка</h2>
+            <div class="ol-create-head">
+              <button class="ol-back-btn" type="button" id="ol-back">← К списку</button>
+              <h2 class="ol-title">Новая заявка</h2>
+            </div>
             <div class="ol-form" id="ol-form" autocomplete="off">
               <div class="ol-grid">
                 <label class="ol-field ol-field-wide">
