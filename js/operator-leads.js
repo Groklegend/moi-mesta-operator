@@ -233,11 +233,11 @@
         <div class="ol-create-grid">
           <div class="ol-create-col-left">
             <h2 class="ol-title">Новая заявка</h2>
-            <form class="ol-form" id="ol-form" autocomplete="off">
+            <div class="ol-form" id="ol-form" autocomplete="off">
               <div class="ol-grid">
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Название компании <em>*</em></span>
-                  <input type="text" name="company_name" required maxlength="120">
+                  <input type="text" name="company_name" maxlength="120">
                 </label>
 
                 <label class="ol-field ol-field-wide ol-field-checkbox">
@@ -252,7 +252,7 @@
                 </div>
 
                 <div class="ol-field">
-                  <span class="ol-label">Дата встречи</span>
+                  <span class="ol-label">Дата встречи <em>*</em></span>
                   <div class="ol-date-control">
                     <button type="button" class="ol-date-arrow" data-shift="-1" aria-label="Предыдущий день">‹</button>
                     <input type="date" name="meeting_date" id="ol-meeting-date" value="${todayYmd}">
@@ -265,13 +265,21 @@
                   <input type="time" name="meeting_time">
                 </label>
 
+                <div class="ol-field ol-field-wide">
+                  <span class="ol-label">Лицо, принимающее решение?</span>
+                  <div class="ol-radio">
+                    <label><input type="radio" name="is_lpr" value="yes" checked> Да</label>
+                    <label><input type="radio" name="is_lpr" value="no"> Нет</label>
+                  </div>
+                </div>
+
                 <div class="ol-phones-row ol-field-wide">
                   <label class="ol-field">
-                    <span class="ol-label">Телефон ЛПР</span>
+                    <span class="ol-label" id="ol-phone-label">Телефон ЛПР <em>*</em></span>
                     <input type="text" name="phone" maxlength="22"
                            placeholder="8 (962) 323-25-47"
                            inputmode="tel"
-                           autocomplete="tel-national"
+                           autocomplete="off"
                            data-lpignore="true"
                            data-1p-ignore="true"
                            data-form-type="other">
@@ -280,11 +288,11 @@
                           aria-label="Скопировать в «Номер, на который звонили»"
                           title="Скопировать в «Номер, на который звонили»">→</button>
                   <label class="ol-field">
-                    <span class="ol-label">Номер, на который звонили</span>
+                    <span class="ol-label">Номер, на который звонили <em>*</em></span>
                     <input type="text" name="called_phone" maxlength="22"
                            placeholder="8 (962) 323-25-47"
                            inputmode="tel"
-                           autocomplete="tel-national"
+                           autocomplete="off"
                            data-lpignore="true"
                            data-1p-ignore="true"
                            data-form-type="other">
@@ -292,8 +300,13 @@
                 </div>
 
                 <label class="ol-field ol-field-wide">
-                  <span class="ol-label">ФИО ЛПР</span>
-                  <input type="text" name="lpr_name" maxlength="120" placeholder="Имя, должность">
+                  <span class="ol-label">Имя</span>
+                  <input type="text" name="lpr_name" maxlength="80" placeholder="Иван Иванов">
+                </label>
+
+                <label class="ol-field ol-field-wide">
+                  <span class="ol-label">Должность</span>
+                  <input type="text" name="lpr_position" maxlength="80" placeholder="Директор">
                 </label>
 
                 <label class="ol-field ol-field-wide">
@@ -314,9 +327,9 @@
 
               <div class="ol-actions">
                 <button type="button" class="btn" id="ol-cancel">Отмена</button>
-                <button type="submit" class="btn primary" id="ol-submit">Сохранить и передать менеджеру</button>
+                <button type="button" class="btn primary" id="ol-submit">Сохранить и передать менеджеру</button>
               </div>
-            </form>
+            </div>
           </div>
 
           <aside class="ol-create-col-right">
@@ -344,10 +357,8 @@
 
     $('#ol-back').addEventListener('click', () => renderList());
     $('#ol-cancel').addEventListener('click', () => renderList());
-    $('#ol-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      saveForm(e.target);
-    });
+    $('#ol-submit').addEventListener('click', () => saveForm());
+    bindLprRadio();
 
     bindDateControl();
     bindOnlineCheckbox();
@@ -808,7 +819,28 @@
   }
 
   // ---------- Сохранение ----------
-  async function saveForm(form) {
+  function readForm() {
+    const root = $('#ol-form');
+    const get = (name) => root.querySelector(`[name="${name}"]`)?.value || '';
+    const checked = (name) => !!root.querySelector(`[name="${name}"]:checked`);
+    return {
+      company_name: get('company_name').trim(),
+      is_online: !!root.querySelector('[name="is_online"]:checked'),
+      meeting_address: get('meeting_address').trim(),
+      meeting_date: get('meeting_date').trim(),
+      meeting_time: get('meeting_time').trim(),
+      is_lpr: (root.querySelector('input[name="is_lpr"]:checked')?.value) === 'no' ? 'no' : 'yes',
+      phone: get('phone').trim(),
+      called_phone: get('called_phone').trim(),
+      lpr_name: get('lpr_name').trim(),
+      lpr_position: get('lpr_position').trim(),
+      website: get('website').trim(),
+      has_loyalty: !!root.querySelector('[name="has_loyalty"]:checked'),
+      comment: get('comment').trim(),
+    };
+  }
+
+  async function saveForm() {
     const submitBtn = $('#ol-submit');
     submitBtn.disabled = true;
 
@@ -819,51 +851,55 @@
         return;
       }
 
-      const fd = new FormData(form);
-      const isOnline = fd.get('is_online') === 'on';
-      const dateRaw = (fd.get('meeting_date') || '').trim();
-      const timeRaw = (fd.get('meeting_time') || '').trim();
-      let meetingIso = null;
-      if (dateRaw) {
-        const t = timeRaw || '00:00';
-        meetingIso = new Date(`${dateRaw}T${t}`).toISOString();
+      const f = readForm();
+
+      // Валидация обязательных полей
+      if (!f.company_name) { toast('Укажите название компании.'); return; }
+      if (!state.activeMgrId) { toast('Закрепите менеджера наверху правой панели (＋).'); return; }
+      if (!f.meeting_date) { toast('Укажите дату встречи.'); return; }
+      if (!f.phone) { toast(f.is_lpr === 'yes' ? 'Укажите телефон ЛПР.' : 'Укажите телефон.'); return; }
+      if (!f.called_phone) { toast('Укажите номер, на который звонили.'); return; }
+
+      // Время необязательно: если указано — берём; иначе 00:00.
+      const t = f.meeting_time || '00:00';
+      const meetingIso = new Date(`${f.meeting_date}T${t}`).toISOString();
+
+      // City: при онлайне — то, что оператор написал в поле «Город встречи»;
+      // иначе — из DaData при выборе подсказки.
+      const city = f.is_online ? (f.meeting_address || null) : (state.dadataCity || null);
+      const meetingAddress = f.is_online ? null : (f.meeting_address || null);
+
+      // Имя + должность объединяем в lpr_name через запятую.
+      let lprName = '';
+      if (f.lpr_name && f.lpr_position) lprName = `${f.lpr_name}, ${f.lpr_position}`;
+      else lprName = f.lpr_name || f.lpr_position || '';
+
+      // Маркер «не ЛПР» — добавляем в комментарий, чтобы менеджер видел.
+      let comment = f.comment || '';
+      if (f.is_lpr === 'no') {
+        const tag = '⚠️ Контакт — НЕ ЛПР';
+        comment = comment ? `${tag}\n\n${comment}` : tag;
+      }
+      if (f.is_online) {
+        const tag = '🌐 Онлайн-встреча';
+        comment = comment ? `${tag}\n\n${comment}` : tag;
       }
 
-      const trimOrNull = (k) => {
-        const v = (fd.get(k) || '').trim();
-        return v || null;
-      };
-
-      // City: при онлайне берём то, что оператор написал в поле «Город встречи»
-      // (одно и то же поле, что для адреса). Иначе — из DaData (если выбирал
-      // подсказку), иначе — null.
-      const addrRaw = (fd.get('meeting_address') || '').trim();
-      const city = isOnline ? (addrRaw || null) : (state.dadataCity || null);
-      const meetingAddress = isOnline ? null : (addrRaw || null);
-
       const payload = {
-        company_name:    (fd.get('company_name') || '').trim(),
+        company_name:    f.company_name,
         city,
         meeting_address: meetingAddress,
         meeting_at:      meetingIso,
-        phone:           trimOrNull('phone'),
-        called_phone:    trimOrNull('called_phone'),
-        website:         trimOrNull('website'),
-        lpr_name:        trimOrNull('lpr_name'),
-        has_loyalty:     fd.get('has_loyalty') === 'on',
-        comment:         trimOrNull('comment'),
-        manager_id:      state.activeMgrId || null,
+        phone:           f.phone || null,
+        called_phone:    f.called_phone || null,
+        website:         f.website || null,
+        lpr_name:        lprName || null,
+        has_loyalty:     f.has_loyalty,
+        comment:         comment || null,
+        manager_id:      state.activeMgrId,
         operator_id:     user.id,
         status:          'meeting_scheduled',
       };
-
-      if (isOnline) {
-        const tag = '🌐 Онлайн-встреча';
-        payload.comment = payload.comment ? `${tag}\n\n${payload.comment}` : tag;
-      }
-
-      if (!payload.company_name) { toast('Укажите название компании.'); return; }
-      if (!payload.manager_id) { toast('Закрепите менеджера наверху правой панели (＋).'); return; }
 
       const { error } = await sb.from('leads').insert(payload);
       if (error) {
@@ -878,6 +914,16 @@
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
+  }
+
+  function bindLprRadio() {
+    document.querySelectorAll('input[name="is_lpr"]').forEach((r) => {
+      r.addEventListener('change', () => {
+        const isLpr = document.querySelector('input[name="is_lpr"]:checked')?.value === 'yes';
+        const phoneLabel = $('#ol-phone-label');
+        if (phoneLabel) phoneLabel.innerHTML = isLpr ? 'Телефон ЛПР <em>*</em>' : 'Телефон <em>*</em>';
+      });
+    });
   }
 
   async function refresh() {

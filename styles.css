@@ -5332,3 +5332,24 @@ h2.page-title {
 }
 .ol-cal-step-btn:hover { background: var(--bg-soft); }
 .ol-cal-step-btn.primary { background: var(--accent); color: white; }
+
+/* Поле «Лицо, принимающее решение?» — radio Да/Нет */
+.ol-radio {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 4px 0;
+}
+.ol-radio label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ol-radio input[type="radio"] {
+  width: 16px; height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
