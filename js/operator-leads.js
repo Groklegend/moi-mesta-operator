@@ -14,8 +14,13 @@
     managers: [],
     initialized: false,
     view: 'list',          // 'list' | 'create'
-    busySlots: [],         // [{manager_id, meeting_at}] на выбранный день
+    calView: 'day',        // 'day' | 'week' — режим правой панели расписания
+    busySlots: [],         // на текущий день (calView='day')
+    busyWeek: {},          // { 'YYYY-MM-DD': [...] } на неделю (calView='week')
   };
+
+  const HOUR_FROM = 9;     // рабочий день для почасовой сетки
+  const HOUR_TO = 19;
 
   // ---------- Утилиты ----------
   function escapeHtml(s) {
@@ -90,6 +95,29 @@
       return;
     }
     state.busySlots = data || [];
+  }
+
+  async function loadBusyWeek(startYmd) {
+    state.busyWeek = {};
+    const start = parseYmd(startYmd);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      days.push(ymdLocal(d));
+    }
+    const results = await Promise.all(days.map((ymd) =>
+      sb.rpc('get_busy_slots', { d: ymd }).then((r) => ({ ymd, data: r.data || [], error: r.error }))
+    ));
+    for (const r of results) {
+      if (r.error) console.error('get_busy_slots ' + r.ymd + ':', r.error);
+      state.busyWeek[r.ymd] = r.data;
+    }
+  }
+
+  // Получить выбранного в форме менеджера (id) — для фильтра расписания.
+  function selectedManagerId() {
+    const sel = document.querySelector('select[name="manager_id"]');
+    return sel?.value || '';
   }
 
   // ---------- Точка входа ----------
@@ -255,12 +283,18 @@
           </div>
 
           <aside class="ol-create-col-right">
-            <h3 class="ol-cal-title">Расписание менеджеров</h3>
-            <div class="ol-cal-day" id="ol-cal-day">${escapeHtml(formatDayHeader(todayYmd))}</div>
-            <div class="ol-cal-list" id="ol-cal-list">
+            <div class="ol-cal-head">
+              <h3 class="ol-cal-title">Расписание менеджера</h3>
+              <div class="ol-cal-views">
+                <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
+                <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
+              </div>
+            </div>
+            <div class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</div>
+            <div class="ol-cal-body" id="ol-cal-body">
               <div class="ol-cal-loading">Загрузка…</div>
             </div>
-            <p class="ol-cal-hint">Если менеджер свободен в нужный слот — выбирайте его в форме слева.</p>
+            <p class="ol-cal-hint">Кликните на свободный час — время автоматически подставится в форме.</p>
           </aside>
         </div>
       </div>`;
@@ -275,6 +309,8 @@
     bindDateControl();
     bindOnlineCheckbox();
     bindAddressAutocomplete();
+    bindCalendarViews();
+    bindManagerSelectChange();
 
     // Календарь на сегодня
     await refreshCalendar(todayYmd);
@@ -364,44 +400,209 @@
 
   // ---------- Календарь занятости ----------
   async function refreshCalendar(ymd) {
-    const list = $('#ol-cal-list');
-    const dayEl = $('#ol-cal-day');
-    if (!list) return;
-    if (dayEl) dayEl.textContent = formatDayHeader(ymd);
-    list.innerHTML = '<div class="ol-cal-loading">Загрузка…</div>';
-    await loadBusySlots(ymd);
-    list.innerHTML = renderCalendarItems();
+    const body = $('#ol-cal-body');
+    const periodEl = $('#ol-cal-period');
+    if (!body) return;
+
+    if (state.calView === 'day') {
+      if (periodEl) periodEl.textContent = formatDayHeader(ymd);
+      body.innerHTML = '<div class="ol-cal-loading">Загрузка…</div>';
+      await loadBusySlots(ymd);
+      body.innerHTML = renderDayView();
+      bindDayHourClicks();
+    } else {
+      if (periodEl) periodEl.textContent = formatWeekHeader(ymd);
+      body.innerHTML = '<div class="ol-cal-loading">Загрузка…</div>';
+      await loadBusyWeek(ymd);
+      body.innerHTML = renderWeekView(ymd);
+      bindWeekDayClicks();
+    }
   }
 
-  function renderCalendarItems() {
-    if (!state.managers.length) {
-      return '<div class="ol-cal-empty">Активных менеджеров нет.</div>';
+  function formatWeekHeader(startYmd) {
+    const start = parseYmd(startYmd);
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    const sameMonth = start.getMonth() === end.getMonth();
+    return sameMonth
+      ? `${start.getDate()}–${end.getDate()} ${MONTHS_SHORT[start.getMonth()]}.`
+      : `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]} – ${end.getDate()} ${MONTHS_SHORT[end.getMonth()]}.`;
+  }
+
+  // Слоты выбранного менеджера. Если менеджер не выбран — пустой массив
+  // (UI покажет placeholder).
+  function slotsOfSelectedFromList(slots) {
+    const mgrId = selectedManagerId();
+    if (!mgrId) return null; // null = «не выбран»
+    return slots.filter((s) => s.manager_id === mgrId);
+  }
+
+  // Возвращает массив часов 9..18 (включительно), для каждого:
+  // { hour, busy: bool, slot: ?{label, source, range} }.
+  // Час считается занятым, если хотя бы 1 минута пересекается с busy_at..busy_at+duration.
+  function buildHourGrid(slots) {
+    const occupiedBy = new Map(); // hour → { label, range, source }
+    for (const s of slots) {
+      const start = new Date(s.meeting_at);
+      const end = new Date(start.getTime() + (s.duration_minutes || 60) * 60_000);
+      const range = `${pad2(start.getHours())}:${pad2(start.getMinutes())}–${pad2(end.getHours())}:${pad2(end.getMinutes())}`;
+      const startH = start.getHours();
+      const startM = start.getMinutes();
+      const endH = end.getHours();
+      const endM = end.getMinutes();
+      // Пробегаемся по часам, на которые слот «накладывается».
+      for (let h = HOUR_FROM; h < HOUR_TO; h++) {
+        const hourStart = h * 60;
+        const hourEnd = (h + 1) * 60;
+        const slotStart = startH * 60 + startM;
+        const slotEnd = endH * 60 + endM;
+        if (slotEnd > hourStart && slotStart < hourEnd) {
+          // Сохраняем только первое попадание — этого хватит для подписи.
+          if (!occupiedBy.has(h)) {
+            occupiedBy.set(h, { label: s.label, range, source: s.source });
+          }
+        }
+      }
     }
-    // Группируем занятые слоты по manager_id (с длительностью).
-    const byMgr = new Map();
-    for (const s of state.busySlots) {
-      const arr = byMgr.get(s.manager_id) || [];
-      arr.push({ at: s.meeting_at, duration: s.duration_minutes || 60 });
-      byMgr.set(s.manager_id, arr);
+    const grid = [];
+    for (let h = HOUR_FROM; h < HOUR_TO; h++) {
+      const slot = occupiedBy.get(h);
+      grid.push({ hour: h, busy: !!slot, slot });
     }
-    return state.managers.map((m) => {
-      const slots = (byMgr.get(m.id) || [])
-        .sort((a, b) => a.at.localeCompare(b.at))
-        .map(({ at, duration }) => {
-          const start = new Date(at);
-          const end = new Date(start.getTime() + duration * 60_000);
-          return `${pad2(start.getHours())}:${pad2(start.getMinutes())}–${pad2(end.getHours())}:${pad2(end.getMinutes())}`;
-        });
-      const name = (m.full_name || '').trim() || m.email;
-      const slotsHtml = slots.length
-        ? slots.map((t) => `<span class="ol-cal-busy">${escapeHtml(t)}</span>`).join('')
-        : '<span class="ol-cal-free-tag">свободен весь день</span>';
+    return grid;
+  }
+
+  function renderDayView() {
+    const filtered = slotsOfSelectedFromList(state.busySlots);
+    if (filtered === null) {
       return `
-        <div class="ol-cal-mgr${slots.length ? '' : ' ol-cal-mgr-free'}">
-          <div class="ol-cal-mgr-name">${escapeHtml(name)}</div>
-          <div class="ol-cal-mgr-slots">${slotsHtml}</div>
+        <div class="ol-cal-placeholder">
+          Выберите менеджера в форме слева — здесь появится его расписание на выбранный день.
         </div>`;
-    }).join('');
+    }
+    if (!state.managers.find((m) => m.id === selectedManagerId())) {
+      return '<div class="ol-cal-placeholder">Выбранный менеджер удалён.</div>';
+    }
+    const grid = buildHourGrid(filtered);
+    return `<div class="ol-hour-grid">
+      ${grid.map((cell) => {
+        const label = `${pad2(cell.hour)}:00`;
+        if (cell.busy) {
+          const sourceCls = cell.slot.source === 'block' ? ' ol-hour-block' : '';
+          return `
+            <div class="ol-hour ol-hour-busy${sourceCls}">
+              <div class="ol-hour-time">${label}</div>
+              <div class="ol-hour-info">
+                <div class="ol-hour-range">${escapeHtml(cell.slot.range)}</div>
+                ${cell.slot.label ? `<div class="ol-hour-label">${escapeHtml(cell.slot.label)}</div>` : ''}
+              </div>
+            </div>`;
+        }
+        return `
+          <button type="button" class="ol-hour ol-hour-free" data-hour="${pad2(cell.hour)}:00">
+            <div class="ol-hour-time">${label}</div>
+            <div class="ol-hour-info">
+              <span class="ol-hour-take">свободно — кликнуть</span>
+            </div>
+          </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  function bindDayHourClicks() {
+    document.querySelectorAll('.ol-hour-free').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.hour;
+        const timeInput = document.querySelector('input[name="meeting_time"]');
+        if (timeInput) {
+          timeInput.value = t;
+          timeInput.dispatchEvent(new Event('change', { bubbles: true }));
+          timeInput.focus();
+        }
+      });
+    });
+  }
+
+  function renderWeekView(startYmd) {
+    const start = parseYmd(startYmd);
+    const mgrId = selectedManagerId();
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      const ymd = ymdLocal(d);
+      const dayWd = (d.getDay() + 6) % 7; // 0..6 от пн
+      const wdShort = ['пн','вт','ср','чт','пт','сб','вс'][dayWd];
+      const allSlots = state.busyWeek[ymd] || [];
+      const slots = mgrId ? allSlots.filter((s) => s.manager_id === mgrId) : allSlots;
+      const slotsHtml = slots.length
+        ? slots
+            .slice()
+            .sort((a, b) => a.meeting_at.localeCompare(b.meeting_at))
+            .map((s) => {
+              const startD = new Date(s.meeting_at);
+              const endD = new Date(startD.getTime() + (s.duration_minutes || 60) * 60_000);
+              const range = `${pad2(startD.getHours())}:${pad2(startD.getMinutes())}–${pad2(endD.getHours())}:${pad2(endD.getMinutes())}`;
+              const sourceCls = s.source === 'block' ? ' ol-week-block' : '';
+              return `<div class="ol-week-slot${sourceCls}">
+                <span class="ol-week-time">${escapeHtml(range)}</span>
+                ${s.label ? `<span class="ol-week-label">${escapeHtml(s.label)}</span>` : ''}
+              </div>`;
+            }).join('')
+        : '<div class="ol-week-empty">— свободен</div>';
+      days.push(`
+        <div class="ol-week-day" data-ymd="${ymd}">
+          <div class="ol-week-day-head">
+            <span class="ol-week-num">${d.getDate()}</span>
+            <span class="ol-week-wd">${wdShort}</span>
+          </div>
+          <div class="ol-week-day-slots">${slotsHtml}</div>
+        </div>`);
+    }
+    const placeholder = mgrId
+      ? ''
+      : '<div class="ol-cal-placeholder ol-cal-placeholder-thin">Менеджер не выбран — показаны занятости всех. Выберите менеджера, чтобы остался только он.</div>';
+    return placeholder + `<div class="ol-week-grid">${days.join('')}</div>`;
+  }
+
+  function bindWeekDayClicks() {
+    document.querySelectorAll('.ol-week-day').forEach((el) => {
+      el.addEventListener('click', () => {
+        const ymd = el.dataset.ymd;
+        // Переключаемся в дневной режим до dispatch, чтобы change-handler
+        // на дате уже видел новое state.calView.
+        state.calView = 'day';
+        document.querySelectorAll('.ol-cal-view-btn').forEach((b) => {
+          b.classList.toggle('primary', b.dataset.cv === 'day');
+        });
+        const dateInput = document.querySelector('input[name="meeting_date"]');
+        if (dateInput) {
+          dateInput.value = ymd;
+          dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    });
+  }
+
+  function bindCalendarViews() {
+    document.querySelectorAll('.ol-cal-view-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (state.calView === btn.dataset.cv) return;
+        state.calView = btn.dataset.cv;
+        document.querySelectorAll('.ol-cal-view-btn').forEach((b) => {
+          b.classList.toggle('primary', b === btn);
+        });
+        const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+        refreshCalendar(ymd);
+      });
+    });
+  }
+
+  function bindManagerSelectChange() {
+    const sel = document.querySelector('select[name="manager_id"]');
+    if (!sel) return;
+    sel.addEventListener('change', () => {
+      const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+      refreshCalendar(ymd);
+    });
   }
 
   // ---------- Сохранение ----------
