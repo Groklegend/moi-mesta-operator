@@ -464,6 +464,10 @@ function setMode(m) {
   motPane.hidden = !isMot;
   if (leadsPane) leadsPane.hidden = !isLeads;
 
+  // Кнопка «＋ Новая заявка» в шапке — видна только в режиме «Плюс Заявка».
+  const newLeadBtn = document.getElementById('op-new-lead-topbar');
+  if (newLeadBtn) newLeadBtn.hidden = !isLeads;
+
   if (isObj) {
     if (state.currentObjection) renderAnswerPane();
     else resetAnswerPane();
@@ -547,3 +551,10 @@ loadAll().catch(err => {
 // setTimeout(0) — чтобы дождаться загрузки operator-leads.js (он подключается
 // строкой ниже в index.html и регистрирует window.operatorLeads).
 setTimeout(() => setMode('leads'), 0);
+
+// «＋ Новая заявка» в шапке — переключает на режим «Плюс Заявка» (если ещё
+// не) и сразу открывает форму создания, минуя список.
+document.getElementById('op-new-lead-topbar')?.addEventListener('click', () => {
+  if (state.mode !== 'leads') setMode('leads');
+  window.operatorLeads?.newLead?.();
+});

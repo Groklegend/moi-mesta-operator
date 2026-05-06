@@ -221,6 +221,13 @@ h1, h2, h3, .topbar .title {
 }
 .mode-btn span { font-size: 15px; line-height: 1; }
 .topbar .spacer { flex: 1; }
+/* Кнопка «＋ Новая заявка» в шапке оператора — между mode-nav и role-switcher.
+   Видна только в режиме «Плюс Заявка» (operator.js setMode). */
+.op-topbar-btn {
+  font-size: 13px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
 .topbar a, .topbar button.link {
   color: var(--ink-2);
   text-decoration: none;
@@ -4056,7 +4063,10 @@ h2.page-title {
 }
 /* Когда оператор в режиме «Заявка Плюс» — поджимаем верхний отступ всего main,
    чтобы белые блоки начинались сразу под шапкой. */
-body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px; }
+body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px; }
+/* На канбан-доске .ol-wrap не должен ограничивать ширину — пусть колонки
+   растягиваются на всю ширину контента. */
+.ol-wrap.ol-board-wrap { max-width: none; }
 .ol-loading {
   padding: 40px;
   text-align: center;
@@ -4105,8 +4115,8 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
    ============================================================ */
 .ol-board, .leads-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: 10px;
   align-items: start;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -4115,12 +4125,13 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 10px 12px;
+  padding: 8px 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 220px;
+  gap: 6px;
+  min-width: 180px;
 }
+.ol-col-head, .lead-col-head { padding: 0 2px 4px; }
 .ol-col-readonly, .lead-col-readonly {
   background: rgba(0, 0, 0, 0.025);
   border-style: dashed;
@@ -4167,32 +4178,44 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   outline-offset: -4px;
 }
 
-/* Карточки в канбане */
+/* Карточки в канбане — компактные: только название, город и время.
+   Цвет кодирует онлайн/офлайн (синий/оранжевый). */
 .ol-board .ol-card {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: 2px;
+  padding: 6px 8px;
   cursor: grab;
   background: var(--card);
   border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   text-align: left;
   font: inherit;
   transition: border-color 0.12s, box-shadow 0.12s, opacity 0.12s, transform 0.12s;
 }
-.ol-board .ol-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.ol-board .ol-card:hover { border-color: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .ol-board .ol-card:active { cursor: grabbing; }
+.ol-board .ol-card .ol-card-title {
+  font-weight: 600; font-size: 12px; line-height: 1.25; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ol-board .ol-card .ol-card-meta {
+  display: flex; justify-content: space-between; gap: 6px; font-size: 10px;
+  color: var(--muted); flex-wrap: nowrap;
+}
+.ol-board .ol-card .ol-card-meet { white-space: nowrap; font-weight: 500; }
 .ol-card-dragging, .lead-card-dragging { opacity: 0.4; transform: scale(0.98); }
-.ol-board .ol-card-online { background: rgba(63, 130, 220, 0.08); border-color: rgba(63, 130, 220, 0.4); }
-.ol-board .ol-card-offline { background: rgba(232, 130, 61, 0.08); border-color: rgba(232, 130, 61, 0.35); }
-.ol-card-mgr-row { font-size: 11px; color: var(--muted); }
-.ol-card-mgr-row .ol-card-mgr-label { margin-right: 4px; }
-.ol-card-mgr-row .ol-card-mgr-name { color: var(--ink); font-weight: 500; }
-.ol-card-kind { font-size: 11px; color: var(--muted); }
-.ol-card-online .ol-card-kind { color: #2c6dc7; }
-.ol-card-offline .ol-card-kind { color: var(--accent-dark); }
+.ol-board .ol-card-online {
+  background: rgba(63, 130, 220, 0.10);
+  border-color: rgba(63, 130, 220, 0.4);
+}
+.ol-board .ol-card-online .ol-card-meet { color: #2c6dc7; }
+.ol-board .ol-card-offline {
+  background: rgba(232, 130, 61, 0.10);
+  border-color: rgba(232, 130, 61, 0.35);
+}
+.ol-board .ol-card-offline .ol-card-meet { color: var(--accent-dark); }
 
 .lead-card {
   display: flex;

@@ -175,27 +175,40 @@
   }
 
   // ---------- Точка входа ----------
+  async function ensureLoaded() {
+    if (state.initialized) return;
+    const pane = $('#leads-plus-pane');
+    if (pane) pane.innerHTML = '<div class="ol-loading">Загрузка…</div>';
+    state.pinnedMgrIds = loadPinned();
+    await loadData();
+    state.pinnedMgrIds = state.pinnedMgrIds.filter((id) =>
+      state.managers.some((m) => m.id === id)
+    );
+    savePinned(state.pinnedMgrIds);
+    state.initialized = true;
+  }
+
   // Любой переход на вкладку «Плюс Заявка» (клик в шапке, /hub→оператор и т.д.)
   // возвращает оператора в список заявок. Вход в форму — только через
   // «＋ Новая заявка» или клик по карточке существующего лида.
   async function show() {
     const pane = $('#leads-plus-pane');
     if (!pane) return;
-    if (!state.initialized) {
-      pane.innerHTML = '<div class="ol-loading">Загрузка…</div>';
-      state.pinnedMgrIds = loadPinned();
-      await loadData();
-      // Чистим pinned от удалённых менеджеров
-      state.pinnedMgrIds = state.pinnedMgrIds.filter((id) =>
-        state.managers.some((m) => m.id === id)
-      );
-      savePinned(state.pinnedMgrIds);
-      state.initialized = true;
-    }
+    await ensureLoaded();
     state.view = 'list';
     state.editingLeadId = null;
     state.prefillLead = null;
     renderList();
+  }
+
+  // Открывает форму создания новой заявки. Используется и через клик по
+  // «＋ Новая заявка» в списке, и через кнопку в шапке.
+  async function newLead() {
+    await ensureLoaded();
+    state.editingLeadId = null;
+    state.prefillLead = null;
+    state.view = 'create';
+    renderCreate();
   }
 
   // ---------- Список заявок ----------
@@ -204,21 +217,8 @@
     const pane = $('#leads-plus-pane');
     pane.innerHTML = `
       <div class="ol-wrap ol-board-wrap">
-        <div class="ol-header">
-          <div>
-            <h2 class="ol-title">Плюс Заявка</h2>
-            <p class="ol-sub">Карточки клиентов. Перетаскивайте между колонками — статус меняется и у менеджера. Клик — редактирование.</p>
-          </div>
-          <button class="btn primary ol-add" type="button" id="ol-add-btn">＋ Новая заявка</button>
-        </div>
         <div class="ol-board" id="ol-board">${renderBoardColumns()}</div>
       </div>`;
-    $('#ol-add-btn').addEventListener('click', () => {
-      state.editingLeadId = null;
-      state.prefillLead = null;
-      state.view = 'create';
-      renderCreate();
-    });
     bindBoardInteractions(pane);
   }
 
@@ -246,25 +246,15 @@
   }
 
   function renderLeadCard(lead) {
-    const editedAt = leadEditedAt(lead);
-    const editedHtml = editedAt
-      ? `<div class="ol-card-edited">Отредактировано ${escapeHtml(formatEditedShort(editedAt))}</div>`
-      : '';
     const isOnline = !lead.meeting_address && !!lead.city;
     const kindCls = isOnline ? 'ol-card-online' : 'ol-card-offline';
     return `
       <div class="ol-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
         <div class="ol-card-title">${escapeHtml(lead.company_name)}</div>
         <div class="ol-card-meta">
-          <span class="ol-card-city">${escapeHtml(lead.city || '— город не указан')}</span>
+          <span class="ol-card-city">${escapeHtml(lead.city || '')}</span>
           <span class="ol-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
-        <div class="ol-card-mgr-row">
-          <span class="ol-card-mgr-label">Менеджер:</span>
-          <span class="ol-card-mgr-name">${escapeHtml(getManagerName(lead.manager_id))}</span>
-        </div>
-        <div class="ol-card-kind">${isOnline ? '🌐 онлайн' : '📍 офлайн'}</div>
-        ${editedHtml}
       </div>`;
   }
 
@@ -1310,5 +1300,5 @@
     else renderList();
   }
 
-  window.operatorLeads = { show, refresh };
+  window.operatorLeads = { show, refresh, newLead };
 })();
