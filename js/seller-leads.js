@@ -1,10 +1,13 @@
 // Раздел «Мои лиды» — лиды от операторов холодных звонков, ждут встречи
-// с менеджером. Данные берутся из window.LEADS_DATA (js/leads-data.js).
+// с менеджером. Загружаются из public.leads (Supabase) — фильтр по
+// manager_id = текущий менеджер. Поля pitch/recommendations/operator_call
+// заполняются позже агентом Гари; для свежих лидов от оператора они
+// пустые — соответствующие блоки UI не рендерятся.
 
 (function () {
   'use strict';
 
-  const LEADS = Array.isArray(window.LEADS_DATA) ? window.LEADS_DATA : [];
+  let LEADS = [];
 
   const $ = (sel, el = document) => el.querySelector(sel);
 
@@ -154,13 +157,45 @@
          <div class="lead-meeting-where">${escapeHtml(lead.meeting_address || '— адрес не указан')}</div>`
       : '<span class="lead-no">— встреча не назначена</span>';
 
-    const pitchHtml = Array.isArray(lead.pitch) && lead.pitch.length
+    const hasPitch = Array.isArray(lead.pitch) && lead.pitch.length;
+    const hasRecs = Array.isArray(lead.recommendations) && lead.recommendations.length;
+    const hasDemo = Array.isArray(lead.demo_intro) && lead.demo_intro.length;
+    const hasCall = lead.operator_call &&
+      ((Array.isArray(lead.operator_call.transcript) && lead.operator_call.transcript.length)
+        || lead.operator_call.audio_url);
+
+    const pitchHtml = hasPitch
       ? `<div class="lead-pitch">
            ${lead.pitch.map((p) => `<p class="lead-pitch-p">${escapeHtml(p)}</p>`).join('')}
          </div>`
       : '';
 
-    const demoUrl = `demo?lead=${encodeURIComponent(lead.id)}`;
+    // Кнопка демо имеет смысл только если есть demo_intro или pitch — иначе
+    // demo.html не покажет ничего осмысленного для свежего лида от оператора.
+    const demoBtnHtml = (hasDemo || hasPitch)
+      ? `<a class="btn primary lead-demo-btn" href="demo?lead=${encodeURIComponent(lead.id)}" target="_blank" rel="noopener">
+           🖥 Демонстрация для клиента
+         </a>`
+      : '';
+
+    // Секция «Рекомендации к встрече» — показываем если есть хоть что-то
+    // (pitch / recs / demo). Для лида сразу после оператора — скрываем целиком,
+    // чтобы менеджер не видел пустую болванку «Инструментов пока нет».
+    const recsSectionHtml = (hasPitch || hasRecs || hasDemo)
+      ? `<div class="lead-recs-header">
+           <h3 class="lead-section-title">Рекомендации к встрече</h3>
+           ${demoBtnHtml}
+         </div>
+         ${pitchHtml}
+         ${hasRecs ? `<h4 class="lead-tools-subtitle">Инструменты для презентации</h4>${renderRecommendations(lead.recommendations)}` : ''}`
+      : '';
+
+    const commentHtml = lead.comment
+      ? `<div class="lead-operator-comment">
+           <div class="lead-operator-comment-label">💬 Комментарий оператора</div>
+           <div class="lead-operator-comment-text">${escapeHtml(lead.comment)}</div>
+         </div>`
+      : '';
 
     pane.innerHTML = `
       <h2 class="lead-detail-title">${escapeHtml(lead.company_name)}</h2>
@@ -178,23 +213,15 @@
         ${fld('Telegram-канал', lead.telegram ? link(tgUrl(lead.telegram), lead.telegram) : '<span class="lead-no">— нет</span>')}
       </dl>
 
-      <div class="lead-recs-header">
-        <h3 class="lead-section-title">Рекомендации к встрече</h3>
-        <a class="btn primary lead-demo-btn" href="${demoUrl}" target="_blank" rel="noopener">
-          🖥 Демонстрация для клиента
-        </a>
-      </div>
+      ${commentHtml}
 
-      ${pitchHtml}
+      ${recsSectionHtml}
 
-      <h4 class="lead-tools-subtitle">Инструменты для презентации</h4>
-      ${renderRecommendations(lead.recommendations)}
-
-      ${renderOperatorCall(lead)}
+      ${hasCall ? renderOperatorCall(lead) : ''}
 
       ${renderManagerRecordingsBlock(lead.id)}`;
 
-    bindCallTabs();
+    if (hasCall) bindCallTabs();
     bindManagerRecordings(lead);
   }
 
@@ -443,7 +470,42 @@
       </div>`;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  async function loadLeads() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    // RLS уже фильтрует по manager_id = auth.uid(), но дублируем явно для прозрачности.
+    const { data, error } = await sb
+      .from('leads')
+      .select('*')
+      .eq('manager_id', user.id)
+      .order('meeting_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('seller-leads load:', error);
+      LEADS = [];
+      return;
+    }
+    LEADS = (data || []).map(normalizeLead);
+  }
+
+  // Поля pitch/demo_intro/recommendations/operator_call хранятся как jsonb;
+  // у свежих лидов от оператора они null — приводим к ожидаемым формам.
+  function normalizeLead(row) {
+    return {
+      ...row,
+      pitch: Array.isArray(row.pitch) ? row.pitch : [],
+      demo_intro: Array.isArray(row.demo_intro) ? row.demo_intro : [],
+      recommendations: Array.isArray(row.recommendations) ? row.recommendations : [],
+      operator_call: row.operator_call && typeof row.operator_call === 'object'
+        ? row.operator_call
+        : { audio_url: '', transcript: [] },
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const list = $('#leads-list');
+    if (list) list.innerHTML = '<div class="empty plain">Загрузка…</div>';
+    await loadLeads();
     renderList();
     renderPane();
   });

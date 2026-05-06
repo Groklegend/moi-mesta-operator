@@ -434,10 +434,12 @@ function setMode(m) {
   const isObj = m === 'objections';
   const isDocs = m === 'documents';
   const isMot = m === 'motivation';
+  const isLeads = m === 'leads';
+  const isFullWidth = isMot || isLeads;
 
-  // Сайдбар целиком (в мотивации — прячем, таблица занимает всю ширину)
-  document.getElementById('sidebar').hidden = isMot;
-  document.getElementById('layout').classList.toggle('full-width', isMot);
+  // Сайдбар целиком — прячем в режимах, где правая панель занимает всю ширину
+  document.getElementById('sidebar').hidden = isFullWidth;
+  document.getElementById('layout').classList.toggle('full-width', isFullWidth);
 
   // Сайдбар: секции, которые видны только в режиме возражений
   document.getElementById('search-wrap').hidden = !isObj;
@@ -457,8 +459,10 @@ function setMode(m) {
   // Правая панель
   const answerPane = document.getElementById('answer-pane');
   const motPane = document.getElementById('motivation-pane');
-  answerPane.hidden = isMot;
+  const leadsPane = document.getElementById('leads-plus-pane');
+  answerPane.hidden = isMot || isLeads;
   motPane.hidden = !isMot;
+  if (leadsPane) leadsPane.hidden = !isLeads;
 
   if (isObj) {
     if (state.currentObjection) renderAnswerPane();
@@ -469,6 +473,8 @@ function setMode(m) {
     else resetAnswerPane('📎', 'Выберите документ слева — он откроется здесь');
   } else if (isMot) {
     window.renderMotivation?.();
+  } else if (isLeads) {
+    window.operatorLeads?.show();
   }
 }
 
