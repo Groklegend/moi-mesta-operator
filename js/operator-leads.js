@@ -345,7 +345,7 @@
                 </div>
 
                 <label class="ol-field">
-                  <span class="ol-label">Время встречи</span>
+                  <span class="ol-label">Время встречи <em>*</em></span>
                   <input type="time" name="ol_mt"
                          autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
@@ -1068,16 +1068,21 @@
       const f = readForm();
 
       // Валидация обязательных полей
+      const phoneDigits = (s) => String(s || '').replace(/\D/g, '').length;
       if (!f.company_name) { toast('Укажите название компании.'); return; }
       if (!state.activeMgrId) { toast('Закрепите менеджера наверху правой панели (＋).'); return; }
       if (!f.meeting_date) { toast('Укажите дату встречи.'); return; }
+      if (!f.meeting_time) { toast('Укажите время встречи.'); return; }
       if (!f.phone) { toast(f.is_lpr === 'yes' ? 'Укажите телефон ЛПР.' : 'Укажите телефон.'); return; }
+      if (phoneDigits(f.phone) !== 11) {
+        toast(f.is_lpr === 'yes' ? 'Телефон ЛПР введён не полностью.' : 'Телефон введён не полностью.');
+        return;
+      }
       if (!f.called_phone) { toast('Укажите номер, на который звонили.'); return; }
+      if (phoneDigits(f.called_phone) !== 11) { toast('Номер, на который звонили, введён не полностью.'); return; }
 
-      // Время необязательно: если указано — берём; иначе 00:00.
       // Дата/время в форме интерпретируются как МСК (+03:00).
-      const t = f.meeting_time || '00:00';
-      const meetingIso = new Date(mskToUtcIso(f.meeting_date, t)).toISOString();
+      const meetingIso = new Date(mskToUtcIso(f.meeting_date, f.meeting_time)).toISOString();
 
       // City: при онлайне — то, что оператор написал в поле «Город встречи»;
       // иначе — из DaData при выборе подсказки.
