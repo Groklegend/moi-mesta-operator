@@ -15,6 +15,15 @@
   <div class="title">Кабинет менеджера</div>
   </div>
   <div class="spacer"></div>
+  <!-- Дропдаун-переключатель разделов кабинета -->
+  <div class="section-dropdown" id="section-dropdown">
+    <button class="section-dropdown-btn" id="section-dropdown-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+      <span class="section-dropdown-emoji">📊</span>
+      <span class="section-dropdown-label" id="section-dropdown-label">Мои действия</span>
+      <span class="section-dropdown-caret">▾</span>
+    </button>
+    <div class="section-dropdown-menu" id="section-dropdown-menu" hidden></div>
+  </div>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
   <button class="link" id="logout">Выйти</button>
@@ -22,7 +31,7 @@
 
 <main class="container wide">
 <div class="seller-layout">
-  <aside class="seller-sidebar" id="seller-nav">
+  <aside class="seller-sidebar" id="seller-nav" hidden>
     <button class="seller-tab" data-section="connect" type="button" hidden>
       <span class="emoji">🔌</span><span>Подключение компании</span>
     </button>
@@ -460,6 +469,8 @@
   cabinetShell.init({ requiredRole: 'seller', greetingPrefix: 'Здравствуйте' });
 
   // Переключение вкладок «Мои действия / Подключение / Сделки».
+  // Сами кнопки спрятаны (сайдбар скрыт), но логика на них висит — она
+  // переключает секции. Дропдаун в шапке кликает по ним программно.
   document.querySelectorAll('#seller-nav .seller-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#seller-nav .seller-tab').forEach(b => b.classList.remove('active'));
@@ -467,7 +478,61 @@
       document.querySelectorAll('.seller-section').forEach(s => s.hidden = true);
       document.getElementById('section-' + btn.dataset.section).hidden = false;
       location.hash = btn.dataset.section;
+      syncDropdownLabel(btn);
     });
+  });
+
+  // ---------- Дропдаун-переключатель разделов в шапке ----------
+  const ddBtn   = document.getElementById('section-dropdown-btn');
+  const ddMenu  = document.getElementById('section-dropdown-menu');
+  const ddLabel = document.getElementById('section-dropdown-label');
+  const ddEmoji = document.querySelector('.section-dropdown-emoji');
+  function syncDropdownLabel(activeTab) {
+    if (!activeTab) return;
+    const emoji = activeTab.querySelector('.emoji')?.textContent || '';
+    const label = activeTab.querySelector('span:not(.emoji)')?.textContent || '';
+    if (ddEmoji) ddEmoji.textContent = emoji;
+    if (ddLabel) ddLabel.textContent = label;
+  }
+  function buildDropdownMenu() {
+    if (!ddMenu) return;
+    const tabs = document.querySelectorAll('#seller-nav .seller-tab:not([hidden])');
+    ddMenu.innerHTML = '';
+    tabs.forEach(tab => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'section-dropdown-item';
+      item.dataset.section = tab.dataset.section;
+      item.innerHTML = `
+        <span class="section-dropdown-emoji">${tab.querySelector('.emoji')?.textContent || ''}</span>
+        <span>${tab.querySelector('span:not(.emoji)')?.textContent || ''}</span>`;
+      item.addEventListener('click', () => {
+        tab.click();
+        closeDropdown();
+      });
+      ddMenu.appendChild(item);
+    });
+  }
+  function openDropdown() {
+    buildDropdownMenu();
+    ddMenu.hidden = false;
+    ddBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeDropdown() {
+    if (!ddMenu) return;
+    ddMenu.hidden = true;
+    ddBtn.setAttribute('aria-expanded', 'false');
+  }
+  ddBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (ddMenu.hidden) openDropdown(); else closeDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    if (!ddMenu || ddMenu.hidden) return;
+    if (!e.target.closest('#section-dropdown')) closeDropdown();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDropdown();
   });
   // Переход по hash при загрузке. Логика:
   //  • #app:<uuid>      — открываем «Подключение компании», заявку подтянет
@@ -486,6 +551,9 @@
     else target = 'deals'; // включая «connect» и пустой hash
     const tab = document.querySelector(`#seller-nav .seller-tab[data-section="${target}"]`);
     if (tab) tab.click();
+    // Подтянем подпись дропдауна на стартовый таб
+    const active = document.querySelector('#seller-nav .seller-tab.active');
+    if (active) syncDropdownLabel(active);
   })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
