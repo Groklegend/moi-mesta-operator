@@ -12,9 +12,21 @@
   const $ = (sel, el = document) => el.querySelector(sel);
 
   let activeId = null;
+  // 'board' (канбан) | 'detail' (открытая карточка). По умолчанию — board.
+  let view = 'board';
   // Активная вкладка в блоке «Звонок оператора»: 'transcript' | 'audio'.
   // Запоминается между переключениями лидов в рамках сессии.
   let activeCallTab = 'transcript';
+
+  // Канбан-колонки. Зеркало operator-leads.STATUS_COLUMNS — псевдоколонка
+  // '__all__' собирает все лиды и не принимает drag-drop.
+  const STATUS_COLUMNS = [
+    { key: 'meeting_scheduled', title: 'Назначенные встречи' },
+    { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
+    { key: 'meeting_failed',    title: 'Не состоялась встреча' },
+    { key: 'decision_pending',  title: 'Принимает решение' },
+    { key: '__all__',           title: 'Все' },
+  ];
 
   // ---------- Записи менеджера (localStorage) ----------
   // MVP: храним массив записей по каждому лиду в localStorage. Аудио — base64
@@ -102,47 +114,129 @@
 
   // ---------- Рендер ----------
 
-  function renderList() {
-    const list = $('#leads-list');
-    if (!list) return;
+  function render() {
+    const root = $('#leads-root');
+    if (!root) return;
+    if (view === 'detail') renderDetail(root);
+    else renderBoard(root);
+  }
+
+  function renderBoard(root) {
     if (!LEADS.length) {
-      list.innerHTML = '<div class="empty plain">Лидов пока нет.</div>';
+      root.innerHTML = `
+        <div class="leads-board-head">
+          <h2 class="page-title">Мои лиды</h2>
+        </div>
+        <div class="empty plain">Лидов пока нет.</div>`;
       return;
     }
-    list.innerHTML = LEADS.map((lead) => {
-      const isOnline = isOnlineLead(lead);
-      const kindCls = isOnline ? ' lead-item-online' : ' lead-item-offline';
-      const kindLabel = isOnline ? '🌐 онлайн' : '📍 офлайн';
+    const colsHtml = STATUS_COLUMNS.map((col) => {
+      const items = col.key === '__all__'
+        ? LEADS
+        : LEADS.filter((l) => (l.status || 'meeting_scheduled') === col.key);
+      const droppable = col.key !== '__all__';
+      const dropAttr = droppable ? '' : ' data-no-drop="1"';
+      const cards = items.length
+        ? items.map(renderLeadCard).join('')
+        : '<div class="lead-col-empty">— пусто —</div>';
       return `
-        <button class="lead-item${kindCls}${lead.id === activeId ? ' active' : ''}" data-id="${lead.id}" type="button">
-          <div class="lead-name">${escapeHtml(lead.company_name)}</div>
-          <div class="lead-meta">
-            <span class="lead-city">${escapeHtml(lead.city || '')}</span>
-            <span class="lead-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
+        <div class="lead-col${droppable ? '' : ' lead-col-readonly'}" data-col="${col.key}">
+          <div class="lead-col-head">
+            <span class="lead-col-title">${escapeHtml(col.title)}</span>
+            <span class="lead-col-count">${items.length}</span>
           </div>
-          <div class="lead-item-kind">${kindLabel}</div>
-          ${lead._operator_name ? `<div class="lead-from-op">от оператора ${escapeHtml(lead._operator_name)}</div>` : ''}
-        </button>`;
+          <div class="lead-col-body" data-col="${col.key}"${dropAttr}>
+            ${cards}
+          </div>
+        </div>`;
     }).join('');
-    list.querySelectorAll('.lead-item').forEach((b) => {
-      b.addEventListener('click', () => {
-        activeId = b.dataset.id;
-        renderList();
-        renderPane();
+    root.innerHTML = `
+      <div class="leads-board-head">
+        <h2 class="page-title">Мои лиды</h2>
+        <p class="leads-board-sub">Перетаскивайте карточки между колонками — статус меняется и у оператора. Клик — открыть карточку.</p>
+      </div>
+      <div class="leads-board" id="leads-board">${colsHtml}</div>`;
+    bindBoardInteractions(root);
+  }
+
+  function renderLeadCard(lead) {
+    const isOnline = isOnlineLead(lead);
+    const kindCls = isOnline ? 'lead-card-online' : 'lead-card-offline';
+    const kindLabel = isOnline ? '🌐 онлайн' : '📍 офлайн';
+    return `
+      <div class="lead-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
+        <div class="lead-card-name">${escapeHtml(lead.company_name)}</div>
+        <div class="lead-card-meta">
+          <span class="lead-card-city">${escapeHtml(lead.city || '')}</span>
+          <span class="lead-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
+        </div>
+        <div class="lead-card-kind">${kindLabel}</div>
+        ${lead._operator_name ? `<div class="lead-card-from-op">от оператора ${escapeHtml(lead._operator_name)}</div>` : ''}
+      </div>`;
+  }
+
+  function bindBoardInteractions(root) {
+    let dragId = null;
+    root.querySelectorAll('.lead-card[data-id]').forEach((card) => {
+      card.addEventListener('click', () => openLeadInternal(card.dataset.id));
+      card.addEventListener('dragstart', (e) => {
+        dragId = card.dataset.id;
+        e.dataTransfer.setData('text/plain', dragId);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('lead-card-dragging');
+      });
+      card.addEventListener('dragend', () => {
+        dragId = null;
+        card.classList.remove('lead-card-dragging');
+        root.querySelectorAll('.lead-col-body.lead-col-over').forEach((el) =>
+          el.classList.remove('lead-col-over'));
+      });
+    });
+    root.querySelectorAll('.lead-col-body').forEach((body) => {
+      if (body.dataset.noDrop === '1') return;
+      body.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        body.classList.add('lead-col-over');
+      });
+      body.addEventListener('dragleave', () => body.classList.remove('lead-col-over'));
+      body.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        body.classList.remove('lead-col-over');
+        const id = dragId || e.dataTransfer.getData('text/plain');
+        const newStatus = body.dataset.col;
+        if (!id || !newStatus || newStatus === '__all__') return;
+        await moveLeadToStatus(id, newStatus);
       });
     });
   }
 
-  function renderPane() {
-    const pane = $('#leads-pane');
-    if (!pane) return;
+  async function moveLeadToStatus(leadId, newStatus) {
+    const lead = LEADS.find((l) => l.id === leadId);
+    if (!lead || lead.status === newStatus) return;
+    const prev = lead.status;
+    lead.status = newStatus;
+    render();
+    const { error } = await sb.from('leads').update({ status: newStatus }).eq('id', leadId);
+    if (error) {
+      console.error('lead status:', error);
+      lead.status = prev;
+      render();
+      toast('Не получилось переместить: ' + (error.message || 'ошибка'));
+    }
+  }
+
+  function openLeadInternal(id) {
+    activeId = id;
+    view = 'detail';
+    render();
+  }
+
+  function renderDetail(root) {
     const lead = LEADS.find((l) => l.id === activeId);
     if (!lead) {
-      pane.innerHTML = `
-        <div class="placeholder">
-          <span class="big-icon">📍</span>
-          Выберите лид слева — описание появится здесь
-        </div>`;
+      view = 'board';
+      render();
       return;
     }
     const fld = (label, valueHtml) => `
@@ -216,32 +310,42 @@
       ? '<div class="lead-kind-banner lead-kind-online">🌐 Онлайн-встреча</div>'
       : '<div class="lead-kind-banner lead-kind-offline">📍 Офлайн-встреча</div>';
 
-    pane.innerHTML = `
-      <h2 class="lead-detail-title">${escapeHtml(lead.company_name)}</h2>
-      ${kindBannerHtml}
-
-      <div class="lead-meeting-card${isOnline ? ' lead-meeting-card-online' : ''}">
-        <div class="lead-meeting-label">📅 Встреча</div>
-        ${meetingHtml}
+    root.innerHTML = `
+      <div class="leads-detail-head">
+        <button type="button" class="btn lead-back-btn" id="lead-back-btn">← К доске</button>
       </div>
+      <div class="leads-detail-body">
+        <h2 class="lead-detail-title">${escapeHtml(lead.company_name)}</h2>
+        ${kindBannerHtml}
 
-      <dl class="lead-fields">
-        ${fld('Город', escapeHtml(lead.city || '— не указан'))}
-        ${fld('Телефон', phoneCell)}
-        ${lead._operator_name ? fld('Оператор', escapeHtml(lead._operator_name)) : ''}
-        ${fld('Своя программа лояльности', loyaltyCell)}
-        ${fld('Сайт', link(lead.website, lead.website))}
-        ${fld('Telegram-канал', lead.telegram ? link(tgUrl(lead.telegram), lead.telegram) : '<span class="lead-no">— нет</span>')}
-      </dl>
+        <div class="lead-meeting-card${isOnline ? ' lead-meeting-card-online' : ''}">
+          <div class="lead-meeting-label">📅 Встреча</div>
+          ${meetingHtml}
+        </div>
 
-      ${commentHtml}
+        <dl class="lead-fields">
+          ${fld('Город', escapeHtml(lead.city || '— не указан'))}
+          ${fld('Телефон', phoneCell)}
+          ${lead._operator_name ? fld('Оператор', escapeHtml(lead._operator_name)) : ''}
+          ${fld('Своя программа лояльности', loyaltyCell)}
+          ${fld('Сайт', link(lead.website, lead.website))}
+          ${fld('Telegram-канал', lead.telegram ? link(tgUrl(lead.telegram), lead.telegram) : '<span class="lead-no">— нет</span>')}
+        </dl>
 
-      ${recsSectionHtml}
+        ${commentHtml}
 
-      ${hasCall ? renderOperatorCall(lead) : ''}
+        ${recsSectionHtml}
 
-      ${renderManagerRecordingsBlock(lead.id)}`;
+        ${hasCall ? renderOperatorCall(lead) : ''}
 
+        ${renderManagerRecordingsBlock(lead.id)}
+      </div>`;
+
+    document.getElementById('lead-back-btn')?.addEventListener('click', () => {
+      view = 'board';
+      activeId = null;
+      render();
+    });
     if (hasCall) bindCallTabs();
     bindManagerRecordings(lead);
   }
@@ -538,30 +642,56 @@
     };
   }
 
-  // Внешний API: переход из календаря «Мои лиды → ‹эта карточка›».
-  // Если данные ещё не загружены — ставим ожидание, чтобы открыть после loadLeads.
+  // Внешний API
+  // — show(): вызывается при переходе на вкладку «Мои лиды» (seller.html
+  //   биндит клик по seller-tab[data-section=leads]). Перезагружает данные
+  //   и рендерит текущий вид. За счёт этого drag-drop оператора виден у
+  //   менеджера сразу при возврате на вкладку.
+  // — openLead(id): вызывается из календаря через клик «Мои лиды → ‹карточка›».
+  //   Переключает в detail-режим и открывает указанный лид.
   let pendingOpenId = null;
+  let initialized = false;
   window.sellerLeads = {
-    openLead(id) {
+    async show() {
+      if (!initialized) {
+        initialized = true;
+        await loadLeads();
+        if (pendingOpenId) { activeId = pendingOpenId; view = 'detail'; pendingOpenId = null; }
+      } else {
+        // Обновляем доску из БД (могли прилететь правки от оператора).
+        await loadLeads();
+      }
+      render();
+    },
+    async openLead(id) {
       if (!id) return;
-      if (LEADS.length) {
+      if (initialized && LEADS.length) {
         activeId = id;
-        renderList();
-        renderPane();
-        // Прокрутить выбранную карточку в области списка в зону видимости.
-        document.querySelector(`.lead-item[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+        view = 'detail';
+        render();
       } else {
         pendingOpenId = id;
+        // show() возьмёт pendingOpenId после loadLeads.
       }
     },
   };
 
   document.addEventListener('DOMContentLoaded', async () => {
-    const list = $('#leads-list');
-    if (list) list.innerHTML = '<div class="empty plain">Загрузка…</div>';
+    const root = $('#leads-root');
+    if (!root) return;
+    root.innerHTML = '<div class="empty plain">Загрузка…</div>';
+    initialized = true;
     await loadLeads();
-    if (pendingOpenId) { activeId = pendingOpenId; pendingOpenId = null; }
-    renderList();
-    renderPane();
+    if (pendingOpenId) { activeId = pendingOpenId; view = 'detail'; pendingOpenId = null; }
+    render();
+  });
+
+  // При возврате во вкладку браузера — обновляем доску, чтобы увидеть свежие
+  // изменения статусов от оператора (без честного realtime/WS).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const section = document.getElementById('section-leads');
+    if (!section || section.hidden) return;
+    loadLeads().then(() => { if (view === 'board') render(); });
   });
 })();

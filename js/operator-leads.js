@@ -28,6 +28,16 @@
   const HOUR_TO = 20;
   const PINNED_KEY = 'mm_op_pinned_managers_v1';
 
+  // Канбан-колонки в списке лидов. Зеркальный набор у менеджера в seller-leads.js.
+  // Псевдо-колонка '__all__' показывает все лиды и не принимает drag-drop.
+  const STATUS_COLUMNS = [
+    { key: 'meeting_scheduled', title: 'Назначенные встречи' },
+    { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
+    { key: 'meeting_failed',    title: 'Не состоялась встреча' },
+    { key: 'decision_pending',  title: 'Принимает решение' },
+    { key: '__all__',           title: 'Все' },
+  ];
+
   // ---------- Московское время ----------
   // Все времена в БД — UTC. На фронте показываем и интерпретируем как МСК (+03:00 без DST).
   function _mskParts(date) {
@@ -193,15 +203,15 @@
     state.view = 'list';
     const pane = $('#leads-plus-pane');
     pane.innerHTML = `
-      <div class="ol-wrap">
+      <div class="ol-wrap ol-board-wrap">
         <div class="ol-header">
           <div>
             <h2 class="ol-title">Плюс Заявка</h2>
-            <p class="ol-sub">Карточки клиентов после холодного звонка. Кликните по существующей, чтобы отредактировать.</p>
+            <p class="ol-sub">Карточки клиентов. Перетаскивайте между колонками — статус меняется и у менеджера. Клик — редактирование.</p>
           </div>
           <button class="btn primary ol-add" type="button" id="ol-add-btn">＋ Новая заявка</button>
         </div>
-        <div class="ol-list">${renderListItems()}</div>
+        <div class="ol-board" id="ol-board">${renderBoardColumns()}</div>
       </div>`;
     $('#ol-add-btn').addEventListener('click', () => {
       state.editingLeadId = null;
@@ -209,36 +219,118 @@
       state.view = 'create';
       renderCreate();
     });
-    pane.querySelectorAll('.ol-card[data-id]').forEach((card) => {
-      card.addEventListener('click', () => enterEditMode(card.dataset.id));
-    });
+    bindBoardInteractions(pane);
   }
 
-  function renderListItems() {
-    if (!state.leads.length) {
-      return '<div class="ol-empty">Заявок пока нет. Нажмите «＋ Новая заявка», чтобы создать первую.</div>';
-    }
-    return state.leads.map((lead) => {
-      const editedAt = leadEditedAt(lead);
-      const editedHtml = editedAt
-        ? `<div class="ol-card-edited">Отредактировано ${escapeHtml(formatEditedShort(editedAt))}</div>`
-        : '';
+  function renderBoardColumns() {
+    return STATUS_COLUMNS.map((col) => {
+      const items = col.key === '__all__'
+        ? state.leads
+        : state.leads.filter((l) => (l.status || 'meeting_scheduled') === col.key);
+      const droppable = col.key !== '__all__';
+      const dropAttr = droppable ? '' : ' data-no-drop="1"';
+      const cards = items.length
+        ? items.map((lead) => renderLeadCard(lead)).join('')
+        : '<div class="ol-col-empty">— пусто —</div>';
       return `
-      <button type="button" class="ol-card" data-id="${escapeHtml(lead.id)}">
-        <div class="ol-card-main">
-          <div class="ol-card-title">${escapeHtml(lead.company_name)}</div>
-          <div class="ol-card-meta">
-            <span class="ol-card-city">${escapeHtml(lead.city || '— город не указан')}</span>
-            <span class="ol-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
+        <div class="ol-col${droppable ? '' : ' ol-col-readonly'}" data-col="${col.key}">
+          <div class="ol-col-head">
+            <span class="ol-col-title">${escapeHtml(col.title)}</span>
+            <span class="ol-col-count">${items.length}</span>
           </div>
-          ${editedHtml}
+          <div class="ol-col-body" data-col="${col.key}"${dropAttr}>
+            ${cards}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderLeadCard(lead) {
+    const editedAt = leadEditedAt(lead);
+    const editedHtml = editedAt
+      ? `<div class="ol-card-edited">Отредактировано ${escapeHtml(formatEditedShort(editedAt))}</div>`
+      : '';
+    const isOnline = !lead.meeting_address && !!lead.city;
+    const kindCls = isOnline ? 'ol-card-online' : 'ol-card-offline';
+    return `
+      <div class="ol-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
+        <div class="ol-card-title">${escapeHtml(lead.company_name)}</div>
+        <div class="ol-card-meta">
+          <span class="ol-card-city">${escapeHtml(lead.city || '— город не указан')}</span>
+          <span class="ol-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
-        <div class="ol-card-mgr">
+        <div class="ol-card-mgr-row">
           <span class="ol-card-mgr-label">Менеджер:</span>
           <span class="ol-card-mgr-name">${escapeHtml(getManagerName(lead.manager_id))}</span>
         </div>
-      </button>`;
-    }).join('');
+        <div class="ol-card-kind">${isOnline ? '🌐 онлайн' : '📍 офлайн'}</div>
+        ${editedHtml}
+      </div>`;
+  }
+
+  function bindBoardInteractions(pane) {
+    let dragId = null;
+
+    pane.querySelectorAll('.ol-card[data-id]').forEach((card) => {
+      // Click → редактирование. Не срабатывает после dragstart, т.к. drag
+      // подавляет последующий click в HTML5 drag/drop API.
+      card.addEventListener('click', () => enterEditMode(card.dataset.id));
+      card.addEventListener('dragstart', (e) => {
+        dragId = card.dataset.id;
+        e.dataTransfer.setData('text/plain', dragId);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('ol-card-dragging');
+      });
+      card.addEventListener('dragend', () => {
+        dragId = null;
+        card.classList.remove('ol-card-dragging');
+        pane.querySelectorAll('.ol-col-body.ol-col-over').forEach((el) =>
+          el.classList.remove('ol-col-over')
+        );
+      });
+    });
+
+    pane.querySelectorAll('.ol-col-body').forEach((body) => {
+      if (body.dataset.noDrop === '1') return;
+      body.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        body.classList.add('ol-col-over');
+      });
+      body.addEventListener('dragleave', () => body.classList.remove('ol-col-over'));
+      body.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        body.classList.remove('ol-col-over');
+        const id = dragId || e.dataTransfer.getData('text/plain');
+        const newStatus = body.dataset.col;
+        if (!id || !newStatus || newStatus === '__all__') return;
+        await moveLeadToStatus(id, newStatus);
+      });
+    });
+  }
+
+  async function moveLeadToStatus(leadId, newStatus) {
+    const lead = state.leads.find((l) => l.id === leadId);
+    if (!lead || lead.status === newStatus) return;
+    // Оптимистично двигаем локально + перерисовываем; если API упадёт —
+    // откатываем и показываем тост. updated_at поставит триггер.
+    const prevStatus = lead.status;
+    lead.status = newStatus;
+    refreshBoardOnly();
+    const { error } = await sb.from('leads').update({ status: newStatus }).eq('id', leadId);
+    if (error) {
+      console.error('lead status:', error);
+      lead.status = prevStatus;
+      refreshBoardOnly();
+      toast('Не получилось переместить: ' + (error.message || 'ошибка'));
+    }
+  }
+
+  function refreshBoardOnly() {
+    const board = $('#ol-board');
+    if (!board) return;
+    board.innerHTML = renderBoardColumns();
+    bindBoardInteractions(board.closest('.leads-plus-area') || document);
   }
 
   // Считаем лид «отредактированным», если updated_at заметно (>5 сек) больше

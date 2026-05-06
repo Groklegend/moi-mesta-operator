@@ -518,21 +518,10 @@
     </div>
   </section>
 
-  <!-- Мои лиды — список компаний-кандидатов от Гари с рекомендациями -->
+  <!-- Мои лиды — канбан-доска (4 рабочих колонки + «Все») и детальная страница лида -->
   <section id="section-leads" class="seller-section" hidden>
-    <div class="leads-layout">
-      <aside class="leads-sidebar">
-        <h2 class="page-title leads-title">Мои лиды</h2>
-        <div id="leads-list" class="leads-items">
-          <div class="empty plain">Загрузка…</div>
-        </div>
-      </aside>
-      <div class="leads-pane" id="leads-pane">
-        <div class="placeholder">
-          <span class="big-icon">📍</span>
-          Выберите лид слева — описание появится здесь
-        </div>
-      </div>
+    <div id="leads-root" class="leads-root">
+      <div class="empty plain">Загрузка…</div>
     </div>
   </section>
 
@@ -576,6 +565,11 @@
       // Календарь инициализируется лениво — только при первом переходе.
       if (btn.dataset.section === 'calendar') {
         window.sellerCalendar?.show();
+      }
+      // Лиды: при каждом возврате на вкладку дотягиваем свежие статусы из БД,
+      // чтобы перетаскивания оператора отображались у менеджера.
+      if (btn.dataset.section === 'leads') {
+        window.sellerLeads?.show?.();
       }
     });
   });

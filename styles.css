@@ -4099,6 +4099,131 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
 }
+
+/* ============================================================
+   Канбан-доска для лидов (оператор + зеркально менеджер)
+   ============================================================ */
+.ol-board, .leads-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.ol-col, .lead-col {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+}
+.ol-col-readonly, .lead-col-readonly {
+  background: rgba(0, 0, 0, 0.025);
+  border-style: dashed;
+}
+.ol-col-head, .lead-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 0 4px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.ol-col-count, .lead-col-count {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--card);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.ol-col-body, .lead-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 60px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding: 2px;
+}
+.ol-col-empty, .lead-col-empty {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-style: italic;
+}
+.ol-col-over, .lead-col-over {
+  background: var(--accent-soft);
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+
+/* Карточки в канбане */
+.ol-board .ol-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 10px 12px;
+  cursor: grab;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s, opacity 0.12s, transform 0.12s;
+}
+.ol-board .ol-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.ol-board .ol-card:active { cursor: grabbing; }
+.ol-card-dragging, .lead-card-dragging { opacity: 0.4; transform: scale(0.98); }
+.ol-board .ol-card-online { background: rgba(63, 130, 220, 0.08); border-color: rgba(63, 130, 220, 0.4); }
+.ol-board .ol-card-offline { background: rgba(232, 130, 61, 0.08); border-color: rgba(232, 130, 61, 0.35); }
+.ol-card-mgr-row { font-size: 11px; color: var(--muted); }
+.ol-card-mgr-row .ol-card-mgr-label { margin-right: 4px; }
+.ol-card-mgr-row .ol-card-mgr-name { color: var(--ink); font-weight: 500; }
+.ol-card-kind { font-size: 11px; color: var(--muted); }
+.ol-card-online .ol-card-kind { color: #2c6dc7; }
+.ol-card-offline .ol-card-kind { color: var(--accent-dark); }
+
+.lead-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  transition: border-color 0.12s, box-shadow 0.12s, opacity 0.12s, transform 0.12s;
+}
+.lead-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.lead-card:active { cursor: grabbing; }
+.lead-card-online { background: rgba(63, 130, 220, 0.08); border-color: rgba(63, 130, 220, 0.4); }
+.lead-card-offline { background: rgba(232, 130, 61, 0.08); border-color: rgba(232, 130, 61, 0.35); }
+.lead-card-name { font-weight: 600; font-size: 13px; color: var(--ink); }
+.lead-card-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); }
+.lead-card-meet { color: var(--accent); font-weight: 500; }
+.lead-card-online .lead-card-meet { color: #2c6dc7; }
+.lead-card-kind { font-size: 11px; color: var(--muted); }
+.lead-card-online .lead-card-kind { color: #2c6dc7; }
+.lead-card-offline .lead-card-kind { color: var(--accent-dark); }
+.lead-card-from-op { font-size: 10px; color: var(--muted); font-style: italic; }
+
+.leads-board-head { margin-bottom: 12px; }
+.leads-board-head .page-title { margin: 0 0 4px; font-size: 22px; }
+.leads-board-sub { font-size: 13px; color: var(--muted); margin: 0; }
+.leads-detail-head { margin-bottom: 16px; }
+.lead-back-btn { font-size: 13px; }
+.leads-detail-body { max-width: 880px; }
 .ol-card {
   display: flex;
   justify-content: space-between;
