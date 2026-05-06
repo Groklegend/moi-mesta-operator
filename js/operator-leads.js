@@ -17,10 +17,23 @@
     calView: 'day',        // 'day' | 'week' — режим правой панели расписания
     busySlots: [],         // на текущий день (calView='day')
     busyWeek: {},          // { 'YYYY-MM-DD': [...] } на неделю (calView='week')
+    pinnedMgrIds: [],      // закреплённые менеджеры (localStorage)
   };
 
   const HOUR_FROM = 9;     // рабочий день для почасовой сетки
   const HOUR_TO = 19;
+  const PINNED_KEY = 'mm_op_pinned_managers_v1';
+
+  function loadPinned() {
+    try {
+      const raw = localStorage.getItem(PINNED_KEY);
+      const arr = JSON.parse(raw || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch { return []; }
+  }
+  function savePinned(ids) {
+    try { localStorage.setItem(PINNED_KEY, JSON.stringify(ids)); } catch (_) {}
+  }
 
   // ---------- Утилиты ----------
   function escapeHtml(s) {
@@ -126,7 +139,13 @@
     if (!pane) return;
     if (!state.initialized) {
       pane.innerHTML = '<div class="ol-loading">Загрузка…</div>';
+      state.pinnedMgrIds = loadPinned();
       await loadData();
+      // Чистим pinned от удалённых менеджеров
+      state.pinnedMgrIds = state.pinnedMgrIds.filter((id) =>
+        state.managers.some((m) => m.id === id)
+      );
+      savePinned(state.pinnedMgrIds);
       state.initialized = true;
     }
     if (state.view === 'create') renderCreate();
@@ -290,6 +309,7 @@
                 <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
               </div>
             </div>
+            <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
             <div class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</div>
             <div class="ol-cal-body" id="ol-cal-body">
               <div class="ol-cal-loading">Загрузка…</div>
@@ -311,6 +331,15 @@
     bindAddressAutocomplete();
     bindCalendarViews();
     bindManagerSelectChange();
+
+    // Если есть закреплённые менеджеры и select формы пустой — выбираем
+    // первого pinned автоматически (без change-trigger, чтобы не было
+    // двойного refreshCalendar — он сам сработает чуть ниже).
+    const sel = document.querySelector('select[name="manager_id"]');
+    if (sel && !sel.value && state.pinnedMgrIds.length) {
+      sel.value = state.pinnedMgrIds[0];
+    }
+    renderMgrTabs();
 
     // Календарь на сегодня
     await refreshCalendar(todayYmd);
@@ -476,7 +505,7 @@
     if (filtered === null) {
       return `
         <div class="ol-cal-placeholder">
-          Выберите менеджера в форме слева — здесь появится его расписание на выбранный день.
+          Закрепите менеджера через <b>＋</b> выше или выберите его в форме слева — здесь появится его расписание.
         </div>`;
     }
     if (!state.managers.find((m) => m.id === selectedManagerId())) {
@@ -601,8 +630,120 @@
     if (!sel) return;
     sel.addEventListener('change', () => {
       const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+      renderMgrTabs();
       refreshCalendar(ymd);
     });
+  }
+
+  // ---------- Закреплённые менеджеры (tabs над календарём) ----------
+  function renderMgrTabs() {
+    const wrap = $('#ol-mgr-tabs');
+    if (!wrap) return;
+    const activeId = selectedManagerId();
+    // Перечень tabs: pinned ∪ {активный, если он не в pinned}.
+    const ids = [...state.pinnedMgrIds];
+    if (activeId && !ids.includes(activeId)) ids.push(activeId);
+
+    const tabsHtml = ids.map((id) => {
+      const m = state.managers.find((x) => x.id === id);
+      if (!m) return '';
+      const name = (m.full_name || '').trim() || m.email;
+      const isActive = id === activeId;
+      const isPinned = state.pinnedMgrIds.includes(id);
+      return `
+        <button type="button" class="ol-mgr-tab${isActive ? ' active' : ''}" data-mgr-id="${id}">
+          <span class="ol-mgr-tab-name">${escapeHtml(name)}</span>
+          ${isPinned ? `<span class="ol-mgr-tab-close" data-close-id="${id}" title="Убрать">×</span>` : ''}
+        </button>`;
+    }).filter(Boolean).join('');
+
+    wrap.innerHTML = tabsHtml + `<button type="button" class="ol-mgr-add" id="ol-mgr-add" title="Закрепить менеджера">＋</button>`;
+
+    wrap.querySelectorAll('.ol-mgr-tab').forEach((t) => {
+      t.addEventListener('click', (e) => {
+        if (e.target.classList.contains('ol-mgr-tab-close')) return;
+        const id = t.dataset.mgrId;
+        const sel = document.querySelector('select[name="manager_id"]');
+        if (sel && sel.value !== id) {
+          sel.value = id;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    });
+    wrap.querySelectorAll('.ol-mgr-tab-close').forEach((c) => {
+      c.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removePinned(c.dataset.closeId);
+      });
+    });
+    $('#ol-mgr-add')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMgrPicker();
+    });
+  }
+
+  function addPinned(id) {
+    if (!state.pinnedMgrIds.includes(id)) {
+      state.pinnedMgrIds.push(id);
+      savePinned(state.pinnedMgrIds);
+    }
+  }
+
+  function removePinned(id) {
+    state.pinnedMgrIds = state.pinnedMgrIds.filter((x) => x !== id);
+    savePinned(state.pinnedMgrIds);
+    renderMgrTabs();
+    // Если активным был удалённый — оставим в форме, чтобы не терять контекст
+    // (он будет показан как «непрепный» tab без крестика). Если хотим сбросить —
+    // делается ручным кликом на другого менеджера.
+  }
+
+  function openMgrPicker() {
+    // Закрываем существующий picker, если был.
+    const existing = document.querySelector('.ol-mgr-picker');
+    if (existing) { existing.remove(); return; }
+
+    const activeId = selectedManagerId();
+    const taken = new Set([...state.pinnedMgrIds, activeId].filter(Boolean));
+    const candidates = state.managers.filter((m) => !taken.has(m.id));
+    if (!candidates.length) {
+      toast('Все менеджеры уже в списке.');
+      return;
+    }
+    const btn = $('#ol-mgr-add');
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.className = 'ol-mgr-picker';
+    popup.style.left = rect.left + 'px';
+    popup.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+    popup.innerHTML = candidates.map((m) => `
+      <button type="button" class="ol-mgr-picker-item" data-id="${m.id}">
+        ${escapeHtml((m.full_name || '').trim() || m.email)}
+      </button>
+    `).join('');
+    document.body.appendChild(popup);
+
+    popup.querySelectorAll('.ol-mgr-picker-item').forEach((it) => {
+      it.addEventListener('click', () => {
+        const id = it.dataset.id;
+        addPinned(id);
+        const sel = document.querySelector('select[name="manager_id"]');
+        if (sel) {
+          sel.value = id;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        popup.remove();
+        document.removeEventListener('click', closePicker);
+      });
+    });
+
+    function closePicker(e) {
+      if (popup.contains(e.target) || e.target.closest('#ol-mgr-add')) return;
+      popup.remove();
+      document.removeEventListener('click', closePicker);
+    }
+    setTimeout(() => document.addEventListener('click', closePicker), 0);
   }
 
   // ---------- Сохранение ----------
