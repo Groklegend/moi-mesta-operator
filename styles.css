@@ -4117,6 +4117,11 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
 }
 .ol-field { display: flex; flex-direction: column; gap: 6px; }
 .ol-field-wide { grid-column: 1 / -1; }
+/* `display: flex` выше перебивает UA-правило [hidden]{display:none} (равная
+   специфичность, моё правило позже). Поэтому hidden-атрибут на .ol-field
+   визуально не работал — каскад показывал «Тип программы» даже после
+   переключения «Программа лояльности? → Нет». Возвращаем приоритет hidden. */
+.ol-field[hidden] { display: none !important; }
 .ol-label {
   font-size: 13px;
   font-weight: 500;
