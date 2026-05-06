@@ -381,6 +381,14 @@
                     <label><input type="radio" name="ol_loy_before" value="no"> Нет</label>
                   </div>
                 </div>
+
+                <div class="ol-field ol-field-wide" id="ol-loy-before-yes" hidden>
+                  <span class="ol-label">Какая была программа?</span>
+                  <div class="ol-radio">
+                    <label><input type="radio" name="ol_loy_before_kind" value="discount"> Скидка</label>
+                    <label><input type="radio" name="ol_loy_before_kind" value="bonus"> Бонус</label>
+                  </div>
+                </div>
               </div>
 
               <div class="ol-actions">
@@ -886,13 +894,15 @@
       lpr_position: get('ol_ppos').trim(),
       website: get('ol_site').trim(),
       telegram: get('ol_tg').trim(),
-      // Программа лояльности — три состояния:
-      //  loy = ''      — оператор не уточнил
-      //  loy = 'yes'   — есть, тип в loy_kind ('discount' | 'bonus')
-      //  loy = 'no'    — нет, была ли ранее в loy_before ('yes' | 'no')
+      // Программа лояльности — каскад вопросов:
+      //  loy = ''       — оператор не уточнил
+      //  loy = 'yes'    — есть, тип в loy_kind ('discount' | 'bonus')
+      //  loy = 'no'     — нет; ранее? в loy_before ('yes' | 'no')
+      //                   если loy_before='yes' → какая была? loy_before_kind
       loy: checkedVal('ol_loy'),
       loy_kind: checkedVal('ol_loy_kind'),
       loy_before: checkedVal('ol_loy_before'),
+      loy_before_kind: checkedVal('ol_loy_before_kind'),
     };
   }
 
@@ -946,8 +956,13 @@
         else if (f.loy_kind === 'bonus') loyaltyDescription = 'Бонус';
       } else if (f.loy === 'no') {
         hasLoyalty = false;
-        if (f.loy_before === 'yes') loyaltyDescription = 'Ранее была';
-        else if (f.loy_before === 'no') loyaltyDescription = 'Ранее не было';
+        if (f.loy_before === 'yes') {
+          if (f.loy_before_kind === 'discount') loyaltyDescription = 'Ранее была: скидка';
+          else if (f.loy_before_kind === 'bonus') loyaltyDescription = 'Ранее была: бонус';
+          else loyaltyDescription = 'Ранее была';
+        } else if (f.loy_before === 'no') {
+          loyaltyDescription = 'Ранее не было';
+        }
       }
 
       const payload = {
@@ -994,22 +1009,39 @@
     });
   }
 
-  // «Программа лояльности? → Да/Нет». При «Да» показываем выбор Скидка/Бонус,
-  // при «Нет» — был ли клиент с программой ранее. Подблоки взаимоисключающие.
+  // «Программа лояльности? → Да/Нет». При «Да» — Тип (Скидка/Бонус) и
+  // вопрос «была ли ранее» прячется. При «Нет» — «была ли ранее»; если на
+  // него ответили «Да», ниже спрашиваем «Какая была программа?» (Скидка/Бонус).
+  // Скрытые подветки очищаются, чтобы readForm не подхватил мусор.
   function bindLoyaltyRadio() {
     const yesBlock = document.getElementById('ol-loy-yes');
     const noBlock = document.getElementById('ol-loy-no');
+    const beforeYesBlock = document.getElementById('ol-loy-before-yes');
+    const clearChecked = (name) => document
+      .querySelectorAll(`input[name="${name}"]`)
+      .forEach((x) => { x.checked = false; });
+
     document.querySelectorAll('input[name="ol_loy"]').forEach((r) => {
       r.addEventListener('change', () => {
         const v = document.querySelector('input[name="ol_loy"]:checked')?.value;
         if (yesBlock) yesBlock.hidden = v !== 'yes';
         if (noBlock) noBlock.hidden = v !== 'no';
-        // Очищаем выбор в скрытом подблоке, чтобы readForm не подхватил мусор.
+        if (beforeYesBlock) beforeYesBlock.hidden = true;
         if (v === 'yes') {
-          document.querySelectorAll('input[name="ol_loy_before"]').forEach((x) => { x.checked = false; });
+          clearChecked('ol_loy_before');
+          clearChecked('ol_loy_before_kind');
         } else if (v === 'no') {
-          document.querySelectorAll('input[name="ol_loy_kind"]').forEach((x) => { x.checked = false; });
+          clearChecked('ol_loy_kind');
+          clearChecked('ol_loy_before_kind');
         }
+      });
+    });
+
+    document.querySelectorAll('input[name="ol_loy_before"]').forEach((r) => {
+      r.addEventListener('change', () => {
+        const v = document.querySelector('input[name="ol_loy_before"]:checked')?.value;
+        if (beforeYesBlock) beforeYesBlock.hidden = v !== 'yes';
+        if (v !== 'yes') clearChecked('ol_loy_before_kind');
       });
     });
   }
