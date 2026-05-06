@@ -2115,6 +2115,10 @@ h2.page-title {
 
 /* Секции вкладок менеджера */
 .seller-section { margin-top: 8px; }
+/* В разделе «Мои лиды» поджимаем верх — без заголовка, доска вплотную к шапке. */
+#section-leads:not([hidden]) { margin-top: 0; }
+#section-leads .leads-root { padding-top: 0; }
+body:has(#section-leads:not([hidden])) main.container.wide { padding-top: 10px; }
 
 /* ============================================================
    Кабинет коммерческого директора (commercial.html / commercial.js)

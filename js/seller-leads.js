@@ -126,11 +126,7 @@
 
   function renderBoard(root) {
     if (!LEADS.length) {
-      root.innerHTML = `
-        <div class="leads-board-head">
-          <h2 class="page-title">Мои лиды</h2>
-        </div>
-        <div class="empty plain">Лидов пока нет.</div>`;
+      root.innerHTML = '<div class="empty plain">Лидов пока нет.</div>';
       return;
     }
     const colsHtml = STATUS_COLUMNS.map((col) => {
@@ -151,12 +147,7 @@
           </div>
         </div>`;
     }).join('');
-    root.innerHTML = `
-      <div class="leads-board-head">
-        <h2 class="page-title">Мои лиды</h2>
-        <p class="leads-board-sub">Перетаскивайте карточки между колонками — статус меняется и у оператора. Клик — открыть карточку.</p>
-      </div>
-      <div class="leads-board" id="leads-board">${colsHtml}</div>`;
+    root.innerHTML = `<div class="leads-board" id="leads-board">${colsHtml}</div>`;
     bindBoardInteractions(root);
   }
 
