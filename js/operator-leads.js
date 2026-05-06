@@ -253,9 +253,9 @@
   function renderLeadCard(lead) {
     const isOnline = !lead.meeting_address && !!lead.city;
     const kindCls = isOnline ? 'ol-card-online' : 'ol-card-offline';
-    // Адрес важнее города: для офлайн встреч показываем полный адрес,
-    // для онлайн — только город (адреса нет).
-    const where = lead.meeting_address || lead.city || '';
+    // На карточке нужны только улица + дом (без города/области/района).
+    // Для онлайна адреса нет — оставляем строку пустой, цвет уже сообщает тип.
+    const where = isOnline ? '' : shortAddress(lead.meeting_address);
     return `
       <div class="ol-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
         <div class="ol-card-title">${escapeHtml(lead.company_name)}</div>
@@ -264,6 +264,19 @@
           <span class="ol-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
       </div>`;
+  }
+
+  // Из полного адреса DaData оставляем только улицу и номер дома.
+  // Парсим по запятым и оставляем части, начинающиеся со «street»- или
+  // «house»-маркеров; всё остальное (город, область, район, офис, квартира)
+  // отбрасываем.
+  function shortAddress(addr) {
+    if (!addr) return '';
+    const STREET_RE = /^(?:ул|улица|пер|переулок|пр-кт|пр-т|проспект|пр|наб|набережная|ш|шоссе|пл|площадь|б-р|бульвар|тупик|тракт|аллея|проезд|линия|км|мкр|микрорайон)\b/i;
+    const HOUSE_RE = /^(?:д|дом|к|корпус|стр|строение|лит|литер|вл|владение)\b\s*\d/i;
+    const parts = addr.split(',').map((s) => s.trim()).filter(Boolean);
+    const kept = parts.filter((p) => STREET_RE.test(p) || HOUSE_RE.test(p));
+    return kept.length ? kept.join(', ') : addr;
   }
 
   function bindBoardInteractions(pane) {
