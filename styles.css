@@ -3106,6 +3106,13 @@ h2.page-title {
   color: var(--muted);
 }
 .lead-city { font-weight: 500; }
+.lead-from-op {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-style: italic;
+  opacity: 0.85;
+}
 .lead-meet {
   color: var(--accent-dark);
   font-weight: 600;
@@ -4747,6 +4754,11 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   background: rgba(232, 130, 61, 0.12);
   border-color: rgba(232, 130, 61, 0.35);
 }
+/* Если событие накрывает несколько шагов — растягиваем плашку по высоте,
+   чтобы визуально занять место «склеенных» строк, без дублей подряд. */
+.ol-hour-busy[style*="--ol-span"] {
+  min-height: calc(var(--ol-span, 1) * 36px + (var(--ol-span, 1) - 1) * 4px);
+}
 .ol-hour-busy .ol-hour-time {
   background: rgba(232, 130, 61, 0.2);
   color: var(--accent-dark);
@@ -5259,6 +5271,15 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   align-items: stretch;
   padding: 4px 0;
   min-height: 36px;
+}
+/* Когда событие накрывает несколько шагов — строка растягивается, чтобы
+   плашка визуально занимала «склеенные» часы, без дублей. */
+.cal-trow[style*="--cal-span"] {
+  min-height: calc(var(--cal-span, 1) * 36px + (var(--cal-span, 1) - 1) * 8px);
+}
+.cal-trow[style*="--cal-span"] .cal-tslot {
+  flex: 1;
+  justify-content: center;
 }
 .cal-trow-time {
   font-size: 13px;

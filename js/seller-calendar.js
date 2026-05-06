@@ -181,7 +181,21 @@
         _row: b,
       });
     }
-    for (const l of (leadsRes.data || [])) {
+    const leadRows = leadsRes.data || [];
+    // Догружаем имена операторов одним запросом (RLS migration_27).
+    const opIds = [...new Set(leadRows.map((l) => l.operator_id).filter(Boolean))];
+    let opMap = {};
+    if (opIds.length) {
+      const { data: ops, error: opsErr } = await sb
+        .from('users')
+        .select('id, full_name, email')
+        .in('id', opIds);
+      if (opsErr) console.warn('operators load:', opsErr);
+      opMap = Object.fromEntries((ops || []).map((o) => [o.id, o]));
+    }
+    for (const l of leadRows) {
+      const op = opMap[l.operator_id];
+      const opName = op ? ((op.full_name || '').trim() || op.email || '') : '';
       events.push({
         id: 'lead-' + l.id,
         _id: l.id,
@@ -189,7 +203,7 @@
         busy_at: l.meeting_at,
         duration_minutes: 60,
         label: l.company_name || '— без названия',
-        _row: l,
+        _row: { ...l, _operator_name: opName },
       });
     }
     events.sort((a, b) => a.busy_at.localeCompare(b.busy_at));
@@ -443,27 +457,36 @@
       const endM = startM + (e.duration_minutes || 60);
       return { startM, endM, e };
     };
-    const eventsM = events.map(eventOf);
+    const eventsM = events.map(eventOf).sort((a, b) => a.startM - b.startM);
 
+    // Схлопываем подряд идущие шаги, накрытые одним событием, в один блок.
+    // Если на одном шаге пересекаются несколько событий — показываем
+    // самое раннее (редкий случай для одного менеджера).
     const slotsHtml = [];
-    for (let m = fromM; m < toM; m += stepM) {
-      const slotStart = m;
-      const slotEnd = m + stepM;
-      const overlap = eventsM.filter((x) => x.endM > slotStart && x.startM < slotEnd);
-      const timeLabel = `${pad2(Math.floor(m/60))}:${pad2(m % 60)}`;
-      if (overlap.length) {
-        // Если несколько событий накладываются — рисуем все подряд
-        const cells = overlap.map(({ e }) => {
-          const isActive = state.selectedEventId === e.id;
-          const cls = `cal-tslot cal-tslot-${e.type}${isActive ? ' cal-tslot-active' : ''}`;
-          return `<button type="button" class="${cls}" data-event-id="${e.id}">
+    let m = fromM;
+    while (m < toM) {
+      const ev = eventsM.find((x) => x.endM > m && x.startM < m + stepM);
+      const timeLabel = `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+      if (ev) {
+        let next = m;
+        while (next < toM && ev.endM > next && ev.startM < next + stepM) {
+          next += stepM;
+        }
+        const span = (next - m) / stepM;
+        const e = ev.e;
+        const isActive = state.selectedEventId === e.id;
+        const cls = `cal-tslot cal-tslot-${e.type}${isActive ? ' cal-tslot-active' : ''}`;
+        const spanAttr = span > 1 ? ` style="--cal-span:${span};"` : '';
+        slotsHtml.push(`<div class="cal-trow"${spanAttr}><div class="cal-trow-time">${timeLabel}</div><div class="cal-trow-cells">
+          <button type="button" class="${cls}" data-event-id="${e.id}">
             <span class="cal-tslot-time">${rangeOf(e)}</span>
             <span class="cal-tslot-label">${escapeHtml(e.label)}</span>
-          </button>`;
-        }).join('');
-        slotsHtml.push(`<div class="cal-trow"><div class="cal-trow-time">${timeLabel}</div><div class="cal-trow-cells">${cells}</div></div>`);
+          </button>
+        </div></div>`);
+        m = next;
       } else {
         slotsHtml.push(`<div class="cal-trow"><div class="cal-trow-time">${timeLabel}</div><div class="cal-trow-cells"><div class="cal-tslot cal-tslot-free">— свободно</div></div></div>`);
+        m += stepM;
       }
     }
 
@@ -691,6 +714,7 @@
       ${r.meeting_address ? `<div class="cal-side-row"><span>Адрес:</span> ${escapeHtml(r.meeting_address)}</div>` : ''}
       <div class="cal-side-row"><span>Телефон:</span> ${tel}</div>
       ${r.lpr_name ? `<div class="cal-side-row"><span>ЛПР:</span> ${escapeHtml(r.lpr_name)}</div>` : ''}
+      ${r._operator_name ? `<div class="cal-side-row"><span>Оператор:</span> ${escapeHtml(r._operator_name)}</div>` : ''}
       ${r.comment ? `<div class="cal-side-row cal-side-row-comment"><span>Комментарий:</span> ${escapeHtml(r.comment)}</div>` : ''}
     </div>`;
   }

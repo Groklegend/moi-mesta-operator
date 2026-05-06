@@ -554,33 +554,51 @@
     return slots.filter((s) => s.manager_id === mgrId);
   }
 
-  // Возвращает массив ячеек по выбранному шагу (60/90/120 минут).
-  // Ячейка считается занятой, если хотя бы 1 минута пересекается с
-  // событием [busy_at, busy_at+duration_minutes).
+  // Возвращает массив сегментов: каждый сегмент — либо free (1 шаг),
+  // либо busy с указанным `span` (число шагов, которые накрывает одно
+  // событие). Несколько подряд идущих шагов, попадающих в одно событие,
+  // схлопываются в одну плашку — чтобы встреча 12:23–14:00 не дублировалась
+  // в строках 12:00 и 13:00.
   function buildStepGrid(slots) {
     const stepM = stepFromActiveManager();
-    const occupiedBy = new Map(); // start_minute → { label, range, source }
-    for (const s of slots) {
-      const start = new Date(s.meeting_at);
-      const end = new Date(start.getTime() + (s.duration_minutes || 60) * 60_000);
-      const sH = mskHM(start), eH = mskHM(end);
-      const range = `${pad2(sH.h)}:${pad2(sH.m)}–${pad2(eH.h)}:${pad2(eH.m)}`;
-      const slotStart = sH.h * 60 + sH.m;
-      const slotEnd = eH.h * 60 + eH.m;
-      for (let m = HOUR_FROM * 60; m < HOUR_TO * 60; m += stepM) {
-        if (slotEnd > m && slotStart < m + stepM) {
-          if (!occupiedBy.has(m)) {
-            occupiedBy.set(m, { label: s.label, range, source: s.source });
-          }
+    const events = slots
+      .map((s) => {
+        const start = new Date(s.meeting_at);
+        const end = new Date(start.getTime() + (s.duration_minutes || 60) * 60_000);
+        const sH = mskHM(start), eH = mskHM(end);
+        return {
+          startM: sH.h * 60 + sH.m,
+          endM: eH.h * 60 + eH.m,
+          range: `${pad2(sH.h)}:${pad2(sH.m)}–${pad2(eH.h)}:${pad2(eH.m)}`,
+          label: s.label,
+          source: s.source,
+        };
+      })
+      .sort((a, b) => a.startM - b.startM);
+
+    const segments = [];
+    let m = HOUR_FROM * 60;
+    while (m < HOUR_TO * 60) {
+      const ev = events.find((e) => e.endM > m && e.startM < m + stepM);
+      const label = `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+      if (ev) {
+        let next = m;
+        while (next < HOUR_TO * 60 && ev.endM > next && ev.startM < next + stepM) {
+          next += stepM;
         }
+        segments.push({
+          busy: true,
+          span: (next - m) / stepM,
+          label,
+          slot: { label: ev.label, range: ev.range, source: ev.source },
+        });
+        m = next;
+      } else {
+        segments.push({ busy: false, span: 1, label });
+        m += stepM;
       }
     }
-    const grid = [];
-    for (let m = HOUR_FROM * 60; m < HOUR_TO * 60; m += stepM) {
-      const slot = occupiedBy.get(m);
-      grid.push({ minutes: m, label: `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`, busy: !!slot, slot });
-    }
-    return grid;
+    return segments;
   }
 
   function renderDayView() {
@@ -594,23 +612,24 @@
     if (!state.managers.find((m) => m.id === selectedManagerId())) {
       return '<div class="ol-cal-placeholder">Выбранный менеджер удалён.</div>';
     }
-    const grid = buildStepGrid(filtered);
+    const segments = buildStepGrid(filtered);
     return `<div class="ol-hour-grid">
-      ${grid.map((cell) => {
-        if (cell.busy) {
-          const sourceCls = cell.slot.source === 'block' ? ' ol-hour-block' : '';
+      ${segments.map((seg) => {
+        if (seg.busy) {
+          const sourceCls = seg.slot.source === 'block' ? ' ol-hour-block' : '';
+          const spanAttr = seg.span > 1 ? ` style="--ol-span:${seg.span};"` : '';
           return `
-            <div class="ol-hour ol-hour-busy${sourceCls}">
-              <div class="ol-hour-time">${cell.label}</div>
+            <div class="ol-hour ol-hour-busy${sourceCls}"${spanAttr}>
+              <div class="ol-hour-time">${seg.label}</div>
               <div class="ol-hour-info">
-                <div class="ol-hour-range">${escapeHtml(cell.slot.range)}</div>
-                ${cell.slot.label ? `<div class="ol-hour-label">${escapeHtml(cell.slot.label)}</div>` : ''}
+                <div class="ol-hour-range">${escapeHtml(seg.slot.range)}</div>
+                ${seg.slot.label ? `<div class="ol-hour-label">${escapeHtml(seg.slot.label)}</div>` : ''}
               </div>
             </div>`;
         }
         return `
-          <button type="button" class="ol-hour ol-hour-free" data-time="${cell.label}">
-            <div class="ol-hour-time">${cell.label}</div>
+          <button type="button" class="ol-hour ol-hour-free" data-time="${seg.label}">
+            <div class="ol-hour-time">${seg.label}</div>
             <div class="ol-hour-info">
               <span class="ol-hour-take">свободно — кликнуть</span>
             </div>

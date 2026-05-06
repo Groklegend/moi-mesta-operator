@@ -110,6 +110,7 @@
           <span class="lead-city">${escapeHtml(lead.city || '')}</span>
           <span class="lead-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
+        ${lead._operator_name ? `<div class="lead-from-op">от оператора ${escapeHtml(lead._operator_name)}</div>` : ''}
       </button>`).join('');
     list.querySelectorAll('.lead-item').forEach((b) => {
       b.addEventListener('click', () => {
@@ -208,6 +209,7 @@
       <dl class="lead-fields">
         ${fld('Город', escapeHtml(lead.city || '— не указан'))}
         ${fld('Телефон', phoneCell)}
+        ${lead._operator_name ? fld('Оператор', escapeHtml(lead._operator_name)) : ''}
         ${fld('Своя программа лояльности', loyaltyCell)}
         ${fld('Сайт', link(lead.website, lead.website))}
         ${fld('Telegram-канал', lead.telegram ? link(tgUrl(lead.telegram), lead.telegram) : '<span class="lead-no">— нет</span>')}
@@ -486,6 +488,21 @@
       return;
     }
     LEADS = (data || []).map(normalizeLead);
+    // Догружаем имена операторов одним запросом (RLS «users select operators»
+    // из migration_27 — открыт только для роли operator).
+    const opIds = [...new Set(LEADS.map((l) => l.operator_id).filter(Boolean))];
+    if (opIds.length) {
+      const { data: ops, error: opsErr } = await sb
+        .from('users')
+        .select('id, full_name, email')
+        .in('id', opIds);
+      if (opsErr) console.warn('operators load:', opsErr);
+      const map = Object.fromEntries((ops || []).map((o) => [o.id, o]));
+      LEADS.forEach((l) => {
+        const op = map[l.operator_id];
+        l._operator_name = op ? ((op.full_name || '').trim() || op.email || '') : '';
+      });
+    }
   }
 
   // Поля pitch/demo_intro/recommendations/operator_call хранятся как jsonb;
