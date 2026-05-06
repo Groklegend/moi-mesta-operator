@@ -18,15 +18,15 @@
   // Запоминается между переключениями лидов в рамках сессии.
   let activeCallTab = 'transcript';
 
-  // Канбан-колонки. Зеркало operator-leads.STATUS_COLUMNS — псевдоколонка
-  // '__all__' собирает все лиды и не принимает drag-drop.
+  // Канбан-колонки. Зеркало operator-leads.STATUS_COLUMNS.
   const STATUS_COLUMNS = [
     { key: 'meeting_scheduled', title: 'Назначенные встречи' },
     { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
     { key: 'meeting_failed',    title: 'Не состоялась встреча' },
     { key: 'decision_pending',  title: 'Принимает решение' },
-    { key: '__all__',           title: 'Все' },
   ];
+
+  const WEEKDAYS_SHORT_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
   // ---------- Записи менеджера (localStorage) ----------
   // MVP: храним массив записей по каждому лиду в localStorage. Аудио — base64
@@ -97,7 +97,8 @@
   function formatMeetingShort(iso) {
     if (!iso) return '';
     const d = new Date(iso);
-    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const wd = WEEKDAYS_SHORT_RU[d.getDay()];
+    return `${wd} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
   // Лид считается онлайн-встречей, если оператор поставил чекбокс
@@ -131,21 +132,17 @@
       return;
     }
     const colsHtml = STATUS_COLUMNS.map((col) => {
-      const items = col.key === '__all__'
-        ? LEADS
-        : LEADS.filter((l) => (l.status || 'meeting_scheduled') === col.key);
-      const droppable = col.key !== '__all__';
-      const dropAttr = droppable ? '' : ' data-no-drop="1"';
+      const items = LEADS.filter((l) => (l.status || 'meeting_scheduled') === col.key);
       const cards = items.length
         ? items.map(renderLeadCard).join('')
         : '<div class="lead-col-empty">— пусто —</div>';
       return `
-        <div class="lead-col${droppable ? '' : ' lead-col-readonly'}" data-col="${col.key}">
+        <div class="lead-col" data-col="${col.key}">
           <div class="lead-col-head">
             <span class="lead-col-title">${escapeHtml(col.title)}</span>
             <span class="lead-col-count">${items.length}</span>
           </div>
-          <div class="lead-col-body" data-col="${col.key}"${dropAttr}>
+          <div class="lead-col-body" data-col="${col.key}">
             ${cards}
           </div>
         </div>`;
@@ -162,7 +159,6 @@
   function renderLeadCard(lead) {
     const isOnline = isOnlineLead(lead);
     const kindCls = isOnline ? 'lead-card-online' : 'lead-card-offline';
-    const kindLabel = isOnline ? '🌐 онлайн' : '📍 офлайн';
     return `
       <div class="lead-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
         <div class="lead-card-name">${escapeHtml(lead.company_name)}</div>
@@ -170,8 +166,6 @@
           <span class="lead-card-city">${escapeHtml(lead.city || '')}</span>
           <span class="lead-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
-        <div class="lead-card-kind">${kindLabel}</div>
-        ${lead._operator_name ? `<div class="lead-card-from-op">от оператора ${escapeHtml(lead._operator_name)}</div>` : ''}
       </div>`;
   }
 
@@ -193,7 +187,6 @@
       });
     });
     root.querySelectorAll('.lead-col-body').forEach((body) => {
-      if (body.dataset.noDrop === '1') return;
       body.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -205,7 +198,7 @@
         body.classList.remove('lead-col-over');
         const id = dragId || e.dataTransfer.getData('text/plain');
         const newStatus = body.dataset.col;
-        if (!id || !newStatus || newStatus === '__all__') return;
+        if (!id || !newStatus) return;
         await moveLeadToStatus(id, newStatus);
       });
     });

@@ -4115,7 +4115,7 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
    ============================================================ */
 .ol-board, .leads-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 10px;
   align-items: start;
   overflow-x: auto;
@@ -4217,29 +4217,42 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
 }
 .ol-board .ol-card-offline .ol-card-meet { color: var(--accent-dark); }
 
+/* Карточка лида у менеджера — единый компактный стиль с .ol-board .ol-card.
+   Только название, город и время; цвет = онлайн/офлайн. */
 .lead-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 8px;
   background: var(--card);
   border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: grab;
   transition: border-color 0.12s, box-shadow 0.12s, opacity 0.12s, transform 0.12s;
 }
-.lead-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.lead-card:hover { border-color: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .lead-card:active { cursor: grabbing; }
-.lead-card-online { background: rgba(63, 130, 220, 0.08); border-color: rgba(63, 130, 220, 0.4); }
-.lead-card-offline { background: rgba(232, 130, 61, 0.08); border-color: rgba(232, 130, 61, 0.35); }
-.lead-card-name { font-weight: 600; font-size: 13px; color: var(--ink); }
-.lead-card-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); }
-.lead-card-meet { color: var(--accent); font-weight: 500; }
+.lead-card-online {
+  background: rgba(63, 130, 220, 0.10);
+  border-color: rgba(63, 130, 220, 0.4);
+}
+.lead-card-offline {
+  background: rgba(232, 130, 61, 0.10);
+  border-color: rgba(232, 130, 61, 0.35);
+}
+.lead-card-name {
+  font-weight: 600; font-size: 12px; line-height: 1.25; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--ink);
+}
+.lead-card-meta {
+  display: flex; justify-content: space-between; gap: 6px; font-size: 10px;
+  color: var(--muted); flex-wrap: nowrap;
+}
+.lead-card-meet { white-space: nowrap; font-weight: 500; }
 .lead-card-online .lead-card-meet { color: #2c6dc7; }
-.lead-card-kind { font-size: 11px; color: var(--muted); }
-.lead-card-online .lead-card-kind { color: #2c6dc7; }
-.lead-card-offline .lead-card-kind { color: var(--accent-dark); }
-.lead-card-from-op { font-size: 10px; color: var(--muted); font-style: italic; }
+.lead-card-offline .lead-card-meet { color: var(--accent-dark); }
 
 .leads-board-head { margin-bottom: 12px; }
 .leads-board-head .page-title { margin: 0 0 4px; font-size: 22px; }

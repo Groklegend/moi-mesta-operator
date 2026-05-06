@@ -29,14 +29,14 @@
   const PINNED_KEY = 'mm_op_pinned_managers_v1';
 
   // Канбан-колонки в списке лидов. Зеркальный набор у менеджера в seller-leads.js.
-  // Псевдо-колонка '__all__' показывает все лиды и не принимает drag-drop.
   const STATUS_COLUMNS = [
     { key: 'meeting_scheduled', title: 'Назначенные встречи' },
     { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
     { key: 'meeting_failed',    title: 'Не состоялась встреча' },
     { key: 'decision_pending',  title: 'Принимает решение' },
-    { key: '__all__',           title: 'Все' },
   ];
+
+  const WEEKDAYS_SHORT_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
   // ---------- Московское время ----------
   // Все времена в БД — UTC. На фронте показываем и интерпретируем как МСК (+03:00 без DST).
@@ -92,8 +92,12 @@
   }
   function formatMeetingShort(iso) {
     if (!iso) return '— дата не указана';
-    const p = _mskParts(new Date(iso));
-    return `${p.d} ${MONTHS_SHORT[p.mo - 1]}, ${pad2(p.h)}:${pad2(p.mi)}`;
+    const d = new Date(iso);
+    const p = _mskParts(d);
+    // Считаем день недели по календарной дате в МСК (UTC-anchored Date),
+    // чтобы он не уезжал в браузерах с не-МСК тайм-зоной.
+    const wd = WEEKDAYS_SHORT_RU[new Date(Date.UTC(p.y, p.mo - 1, p.d)).getUTCDay()];
+    return `${wd} ${p.d} ${MONTHS_SHORT[p.mo - 1]}, ${pad2(p.h)}:${pad2(p.mi)}`;
   }
   function formatDayHeader(ymd) {
     if (!ymd) return '';
@@ -224,21 +228,17 @@
 
   function renderBoardColumns() {
     return STATUS_COLUMNS.map((col) => {
-      const items = col.key === '__all__'
-        ? state.leads
-        : state.leads.filter((l) => (l.status || 'meeting_scheduled') === col.key);
-      const droppable = col.key !== '__all__';
-      const dropAttr = droppable ? '' : ' data-no-drop="1"';
+      const items = state.leads.filter((l) => (l.status || 'meeting_scheduled') === col.key);
       const cards = items.length
         ? items.map((lead) => renderLeadCard(lead)).join('')
         : '<div class="ol-col-empty">— пусто —</div>';
       return `
-        <div class="ol-col${droppable ? '' : ' ol-col-readonly'}" data-col="${col.key}">
+        <div class="ol-col" data-col="${col.key}">
           <div class="ol-col-head">
             <span class="ol-col-title">${escapeHtml(col.title)}</span>
             <span class="ol-col-count">${items.length}</span>
           </div>
-          <div class="ol-col-body" data-col="${col.key}"${dropAttr}>
+          <div class="ol-col-body" data-col="${col.key}">
             ${cards}
           </div>
         </div>`;
@@ -281,7 +281,6 @@
     });
 
     pane.querySelectorAll('.ol-col-body').forEach((body) => {
-      if (body.dataset.noDrop === '1') return;
       body.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -293,7 +292,7 @@
         body.classList.remove('ol-col-over');
         const id = dragId || e.dataTransfer.getData('text/plain');
         const newStatus = body.dataset.col;
-        if (!id || !newStatus || newStatus === '__all__') return;
+        if (!id || !newStatus) return;
         await moveLeadToStatus(id, newStatus);
       });
     });
