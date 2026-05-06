@@ -3174,7 +3174,7 @@ h2.page-title {
 .lead-kind-offline { background: rgba(232, 130, 61, 0.15); color: var(--accent-dark); }
 
 .lead-meeting-card {
-  background: linear-gradient(135deg, var(--accent-soft), var(--bg-soft));
+  background: rgba(232, 130, 61, 0.12);
   border: 1.5px solid var(--accent);
   border-radius: var(--radius);
   padding: 16px 20px;
@@ -3184,8 +3184,20 @@ h2.page-title {
   gap: 4px;
 }
 .lead-meeting-card-online {
-  background: linear-gradient(135deg, rgba(63, 130, 220, 0.12), var(--bg-soft));
+  background: rgba(63, 130, 220, 0.12);
   border-color: #2c6dc7;
+}
+/* Пометка «📌 в зуме» внутри карточки — без своего фона, чтобы не разбивать
+   единую заливку. Лёгкая обводка слева оставляет визуальный акцент. */
+.lead-meeting-card .lead-meeting-note {
+  background: transparent;
+  padding: 4px 0 4px 10px;
+  border-left: 3px solid currentColor;
+  border-radius: 0;
+  color: var(--accent-dark);
+}
+.lead-meeting-card-online .lead-meeting-note {
+  color: #1f5db7;
 }
 .lead-meeting-label {
   font-size: 12px;
