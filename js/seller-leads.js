@@ -22,10 +22,10 @@
   const STATUS_COLUMNS = [
     { key: 'meeting_scheduled', title: 'Назначенные встречи' },
     { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
-    { key: 'meeting_failed',    title: 'Не состоялась встреча' },
+    { key: 'meeting_failed',    title: 'Не состоялась встреча, перезвонить' },
     { key: 'decision_pending',  title: 'Принимает решение' },
-    { key: 'callback',          title: 'Перезвонить' },
-    { key: 'reschedule',        title: 'Назначить новую дату' },
+    { key: 'callback',          title: 'Интеграция' },
+    { key: 'reschedule',        title: 'На тесте' },
   ];
 
   const WEEKDAYS_SHORT_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
