@@ -33,6 +33,22 @@
     return 'hub.html';
   }
 
+  // Совместимость с index.html: он ждёт operatorSession в localStorage.
+  // Синтезируем эту сессию из public.users, чтобы старый экран оператора
+  // работал без переделки. public.users.id = operators.id (выровняли при
+  // миграции), значит motivation_entries и stats остаются привязаны.
+  // Используется и при логине (redirectByRole), и при клике на «Оператор»
+  // в hub.html / role-switcher (когда у юзера несколько ролей).
+  function syncLegacyOperatorSession(row) {
+    if (!row || typeof window.operatorSession === 'undefined') return;
+    if (!Array.isArray(row.roles) || !row.roles.includes('operator')) return;
+    window.operatorSession.set({
+      id: row.id,
+      name: (row.full_name && row.full_name.trim()) || row.email,
+      login: '__supabase__',
+    }, true);
+  }
+
   async function redirectByRole() {
     const row = await getCurrentUserRow();
     if (!row) {
@@ -52,19 +68,7 @@
       alert('У вас нет ролей в Хабе. Обратитесь к администратору.');
       return;
     }
-    // Совместимость с index.html: он ждёт operatorSession в localStorage.
-    // Когда оператор входит через Supabase Auth (login.html), синтезируем
-    // эту сессию из public.users — это позволяет старому экрану оператора
-    // работать без переделки до полной миграции в PR-следующих этапов.
-    // public.users.id = operators.id (мы их сделали равными при миграции),
-    // так что motivation_entries и stats остаются привязаны корректно.
-    if (target === 'index.html' && typeof window.operatorSession !== 'undefined') {
-      window.operatorSession.set({
-        id: row.id,
-        name: (row.full_name && row.full_name.trim()) || row.email,
-        login: '__supabase__',
-      }, true);
-    }
+    if (target === 'index.html') syncLegacyOperatorSession(row);
     location.replace(target);
   }
 
@@ -72,5 +76,6 @@
     getCurrentUserRow,
     pickLandingPage,
     redirectByRole,
+    syncLegacyOperatorSession,
   };
 })();

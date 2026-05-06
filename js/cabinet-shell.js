@@ -152,7 +152,7 @@
       .filter(c => roles.includes(c.role))
       .map(c => {
         const active = c.page === cur ? ' active' : '';
-        return `<a href="${c.page}" class="role-item${active}">${c.label}</a>`;
+        return `<a href="${c.page}" class="role-item${active}" data-role="${c.role}">${c.label}</a>`;
       });
     if (!items.length) return;
     nav.innerHTML = `
@@ -163,6 +163,18 @@
       </button>
       <div class="role-menu hidden" id="role-menu" role="menu">${items.join('')}</div>`;
     nav.hidden = false;
+
+    // Переход в кабинет оператора требует синтеза legacy operator_session
+    // (index.html синхронным гардом проверяет localStorage). Без этого
+    // юзер с несколькими ролями уезжает по цепочке index → login → hub.
+    nav.querySelectorAll('a.role-item[data-role="operator"]').forEach(a => {
+      a.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const row = await hubRouting.getCurrentUserRow();
+        hubRouting.syncLegacyOperatorSession(row);
+        location.href = a.getAttribute('href');
+      });
+    });
 
     const trigger = document.getElementById('role-trigger');
     const menu = document.getElementById('role-menu');

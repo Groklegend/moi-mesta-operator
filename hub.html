@@ -47,11 +47,20 @@
   if (!row) return;
   const roles = row.roles || [];
   const grid = document.getElementById('cabinet-grid');
-  const cards = cabinetShell.CABINETS
-    .filter(c => roles.includes(c.role))
-    .map(c => `<a href="${c.page}" class="cabinet-card"><div class="cabinet-label">${c.label}</div></a>`)
+  const visibleCabinets = cabinetShell.CABINETS.filter(c => roles.includes(c.role));
+  const cards = visibleCabinets
+    .map(c => `<a href="${c.page}" class="cabinet-card" data-role="${c.role}"><div class="cabinet-label">${c.label}</div></a>`)
     .join('');
   grid.innerHTML = cards || '<p style="color:var(--muted);">Ролей не назначено. Обратитесь к администратору.</p>';
+  // Для кабинета оператора нужно засеять legacy operator_session перед переходом —
+  // index.html синхронным гардом проверяет localStorage и без этого редиректит на /login.
+  grid.querySelectorAll('a.cabinet-card[data-role="operator"]').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      hubRouting.syncLegacyOperatorSession(row);
+      location.href = a.getAttribute('href');
+    });
+  });
 })();
 </script>
 </body>
