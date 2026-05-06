@@ -101,9 +101,10 @@
     renderObjs();
   });
 
-  // ---------- Документы ----------
+  // ---------- Документы (оператор-стиль: список слева, детали справа) ----------
   async function loadDocs() {
     const list = $('#kb-doc-list');
+    const pane = $('#kb-doc-pane');
     if (!list) return;
     const { data, error } = await sb.from('documents').select('*')
       .eq('audience', AUDIENCE).order('sort_order');
@@ -111,18 +112,54 @@
     state.docs = data || [];
     state.loaded.docs = true;
     if (!state.docs.length) {
-      list.innerHTML = '<div class="empty plain">Документы пока не добавлены</div>';
+      list.innerHTML = '<div class="empty plain" style="font-size:13px;padding:24px 12px;color:var(--muted);">Документов пока нет</div>';
+      if (pane) pane.innerHTML = `
+        <div class="placeholder">
+          <span class="big-icon">📎</span>
+          Документы пока не добавлены
+        </div>`;
       return;
     }
     list.innerHTML = state.docs.map(d => `
-      <a class="kb-doc-card" href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">
-        <div class="kb-doc-icon">📎</div>
-        <div class="kb-doc-main">
-          <div class="kb-doc-name">${esc(d.name)}</div>
-          ${d.description ? `<div class="kb-doc-desc">${esc(d.description)}</div>` : ''}
-          <div class="kb-doc-url">${esc(d.url.length > 80 ? d.url.slice(0, 77) + '…' : d.url)}</div>
-        </div>
-      </a>`).join('');
+      <button class="kb-doc-item" type="button" data-doc-id="${esc(d.id)}">${esc(d.name)}</button>
+    `).join('');
+    list.querySelectorAll('.kb-doc-item').forEach(btn => {
+      btn.addEventListener('click', () => openDoc(btn.dataset.docId));
+    });
+  }
+
+  function openDoc(id) {
+    const d = state.docs.find(x => x.id === id);
+    const pane = $('#kb-doc-pane');
+    if (!d || !pane) return;
+    document.querySelectorAll('#kb-doc-list .kb-doc-item').forEach(b => {
+      b.classList.toggle('active', b.dataset.docId === id);
+    });
+    const descr = (d.description || '').trim();
+    pane.innerHTML = `
+      <h1 class="kb-doc-title">${esc(d.name)}</h1>
+      <div class="kb-doc-descr">${descr ? esc(descr) : '<span style="color:var(--muted);">Описание не добавлено</span>'}</div>
+      <div class="kb-doc-actions">
+        <button class="btn primary" id="kb-doc-open" type="button">📎 Открыть документ</button>
+        <button class="btn" id="kb-doc-copy" type="button">📋 Скопировать ссылку</button>
+      </div>
+      <div class="kb-doc-url-line">${esc(d.url)}</div>`;
+    pane.querySelector('#kb-doc-open').addEventListener('click', () => {
+      window.open(d.url, '_blank', 'noopener');
+    });
+    pane.querySelector('#kb-doc-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(d.url); toast('Ссылка скопирована'); }
+      catch { toast('Не удалось скопировать', 'error'); }
+    });
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.add('hidden'), 1800);
   }
 
   // Лениво подгружаем при клике на соответствующую вкладку.

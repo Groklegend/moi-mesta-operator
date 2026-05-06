@@ -2912,22 +2912,80 @@ h2.page-title {
 .kb-obj-body p { margin: 6px 0; }
 .kb-obj-body ul, .kb-obj-body ol { margin: 6px 0; padding-left: 22px; }
 
-.kb-doc-list { display: grid; gap: 10px; }
-.kb-doc-card {
-  display: flex; align-items: center; gap: 14px;
+/* Документы у менеджера — двухколоночно как у оператора */
+.kb-docs-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.kb-docs-sidebar {
   background: var(--card);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 18px;
-  text-decoration: none; color: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 12px;
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
 }
-.kb-doc-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
-.kb-doc-icon { font-size: 24px; flex-shrink: 0; }
-.kb-doc-main { flex: 1; min-width: 0; }
-.kb-doc-name { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
-.kb-doc-desc { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-.kb-doc-url { font-size: 12px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb-docs-items { display: flex; flex-direction: column; gap: 4px; }
+.kb-doc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.kb-doc-item:hover { background: var(--bg-soft); }
+.kb-doc-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+.kb-docs-pane {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  min-height: 320px;
+}
+.kb-docs-pane .placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 15px;
+  padding: 60px 20px;
+  text-align: center;
+}
+.kb-docs-pane .placeholder .big-icon { font-size: 48px; opacity: 0.6; }
+.kb-doc-title { margin: 0 0 16px; font-size: 24px; color: var(--navy); }
+.kb-doc-descr { font-size: 15px; line-height: 1.6; color: var(--ink-2); margin-bottom: 24px; }
+.kb-doc-actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.kb-doc-url-line {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, 'SF Mono', monospace;
+}
+@media (max-width: 900px) {
+  .kb-docs-layout { grid-template-columns: 1fr; }
+  .kb-docs-sidebar { position: relative; top: auto; max-height: none; }
+}
 
 .deal-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .deal-main { flex: 1; min-width: 0; }

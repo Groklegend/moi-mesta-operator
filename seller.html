@@ -425,11 +425,21 @@
     </div>
   </section>
 
-  <!-- Документы -->
+  <!-- Документы — двухколоночный режим как у оператора -->
   <section id="section-kb-documents" class="seller-section" hidden>
     <h1 class="page-title" style="margin-bottom:20px;">Документы</h1>
-    <div id="kb-doc-list" class="kb-doc-list">
-      <div class="empty plain">Загрузка…</div>
+    <div class="kb-docs-layout">
+      <aside class="kb-docs-sidebar">
+        <div id="kb-doc-list" class="kb-docs-items">
+          <div class="empty plain">Загрузка…</div>
+        </div>
+      </aside>
+      <div class="kb-docs-pane" id="kb-doc-pane">
+        <div class="placeholder">
+          <span class="big-icon">📎</span>
+          Выберите документ слева — описание появится здесь
+        </div>
+      </div>
     </div>
   </section>
 
