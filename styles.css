@@ -4061,10 +4061,20 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
 }
 .ol-card:hover {
-  border-color: var(--accent-soft);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.ol-card-edited {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
 }
 .ol-card-main { flex: 1; min-width: 0; }
 .ol-card-title {

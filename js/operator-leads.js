@@ -20,6 +20,8 @@
     pinnedMgrIds: [],      // закреплённые менеджеры (localStorage)
     activeMgrId: '',       // активный менеджер (выбранный таб)
     dadataCity: '',        // город, прилетевший из DaData при выборе адреса
+    editingLeadId: null,   // если != null — форма в режиме редактирования
+    prefillLead: null,     // данные лида для предзаполнения формы
   };
 
   const HOUR_FROM = 8;     // рабочий день для почасовой сетки (МСК)
@@ -109,7 +111,7 @@
   async function loadData() {
     const [leadsRes, mgrsRes] = await Promise.all([
       sb.from('leads')
-        .select('id, company_name, city, manager_id, meeting_at, created_at, status')
+        .select('*')
         .order('created_at', { ascending: false }),
       sb.from('users')
         .select('id, full_name, email, status, cal_step_minutes')
@@ -163,6 +165,9 @@
   }
 
   // ---------- Точка входа ----------
+  // Любой переход на вкладку «Плюс Заявка» (клик в шапке, /hub→оператор и т.д.)
+  // возвращает оператора в список заявок. Вход в форму — только через
+  // «＋ Новая заявка» или клик по карточке существующего лида.
   async function show() {
     const pane = $('#leads-plus-pane');
     if (!pane) return;
@@ -177,8 +182,10 @@
       savePinned(state.pinnedMgrIds);
       state.initialized = true;
     }
-    if (state.view === 'create') renderCreate();
-    else renderList();
+    state.view = 'list';
+    state.editingLeadId = null;
+    state.prefillLead = null;
+    renderList();
   }
 
   // ---------- Список заявок ----------
@@ -189,16 +196,21 @@
       <div class="ol-wrap">
         <div class="ol-header">
           <div>
-            <h2 class="ol-title">Заявка Плюс</h2>
-            <p class="ol-sub">Карточки клиентов после холодного звонка. Передаются менеджеру и попадают в его раздел «Мои лиды».</p>
+            <h2 class="ol-title">Плюс Заявка</h2>
+            <p class="ol-sub">Карточки клиентов после холодного звонка. Кликните по существующей, чтобы отредактировать.</p>
           </div>
           <button class="btn primary ol-add" type="button" id="ol-add-btn">＋ Новая заявка</button>
         </div>
         <div class="ol-list">${renderListItems()}</div>
       </div>`;
     $('#ol-add-btn').addEventListener('click', () => {
+      state.editingLeadId = null;
+      state.prefillLead = null;
       state.view = 'create';
       renderCreate();
+    });
+    pane.querySelectorAll('.ol-card[data-id]').forEach((card) => {
+      card.addEventListener('click', () => enterEditMode(card.dataset.id));
     });
   }
 
@@ -206,20 +218,54 @@
     if (!state.leads.length) {
       return '<div class="ol-empty">Заявок пока нет. Нажмите «＋ Новая заявка», чтобы создать первую.</div>';
     }
-    return state.leads.map((lead) => `
-      <div class="ol-card">
+    return state.leads.map((lead) => {
+      const editedAt = leadEditedAt(lead);
+      const editedHtml = editedAt
+        ? `<div class="ol-card-edited">Отредактировано ${escapeHtml(formatEditedShort(editedAt))}</div>`
+        : '';
+      return `
+      <button type="button" class="ol-card" data-id="${escapeHtml(lead.id)}">
         <div class="ol-card-main">
           <div class="ol-card-title">${escapeHtml(lead.company_name)}</div>
           <div class="ol-card-meta">
             <span class="ol-card-city">${escapeHtml(lead.city || '— город не указан')}</span>
             <span class="ol-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
           </div>
+          ${editedHtml}
         </div>
         <div class="ol-card-mgr">
           <span class="ol-card-mgr-label">Менеджер:</span>
           <span class="ol-card-mgr-name">${escapeHtml(getManagerName(lead.manager_id))}</span>
         </div>
-      </div>`).join('');
+      </button>`;
+    }).join('');
+  }
+
+  // Считаем лид «отредактированным», если updated_at заметно (>5 сек) больше
+  // created_at. Авто-trigger ставит updated_at при любом INSERT, так что без
+  // буфера каждая «новая» заявка тоже выглядит как «отредактированная».
+  function leadEditedAt(lead) {
+    if (!lead.updated_at || !lead.created_at) return null;
+    const u = new Date(lead.updated_at).getTime();
+    const c = new Date(lead.created_at).getTime();
+    return (u - c) > 5000 ? lead.updated_at : null;
+  }
+  function formatEditedShort(iso) {
+    const p = _mskParts(new Date(iso));
+    return `${p.d} ${MONTHS_SHORT[p.mo - 1]} в ${pad2(p.h)}:${pad2(p.mi)}`;
+  }
+
+  function enterEditMode(leadId) {
+    const lead = state.leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    state.editingLeadId = leadId;
+    state.prefillLead = lead;
+    state.view = 'create';
+    // Активный менеджер = тот, кому уже передан лид. Если он удалён —
+    // оставим без активного, чтобы оператор мог выбрать заново.
+    state.activeMgrId = state.managers.find((m) => m.id === lead.manager_id)
+      ? lead.manager_id : '';
+    renderCreate();
   }
 
   // ---------- View «Создание заявки» ----------
@@ -238,14 +284,18 @@
       return;
     }
 
-    const todayYmd = mskYmd(new Date());
+    const isEditing = !!state.prefillLead;
+    const initialYmd = isEditing && state.prefillLead.meeting_at
+      ? mskYmd(new Date(state.prefillLead.meeting_at))
+      : mskYmd(new Date());
+    const titleText = isEditing ? 'Редактирование заявки' : 'Новая заявка';
 
     pane.innerHTML = `
       <div class="ol-wrap ol-create">
         <div class="ol-toolbar">
           <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
           <div class="ol-toolbar-right">
-            <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</span>
+            <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(initialYmd))}</span>
             <div class="ol-cal-views">
               <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
               <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
@@ -256,7 +306,7 @@
           <div class="ol-create-col-left">
             <div class="ol-create-head">
               <button class="ol-back-btn" type="button" id="ol-back">← К списку</button>
-              <h2 class="ol-title">Новая заявка</h2>
+              <h2 class="ol-title">${escapeHtml(titleText)}</h2>
             </div>
             <div class="ol-form" id="ol-form" autocomplete="off">
               <div class="ol-grid">
@@ -288,7 +338,7 @@
                   <span class="ol-label">Дата встречи <em>*</em></span>
                   <div class="ol-date-control">
                     <button type="button" class="ol-date-arrow" data-shift="-1" aria-label="Предыдущий день">‹</button>
-                    <input type="date" name="ol_md" id="ol-meeting-date" value="${todayYmd}"
+                    <input type="date" name="ol_md" id="ol-meeting-date" value="${initialYmd}"
                            autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                     <button type="button" class="ol-date-arrow" data-shift="1" aria-label="Следующий день">›</button>
                   </div>
@@ -393,7 +443,7 @@
 
               <div class="ol-actions">
                 <button type="button" class="btn" id="ol-cancel">Отмена</button>
-                <button type="button" class="btn primary" id="ol-submit">Сохранить и передать менеджеру</button>
+                <button type="button" class="btn primary" id="ol-submit">${isEditing ? 'Сохранить изменения' : 'Сохранить и передать менеджеру'}</button>
               </div>
             </div>
           </div>
@@ -406,8 +456,13 @@
         </div>
       </div>`;
 
-    $('#ol-back').addEventListener('click', () => renderList());
-    $('#ol-cancel').addEventListener('click', () => renderList());
+    const exitToList = () => {
+      state.editingLeadId = null;
+      state.prefillLead = null;
+      renderList();
+    };
+    $('#ol-back').addEventListener('click', exitToList);
+    $('#ol-cancel').addEventListener('click', exitToList);
     $('#ol-submit').addEventListener('click', () => saveForm());
     bindLprRadio();
     bindLoyaltyRadio();
@@ -424,10 +479,103 @@
     }
     renderMgrTabs();
 
-    // Календарь на сегодня
-    await refreshCalendar(todayYmd);
+    // Если режим редактирования — заполняем форму данными существующего лида.
+    if (isEditing) prefillForm(state.prefillLead);
 
-    $('input[name="ol_cn"]')?.focus();
+    // Календарь на нужную дату (для нового лида — сегодня, для edit — день встречи).
+    await refreshCalendar(initialYmd);
+
+    if (!isEditing) $('input[name="ol_cn"]')?.focus();
+  }
+
+  // Заполняет форму значениями лида при входе в режим редактирования.
+  // Обратное преобразование к saveForm: разбираем lpr_name на имя+должность,
+  // is_online выводим из meeting_address=null, теги в comment — флаги (НЕ ЛПР,
+  // онлайн), loyalty_description — обратно в каскад радио.
+  function prefillForm(lead) {
+    const root = $('#ol-form');
+    if (!root) return;
+    const setVal = (name, val) => {
+      const el = root.querySelector(`[name="${name}"]`);
+      if (el) el.value = val == null ? '' : String(val);
+    };
+    const setRadio = (name, val) => {
+      const el = root.querySelector(`input[name="${name}"][value="${val}"]`);
+      if (el) el.checked = true;
+    };
+    const fire = (name) => {
+      root.querySelector(`input[name="${name}"]:checked`)?.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    setVal('ol_cn', lead.company_name);
+
+    const isOnline = !lead.meeting_address && !!lead.city;
+    if (isOnline) {
+      const cb = root.querySelector('[name="ol_online"]');
+      if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+      setVal('ol_addr', lead.city || '');
+    } else {
+      setVal('ol_addr', lead.meeting_address || '');
+      state.dadataCity = lead.city || '';
+    }
+    setVal('ol_addr_note', lead.meeting_address_note);
+
+    if (lead.meeting_at) {
+      const p = _mskParts(new Date(lead.meeting_at));
+      setVal('ol_md', `${p.y}-${pad2(p.mo)}-${pad2(p.d)}`);
+      setVal('ol_mt', `${pad2(p.h)}:${pad2(p.mi)}`);
+    }
+
+    // Тег «НЕ ЛПР» в comment → is_lpr=no.
+    const isNotLpr = (lead.comment || '').includes('⚠️ Контакт — НЕ ЛПР');
+    setRadio('ol_lpr', isNotLpr ? 'no' : 'yes');
+    fire('ol_lpr');
+
+    setVal('ol_p1', lead.phone);
+    setVal('ol_p2', lead.called_phone);
+    // Применяем маску к уже заполненным телефонам.
+    ['ol_p1', 'ol_p2'].forEach((n) => {
+      const el = root.querySelector(`[name="${n}"]`);
+      if (el && el.value) el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // lpr_name = "Имя, Должность" → разбираем по запятой.
+    const parts = (lead.lpr_name || '').split(',');
+    setVal('ol_pname', (parts[0] || '').trim());
+    setVal('ol_ppos', (parts.slice(1).join(',') || '').trim());
+
+    setVal('ol_site', lead.website);
+    setVal('ol_tg', lead.telegram);
+
+    // Обратное соответствие к loyalty_description. Порядок важен: сначала
+    // выбираем корневой ответ и фаерим change, чтобы bindLoyaltyRadio
+    // показал нужный подблок и почистил скрытые поля. Только потом ставим
+    // значения во вложенных подвопросах.
+    const desc = lead.loyalty_description || '';
+    if (lead.has_loyalty === true) {
+      setRadio('ol_loy', 'yes');
+      fire('ol_loy');
+      if (desc === 'Скидка') setRadio('ol_loy_kind', 'discount');
+      else if (desc === 'Бонус') setRadio('ol_loy_kind', 'bonus');
+    } else if (lead.has_loyalty === false && desc) {
+      setRadio('ol_loy', 'no');
+      fire('ol_loy');
+      if (desc === 'Ранее была: скидка') {
+        setRadio('ol_loy_before', 'yes');
+        fire('ol_loy_before');
+        setRadio('ol_loy_before_kind', 'discount');
+      } else if (desc === 'Ранее была: бонус') {
+        setRadio('ol_loy_before', 'yes');
+        fire('ol_loy_before');
+        setRadio('ol_loy_before_kind', 'bonus');
+      } else if (desc === 'Ранее была') {
+        setRadio('ol_loy_before', 'yes');
+        fire('ol_loy_before');
+      } else if (desc === 'Ранее не было') {
+        setRadio('ol_loy_before', 'no');
+        fire('ol_loy_before');
+      }
+    }
   }
 
   function bindPhoneMasks() {
@@ -980,18 +1128,31 @@
         loyalty_description:  loyaltyDescription,
         comment:              comment || null,
         manager_id:           state.activeMgrId,
-        operator_id:          user.id,
-        status:               'meeting_scheduled',
       };
 
-      const { error } = await sb.from('leads').insert(payload);
-      if (error) {
-        console.error('insert lead:', error);
-        toast('Не получилось сохранить: ' + (error.message || 'неизвестная ошибка'));
-        return;
+      if (state.editingLeadId) {
+        // UPDATE — operator_id/status/created_at не трогаем; updated_at
+        // ставится автоматически триггером leads_updated_at_trg.
+        const { error } = await sb.from('leads').update(payload).eq('id', state.editingLeadId);
+        if (error) {
+          console.error('update lead:', error);
+          toast('Не получилось сохранить: ' + (error.message || 'неизвестная ошибка'));
+          return;
+        }
+        toast('Изменения сохранены.');
+      } else {
+        const insertPayload = { ...payload, operator_id: user.id, status: 'meeting_scheduled' };
+        const { error } = await sb.from('leads').insert(insertPayload);
+        if (error) {
+          console.error('insert lead:', error);
+          toast('Не получилось сохранить: ' + (error.message || 'неизвестная ошибка'));
+          return;
+        }
+        toast('Заявка передана менеджеру.');
       }
 
-      toast('Заявка передана менеджеру.');
+      state.editingLeadId = null;
+      state.prefillLead = null;
       await loadData();
       renderList();
     } finally {
