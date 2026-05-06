@@ -24,6 +24,8 @@
     { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
     { key: 'meeting_failed',    title: 'Не состоялась встреча' },
     { key: 'decision_pending',  title: 'Принимает решение' },
+    { key: 'callback',          title: 'Перезвонить' },
+    { key: 'reschedule',        title: 'Назначить новую дату' },
   ];
 
   const WEEKDAYS_SHORT_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
@@ -132,7 +134,9 @@
       return;
     }
     const colsHtml = STATUS_COLUMNS.map((col) => {
-      const items = LEADS.filter((l) => (l.status || 'meeting_scheduled') === col.key);
+      const items = LEADS
+        .filter((l) => (l.status || 'meeting_scheduled') === col.key)
+        .sort((a, b) => (b.lead_pos || 0) - (a.lead_pos || 0));
       const cards = items.length
         ? items.map(renderLeadCard).join('')
         : '<div class="lead-col-empty">— пусто —</div>';
@@ -159,11 +163,12 @@
   function renderLeadCard(lead) {
     const isOnline = isOnlineLead(lead);
     const kindCls = isOnline ? 'lead-card-online' : 'lead-card-offline';
+    const where = lead.meeting_address || lead.city || '';
     return `
       <div class="lead-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
         <div class="lead-card-name">${escapeHtml(lead.company_name)}</div>
         <div class="lead-card-meta">
-          <span class="lead-card-city">${escapeHtml(lead.city || '')}</span>
+          <span class="lead-card-where">${escapeHtml(where)}</span>
           <span class="lead-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
       </div>`;
@@ -199,21 +204,51 @@
         const id = dragId || e.dataTransfer.getData('text/plain');
         const newStatus = body.dataset.col;
         if (!id || !newStatus) return;
-        await moveLeadToStatus(id, newStatus);
+        await moveLeadTo(id, newStatus, body, e.clientY);
       });
     });
   }
 
-  async function moveLeadToStatus(leadId, newStatus) {
+  function dropIndexFromY(body, draggedId, clientY) {
+    const cards = [...body.querySelectorAll('.lead-card[data-id]')]
+      .filter((c) => c.dataset.id !== draggedId);
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) return i;
+    }
+    return cards.length;
+  }
+  function calcLeadPos(neighbors, index) {
+    if (!neighbors.length) return Date.now() / 1000;
+    const above = index > 0 ? (neighbors[index - 1].lead_pos || 0) : null;
+    const below = index < neighbors.length ? (neighbors[index].lead_pos || 0) : null;
+    if (above === null) return below + 1;
+    if (below === null) return above - 1;
+    return (above + below) / 2;
+  }
+
+  async function moveLeadTo(leadId, newStatus, body, clientY) {
     const lead = LEADS.find((l) => l.id === leadId);
-    if (!lead || lead.status === newStatus) return;
-    const prev = lead.status;
+    if (!lead) return;
+
+    const neighbors = LEADS
+      .filter((l) => (l.status || 'meeting_scheduled') === newStatus && l.id !== leadId)
+      .sort((a, b) => (b.lead_pos || 0) - (a.lead_pos || 0));
+    const idx = dropIndexFromY(body, leadId, clientY);
+    const newPos = calcLeadPos(neighbors, idx);
+    if (lead.status === newStatus && (lead.lead_pos || 0) === newPos) return;
+
+    const prev = { status: lead.status, lead_pos: lead.lead_pos };
     lead.status = newStatus;
+    lead.lead_pos = newPos;
     render();
-    const { error } = await sb.from('leads').update({ status: newStatus }).eq('id', leadId);
+    const { error } = await sb.from('leads')
+      .update({ status: newStatus, lead_pos: newPos })
+      .eq('id', leadId);
     if (error) {
-      console.error('lead status:', error);
-      lead.status = prev;
+      console.error('lead move:', error);
+      lead.status = prev.status;
+      lead.lead_pos = prev.lead_pos;
       render();
       toast('Не получилось переместить: ' + (error.message || 'ошибка'));
     }
@@ -592,11 +627,12 @@
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return;
     // RLS уже фильтрует по manager_id = auth.uid(), но дублируем явно для прозрачности.
+    // Сортируем по lead_pos DESC (ручной порядок в канбане), затем created_at.
     const { data, error } = await sb
       .from('leads')
       .select('*')
       .eq('manager_id', user.id)
-      .order('meeting_at', { ascending: true, nullsFirst: false })
+      .order('lead_pos', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
     if (error) {
       console.error('seller-leads load:', error);

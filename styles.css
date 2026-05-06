@@ -4115,8 +4115,8 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
    ============================================================ */
 .ol-board, .leads-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(6, minmax(160px, 1fr));
+  gap: 8px;
   align-items: start;
   overflow-x: auto;
   padding-bottom: 8px;

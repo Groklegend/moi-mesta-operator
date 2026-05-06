@@ -34,6 +34,8 @@
     { key: 'meeting_confirmed', title: 'Подтверждённая встреча' },
     { key: 'meeting_failed',    title: 'Не состоялась встреча' },
     { key: 'decision_pending',  title: 'Принимает решение' },
+    { key: 'callback',          title: 'Перезвонить' },
+    { key: 'reschedule',        title: 'Назначить новую дату' },
   ];
 
   const WEEKDAYS_SHORT_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
@@ -126,6 +128,7 @@
     const [leadsRes, mgrsRes] = await Promise.all([
       sb.from('leads')
         .select('*')
+        .order('lead_pos', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false }),
       sb.from('users')
         .select('id, full_name, email, status, cal_step_minutes')
@@ -228,7 +231,9 @@
 
   function renderBoardColumns() {
     return STATUS_COLUMNS.map((col) => {
-      const items = state.leads.filter((l) => (l.status || 'meeting_scheduled') === col.key);
+      const items = state.leads
+        .filter((l) => (l.status || 'meeting_scheduled') === col.key)
+        .sort((a, b) => (b.lead_pos || 0) - (a.lead_pos || 0));
       const cards = items.length
         ? items.map((lead) => renderLeadCard(lead)).join('')
         : '<div class="ol-col-empty">— пусто —</div>';
@@ -248,11 +253,14 @@
   function renderLeadCard(lead) {
     const isOnline = !lead.meeting_address && !!lead.city;
     const kindCls = isOnline ? 'ol-card-online' : 'ol-card-offline';
+    // Адрес важнее города: для офлайн встреч показываем полный адрес,
+    // для онлайн — только город (адреса нет).
+    const where = lead.meeting_address || lead.city || '';
     return `
       <div class="ol-card ${kindCls}" draggable="true" data-id="${escapeHtml(lead.id)}" data-status="${escapeHtml(lead.status || 'meeting_scheduled')}">
         <div class="ol-card-title">${escapeHtml(lead.company_name)}</div>
         <div class="ol-card-meta">
-          <span class="ol-card-city">${escapeHtml(lead.city || '')}</span>
+          <span class="ol-card-where">${escapeHtml(where)}</span>
           <span class="ol-card-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
         </div>
       </div>`;
@@ -293,23 +301,60 @@
         const id = dragId || e.dataTransfer.getData('text/plain');
         const newStatus = body.dataset.col;
         if (!id || !newStatus) return;
-        await moveLeadToStatus(id, newStatus);
+        await moveLeadTo(id, newStatus, body, e.clientY);
       });
     });
   }
 
-  async function moveLeadToStatus(leadId, newStatus) {
+  // Считаем индекс вставки в колонке по координате Y курсора при drop.
+  // Берём только карточки кроме самой перетаскиваемой; если курсор выше
+  // середины i-й — вставляем перед ней.
+  function dropIndexFromY(body, draggedId, clientY) {
+    const cards = [...body.querySelectorAll('.ol-card[data-id]')]
+      .filter((c) => c.dataset.id !== draggedId);
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) return i;
+    }
+    return cards.length;
+  }
+
+  // Возвращает новое значение lead_pos для вставки в позицию index среди
+  // соседей в той же колонке (после исключения dragged-лида).
+  // Сортировка в БД: lead_pos DESC NULLS LAST → большие значения сверху.
+  function calcLeadPos(neighbors, index) {
+    if (!neighbors.length) return Date.now() / 1000;
+    const above = index > 0 ? (neighbors[index - 1].lead_pos || 0) : null;
+    const below = index < neighbors.length ? (neighbors[index].lead_pos || 0) : null;
+    if (above === null) return below + 1;       // вставляем в самый верх
+    if (below === null) return above - 1;       // в самый низ
+    return (above + below) / 2;                  // между двумя
+  }
+
+  async function moveLeadTo(leadId, newStatus, body, clientY) {
     const lead = state.leads.find((l) => l.id === leadId);
-    if (!lead || lead.status === newStatus) return;
-    // Оптимистично двигаем локально + перерисовываем; если API упадёт —
-    // откатываем и показываем тост. updated_at поставит триггер.
-    const prevStatus = lead.status;
+    if (!lead) return;
+
+    const neighbors = state.leads
+      .filter((l) => (l.status || 'meeting_scheduled') === newStatus && l.id !== leadId)
+      .sort((a, b) => (b.lead_pos || 0) - (a.lead_pos || 0));
+    const idx = dropIndexFromY(body, leadId, clientY);
+    const newPos = calcLeadPos(neighbors, idx);
+
+    // Если ничего не меняется — не дёргаем БД.
+    if (lead.status === newStatus && (lead.lead_pos || 0) === newPos) return;
+
+    const prev = { status: lead.status, lead_pos: lead.lead_pos };
     lead.status = newStatus;
+    lead.lead_pos = newPos;
     refreshBoardOnly();
-    const { error } = await sb.from('leads').update({ status: newStatus }).eq('id', leadId);
+    const { error } = await sb.from('leads')
+      .update({ status: newStatus, lead_pos: newPos })
+      .eq('id', leadId);
     if (error) {
-      console.error('lead status:', error);
-      lead.status = prevStatus;
+      console.error('lead move:', error);
+      lead.status = prev.status;
+      lead.lead_pos = prev.lead_pos;
       refreshBoardOnly();
       toast('Не получилось переместить: ' + (error.message || 'ошибка'));
     }
@@ -1227,7 +1272,13 @@
         }
         toast('Изменения сохранены.');
       } else {
-        const insertPayload = { ...payload, operator_id: user.id, status: 'meeting_scheduled' };
+        // Свежий лид → наверх «Назначенных встреч» через lead_pos = epoch.
+        const insertPayload = {
+          ...payload,
+          operator_id: user.id,
+          status: 'meeting_scheduled',
+          lead_pos: Date.now() / 1000,
+        };
         const { error } = await sb.from('leads').insert(insertPayload);
         if (error) {
           console.error('insert lead:', error);
