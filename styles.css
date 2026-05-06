@@ -5353,3 +5353,7 @@ h2.page-title {
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+/* В режиме «Сегодня» sidebar Month/Week полностью убирается из grid */
+.cal-layout.cal-no-sidebar { grid-template-columns: 1fr; }
+.cal-layout.cal-no-sidebar > .cal-sidebar { display: none; }

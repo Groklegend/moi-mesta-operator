@@ -22,12 +22,26 @@
 
   const HOUR_FROM = 9;
   const HOUR_TO = 19;
+  // Шаг хранится в БД (users.cal_step_minutes). localStorage — только
+  // быстрый кеш до получения свежего значения от сервера.
   const STEP_KEY = 'mm_cal_step_minutes_v1';
-  function loadStep() {
+  function loadStepCache() {
     const v = parseInt(localStorage.getItem(STEP_KEY) || '60', 10);
-    return [60, 90, 120].includes(v) ? v : 60;
+    return [60, 90].includes(v) ? v : 60;
   }
-  function saveStep(min) { try { localStorage.setItem(STEP_KEY, String(min)); } catch (_) {} }
+  function saveStepCache(min) { try { localStorage.setItem(STEP_KEY, String(min)); } catch (_) {} }
+  async function loadStepFromDb() {
+    if (!state.userId) return loadStepCache();
+    const { data, error } = await sb.from('users').select('cal_step_minutes').eq('id', state.userId).maybeSingle();
+    if (error) { console.warn('cal_step load:', error); return loadStepCache(); }
+    const v = data?.cal_step_minutes;
+    return [60, 90].includes(v) ? v : 60;
+  }
+  async function saveStepToDb(min) {
+    saveStepCache(min);
+    const { error } = await sb.rpc('set_my_cal_step', { step: min });
+    if (error) console.warn('set_my_cal_step:', error);
+  }
 
   // ---------- Утилиты ----------
   function escapeHtml(s) {
@@ -171,11 +185,20 @@
     if (!state.initialized) {
       state.initialized = true;
       state.cursor = startOfDay(new Date());
-      state.stepMinutes = loadStep();
-      // По умолчанию открываем «Сегодня» — это самый частый сценарий.
+      // Сначала кеш (быстро), потом догружаем из БД.
+      state.stepMinutes = loadStepCache();
       state.selectedDay = ymd(state.cursor);
     }
     await refresh();
+    // После refresh знаем state.userId — догружаем актуальный шаг
+    if (state.userId) {
+      const fresh = await loadStepFromDb();
+      if (fresh !== state.stepMinutes) {
+        state.stepMinutes = fresh;
+        saveStepCache(fresh);
+        if (state.view === 'today') render();
+      }
+    }
   }
 
   async function refresh() {
@@ -193,7 +216,6 @@
             <div class="cal-steps" id="cal-steps">
               <button type="button" class="btn cal-step-btn" data-step="60">1 ч</button>
               <button type="button" class="btn cal-step-btn" data-step="90">1½ ч</button>
-              <button type="button" class="btn cal-step-btn" data-step="120">2 ч</button>
             </div>
             <div class="cal-views">
               <button type="button" class="btn cal-view-btn" data-view="today">Сегодня</button>
@@ -248,7 +270,7 @@
     document.querySelectorAll('.cal-step-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         state.stepMinutes = parseInt(btn.dataset.step, 10);
-        saveStep(state.stepMinutes);
+        await saveStepToDb(state.stepMinutes);
         if (state.view === 'today') await refresh();
         else syncStepButtons();
       });
@@ -284,11 +306,15 @@
         : `${start.getDate()} ${MONTHS_GEN[start.getMonth()]} – ${end.getDate()} ${MONTHS_GEN[end.getMonth()]} ${end.getFullYear()}`;
     }
     // Sidebar (Month/Week) скрываем в режиме Today — там свой layout.
+    const layout = document.querySelector('.cal-layout');
     const sidebar = $('#cal-sidebar');
     if (sidebar && state.view === 'today') {
       sidebar.hidden = true;
       sidebar.innerHTML = '';
     }
+    // Дополнительно убираем колонку sidebar из grid через class на родителе —
+    // надёжнее, чем :has() (поддержка ограничена).
+    if (layout) layout.classList.toggle('cal-no-sidebar', state.view === 'today');
     if (state.view === 'today') renderTodayView();
     else if (state.view === 'month') renderMonth();
     else renderWeek();
@@ -422,7 +448,7 @@
         <div class="cal-today-grid">
           <div class="cal-today-head">
             <span>План на сегодня</span>
-            <button type="button" class="btn cal-today-add" id="cal-today-add">＋ Блокировка</button>
+            <button type="button" class="btn cal-today-add" id="cal-today-add">＋ Событие</button>
           </div>
           ${slotsHtml.join('')}
         </div>
@@ -455,15 +481,15 @@
     $('#cal-today-side .cal-side-del')?.addEventListener('click', async (e) => {
       const id = e.currentTarget.dataset.id;
       const ok = window.confirmDialog
-        ? await window.confirmDialog({ title: 'Удалить блокировку?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
-        : confirm('Удалить блокировку?');
+        ? await window.confirmDialog({ title: 'Удалить событие?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
+        : confirm('Удалить событие?');
       if (!ok) return;
       const { error } = await sb.from('manager_busy_slots').delete().eq('id', id);
       if (error) { toast('Не получилось удалить.'); return; }
       state.selectedEventId = null;
       await loadEvents();
       render();
-      toast('Блокировка удалена.');
+      toast('Событие удалено.');
     });
   }
 
@@ -475,7 +501,7 @@
     backdrop.style.zIndex = '9999';
     backdrop.innerHTML = `
       <div class="modal-window cal-day-window" role="dialog" aria-modal="true">
-        <h3 class="modal-title">Добавить блокировку — ${escapeHtml(date.getDate() + ' ' + MONTHS_GEN[date.getMonth()] + ' ' + date.getFullYear())}</h3>
+        <h3 class="modal-title">Добавить событие —${escapeHtml(date.getDate() + ' ' + MONTHS_GEN[date.getMonth()] + ' ' + date.getFullYear())}</h3>
         <form class="cal-day-add" id="cal-day-add" autocomplete="off">
           <div class="cal-day-add-row">
             <label class="cal-day-add-time">
@@ -581,7 +607,7 @@
       if (ev) detailsHtml = renderEventDetails(ev);
     }
 
-    const addBtnHtml = `<button type="button" class="btn primary cal-side-add" id="cal-side-add">＋ Добавить блокировку</button>`;
+    const addBtnHtml = `<button type="button" class="btn primary cal-side-add" id="cal-side-add">＋ Добавить событие</button>`;
 
     aside.innerHTML = headerHtml + listHtml + detailsHtml + addBtnHtml;
 
@@ -603,8 +629,8 @@
     aside.querySelector('.cal-side-del')?.addEventListener('click', async (e) => {
       const id = e.currentTarget.dataset.id;
       const ok = window.confirmDialog
-        ? await window.confirmDialog({ title: 'Удалить блокировку?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
-        : confirm('Удалить блокировку?');
+        ? await window.confirmDialog({ title: 'Удалить событие?', okText: 'Удалить', cancelText: 'Отмена', danger: true })
+        : confirm('Удалить событие?');
       if (!ok) return;
       const { error } = await sb.from('manager_busy_slots').delete().eq('id', id);
       if (error) { toast('Не получилось удалить.'); return; }
@@ -612,7 +638,7 @@
       await loadEvents();
       render();
       renderSidebar();
-      toast('Блокировка удалена.');
+      toast('Событие удалено.');
     });
   }
 
@@ -621,7 +647,7 @@
       const r = ev._row;
       return `<div class="cal-side-details cal-side-details-block">
         <div class="cal-side-details-head">
-          <strong>Личная блокировка</strong>
+          <strong>Личное событие</strong>
           <button class="btn cal-side-del danger" data-id="${ev._id}" type="button">🗑 Удалить</button>
         </div>
         <div class="cal-side-row"><span>Время:</span> ${rangeOf(ev)}</div>

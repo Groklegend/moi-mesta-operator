@@ -20,18 +20,11 @@
     pinnedMgrIds: [],      // закреплённые менеджеры (localStorage)
     activeMgrId: '',       // активный менеджер (выбранный таб)
     dadataCity: '',        // город, прилетевший из DaData при выборе адреса
-    calStep: 60,           // 60 | 90 | 120 — шаг сетки в режиме День (localStorage)
   };
 
   const HOUR_FROM = 9;     // рабочий день для почасовой сетки
   const HOUR_TO = 19;
   const PINNED_KEY = 'mm_op_pinned_managers_v1';
-  const STEP_KEY = 'mm_cal_step_minutes_v1';
-  function loadCalStep() {
-    const v = parseInt(localStorage.getItem(STEP_KEY) || '60', 10);
-    return [60, 90, 120].includes(v) ? v : 60;
-  }
-  function saveCalStep(min) { try { localStorage.setItem(STEP_KEY, String(min)); } catch (_) {} }
 
   function loadPinned() {
     try {
@@ -98,7 +91,7 @@
         .select('id, company_name, city, manager_id, meeting_at, created_at, status')
         .order('created_at', { ascending: false }),
       sb.from('users')
-        .select('id, full_name, email, status')
+        .select('id, full_name, email, status, cal_step_minutes')
         .contains('roles', ['seller'])
         .order('full_name'),
     ]);
@@ -155,7 +148,6 @@
     if (!state.initialized) {
       pane.innerHTML = '<div class="ol-loading">Загрузка…</div>';
       state.pinnedMgrIds = loadPinned();
-      state.calStep = loadCalStep();
       await loadData();
       // Чистим pinned от удалённых менеджеров
       state.pinnedMgrIds = state.pinnedMgrIds.filter((id) =>
@@ -337,11 +329,6 @@
               <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
               <div class="ol-cal-head-right">
                 <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</span>
-                <div class="ol-cal-steps" id="ol-cal-steps">
-                  <button type="button" class="ol-cal-step-btn" data-step="60">1ч</button>
-                  <button type="button" class="ol-cal-step-btn" data-step="90">1½ч</button>
-                  <button type="button" class="ol-cal-step-btn" data-step="120">2ч</button>
-                </div>
                 <div class="ol-cal-views">
                   <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
                   <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
@@ -541,7 +528,7 @@
   // Ячейка считается занятой, если хотя бы 1 минута пересекается с
   // событием [busy_at, busy_at+duration_minutes).
   function buildStepGrid(slots) {
-    const stepM = state.calStep || 60;
+    const stepM = stepFromActiveManager();
     const occupiedBy = new Map(); // start_minute → { label, range, source }
     for (const s of slots) {
       const start = new Date(s.meeting_at);
@@ -683,36 +670,17 @@
         document.querySelectorAll('.ol-cal-view-btn').forEach((b) => {
           b.classList.toggle('primary', b === btn);
         });
-        syncCalStepVisibility();
         const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
         refreshCalendar(ymd);
       });
     });
-    document.querySelectorAll('.ol-cal-step-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const step = parseInt(btn.dataset.step, 10);
-        if (step === state.calStep) return;
-        state.calStep = step;
-        saveCalStep(step);
-        syncCalStepButtons();
-        if (state.calView === 'day') {
-          const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
-          refreshCalendar(ymd);
-        }
-      });
-    });
-    syncCalStepButtons();
-    syncCalStepVisibility();
   }
 
-  function syncCalStepButtons() {
-    document.querySelectorAll('.ol-cal-step-btn').forEach((b) => {
-      b.classList.toggle('primary', parseInt(b.dataset.step, 10) === state.calStep);
-    });
-  }
-  function syncCalStepVisibility() {
-    const steps = $('#ol-cal-steps');
-    if (steps) steps.style.display = state.calView === 'day' ? '' : 'none';
+  // Шаг сетки — собственное поле менеджера. Оператор только читает.
+  function stepFromActiveManager() {
+    const m = state.managers.find((x) => x.id === state.activeMgrId);
+    const v = m?.cal_step_minutes;
+    return [60, 90].includes(v) ? v : 60;
   }
 
   // ---------- Закреплённые менеджеры (tabs над календарём) ----------
