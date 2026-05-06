@@ -278,6 +278,12 @@
                   <div class="dadata-suggest ol-suggest" id="ol-suggest" hidden></div>
                 </div>
 
+                <label class="ol-field ol-field-wide">
+                  <span class="ol-label">Уточнение по встрече</span>
+                  <input type="text" name="ol_addr_note" maxlength="240" placeholder="Пример: встреча в кафе"
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
+                </label>
+
                 <div class="ol-field">
                   <span class="ol-label">Дата встречи <em>*</em></span>
                   <div class="ol-date-control">
@@ -343,6 +349,12 @@
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Сайт</span>
                   <input type="text" name="ol_site" maxlength="200" placeholder="https://..."
+                         autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
+                </label>
+
+                <label class="ol-field ol-field-wide">
+                  <span class="ol-label">Telegram-канал</span>
+                  <input type="text" name="ol_tg" maxlength="80" placeholder="@channel"
                          autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
                 </label>
 
@@ -864,6 +876,7 @@
       company_name: get('ol_cn').trim(),
       is_online: !!root.querySelector('[name="ol_online"]:checked'),
       meeting_address: get('ol_addr').trim(),
+      addr_note: get('ol_addr_note').trim(),
       meeting_date: get('ol_md').trim(),
       meeting_time: get('ol_mt').trim(),
       is_lpr: checkedVal('ol_lpr') === 'no' ? 'no' : 'yes',
@@ -872,6 +885,7 @@
       lpr_name: get('ol_pname').trim(),
       lpr_position: get('ol_ppos').trim(),
       website: get('ol_site').trim(),
+      telegram: get('ol_tg').trim(),
       // Программа лояльности — три состояния:
       //  loy = ''      — оператор не уточнил
       //  loy = 'yes'   — есть, тип в loy_kind ('discount' | 'bonus')
@@ -937,20 +951,22 @@
       }
 
       const payload = {
-        company_name:        f.company_name,
+        company_name:         f.company_name,
         city,
-        meeting_address:     meetingAddress,
-        meeting_at:          meetingIso,
-        phone:               f.phone || null,
-        called_phone:        f.called_phone || null,
-        website:             f.website || null,
-        lpr_name:            lprName || null,
-        has_loyalty:         hasLoyalty,
-        loyalty_description: loyaltyDescription,
-        comment:             comment || null,
-        manager_id:          state.activeMgrId,
-        operator_id:         user.id,
-        status:              'meeting_scheduled',
+        meeting_address:      meetingAddress,
+        meeting_address_note: f.addr_note || null,
+        meeting_at:           meetingIso,
+        phone:                f.phone || null,
+        called_phone:         f.called_phone || null,
+        website:              f.website || null,
+        telegram:             f.telegram || null,
+        lpr_name:             lprName || null,
+        has_loyalty:          hasLoyalty,
+        loyalty_description:  loyaltyDescription,
+        comment:              comment || null,
+        manager_id:           state.activeMgrId,
+        operator_id:          user.id,
+        status:               'meeting_scheduled',
       };
 
       const { error } = await sb.from('leads').insert(payload);

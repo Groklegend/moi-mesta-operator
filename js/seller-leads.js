@@ -155,7 +155,8 @@
 
     const meetingHtml = lead.meeting_at
       ? `<div class="lead-meeting-when">${escapeHtml(formatMeetingFull(lead.meeting_at))}</div>
-         <div class="lead-meeting-where">${escapeHtml(lead.meeting_address || '— адрес не указан')}</div>`
+         <div class="lead-meeting-where">${escapeHtml(lead.meeting_address || '— адрес не указан')}</div>
+         ${lead.meeting_address_note ? `<div class="lead-meeting-note">📌 ${escapeHtml(lead.meeting_address_note)}</div>` : ''}`
       : '<span class="lead-no">— встреча не назначена</span>';
 
     const hasPitch = Array.isArray(lead.pitch) && lead.pitch.length;
@@ -519,10 +520,29 @@
     };
   }
 
+  // Внешний API: переход из календаря «Мои лиды → ‹эта карточка›».
+  // Если данные ещё не загружены — ставим ожидание, чтобы открыть после loadLeads.
+  let pendingOpenId = null;
+  window.sellerLeads = {
+    openLead(id) {
+      if (!id) return;
+      if (LEADS.length) {
+        activeId = id;
+        renderList();
+        renderPane();
+        // Прокрутить выбранную карточку в области списка в зону видимости.
+        document.querySelector(`.lead-item[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+      } else {
+        pendingOpenId = id;
+      }
+    },
+  };
+
   document.addEventListener('DOMContentLoaded', async () => {
     const list = $('#leads-list');
     if (list) list.innerHTML = '<div class="empty plain">Загрузка…</div>';
     await loadLeads();
+    if (pendingOpenId) { activeId = pendingOpenId; pendingOpenId = null; }
     renderList();
     renderPane();
   });

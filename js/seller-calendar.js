@@ -159,7 +159,7 @@
         .lt('busy_at', toIso)
         .order('busy_at'),
       sb.from('leads')
-        .select('id, company_name, city, phone, called_phone, lpr_name, meeting_address, meeting_at, comment, has_loyalty, website, telegram, status')
+        .select('id, company_name, city, phone, called_phone, lpr_name, meeting_address, meeting_address_note, meeting_at, comment, has_loyalty, loyalty_description, website, telegram, operator_id, status')
         .eq('manager_id', state.userId)
         .not('meeting_at', 'is', null)
         .gte('meeting_at', fromIso)
@@ -575,6 +575,19 @@
       render();
       toast('Событие удалено.');
     });
+    $('#cal-today-side .cal-side-open-lead')?.addEventListener('click', (e) => {
+      openLeadInTab(e.currentTarget.dataset.leadId);
+    });
+  }
+
+  // Переключает менеджера на вкладку «Мои лиды» и открывает указанный
+  // лид через window.sellerLeads.openLead(id). Кликом по seller-tab
+  // обеспечиваем тот же путь рендера, что и обычный переход.
+  function openLeadInTab(leadId) {
+    if (!leadId) return;
+    const tab = document.querySelector('#seller-nav .seller-tab[data-section="leads"]');
+    if (tab) tab.click();
+    window.sellerLeads?.openLead?.(leadId);
   }
 
   // ---------- Модалка добавления блокировки ----------
@@ -725,6 +738,9 @@
       renderSidebar();
       toast('Событие удалено.');
     });
+    aside.querySelector('.cal-side-open-lead')?.addEventListener('click', (e) => {
+      openLeadInTab(e.currentTarget.dataset.leadId);
+    });
   }
 
   function renderEventDetails(ev) {
@@ -741,17 +757,20 @@
     }
     const r = ev._row;
     const tel = r.phone ? `<a href="tel:${escapeHtml(r.phone.replace(/[^\d+]/g, ''))}">${escapeHtml(r.phone)}</a>` : '— нет';
+    const opName = (r._operator_name || '').trim();
     return `<div class="cal-side-details cal-side-details-lead">
       <div class="cal-side-details-head">
         <strong>${escapeHtml(r.company_name)}</strong>
-        <a class="cal-side-link" href="seller#leads">«Мои лиды» →</a>
+        <button type="button" class="cal-side-link cal-side-open-lead" data-lead-id="${escapeHtml(r.id)}">«Мои лиды» →</button>
       </div>
       <div class="cal-side-row"><span>Время:</span> ${rangeOf(ev)}</div>
       ${r.city ? `<div class="cal-side-row"><span>Город:</span> ${escapeHtml(r.city)}</div>` : ''}
       ${r.meeting_address ? `<div class="cal-side-row"><span>Адрес:</span> ${escapeHtml(r.meeting_address)}</div>` : ''}
+      ${r.meeting_address_note ? `<div class="cal-side-row"><span>Уточнение:</span> ${escapeHtml(r.meeting_address_note)}</div>` : ''}
       <div class="cal-side-row"><span>Телефон:</span> ${tel}</div>
       ${r.lpr_name ? `<div class="cal-side-row"><span>ЛПР:</span> ${escapeHtml(r.lpr_name)}</div>` : ''}
-      ${r._operator_name ? `<div class="cal-side-row"><span>Оператор:</span> ${escapeHtml(r._operator_name)}</div>` : ''}
+      ${r.operator_id ? `<div class="cal-side-row"><span>Оператор:</span> ${escapeHtml(opName || '— не указан')}</div>` : ''}
+      ${r.telegram ? `<div class="cal-side-row"><span>Telegram:</span> ${escapeHtml(r.telegram)}</div>` : ''}
       ${r.comment ? `<div class="cal-side-row cal-side-row-comment"><span>Комментарий:</span> ${escapeHtml(r.comment)}</div>` : ''}
     </div>`;
   }

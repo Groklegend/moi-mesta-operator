@@ -3169,6 +3169,15 @@ h2.page-title {
   color: var(--ink);
   line-height: 1.5;
 }
+.lead-meeting-note {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--accent-dark);
+  background: var(--accent-soft, rgba(232, 130, 61, 0.08));
+  border-radius: 4px;
+  padding: 4px 8px;
+  display: inline-block;
+}
 
 .lead-fields { display: flex; flex-direction: column; gap: 8px; margin: 0 0 28px; padding: 0; }
 .lead-row {
@@ -4982,6 +4991,11 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 10px
   font-size: 12px;
   color: var(--accent);
   text-decoration: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 .cal-side-link:hover { text-decoration: underline; }
 .cal-side-row { display: flex; gap: 6px; }
