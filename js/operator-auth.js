@@ -29,12 +29,12 @@
       sessionStorage.removeItem(KEY);
     },
     require() {
-      if (!read()) { location.replace('operator-login.html'); return false; }
+      if (!read()) { location.replace('login'); return false; }
       return true;
     },
     logout() {
       this.clear();
-      location.replace('operator-login.html');
+      location.replace('login');
     },
   };
 })();
