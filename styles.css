@@ -3096,6 +3096,27 @@ h2.page-title {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+/* Цвет карточки лида в списке: офлайн — оранжевый, онлайн — синий.
+   Active-состояние перебивается ниже общим .active. */
+.lead-item-offline {
+  background: rgba(232, 130, 61, 0.08);
+  border-color: rgba(232, 130, 61, 0.35);
+}
+.lead-item-online {
+  background: rgba(63, 130, 220, 0.08);
+  border-color: rgba(63, 130, 220, 0.4);
+}
+.lead-item.lead-item-online.active {
+  background: rgba(63, 130, 220, 0.18);
+  border-color: #1f5db7;
+}
+.lead-item-kind {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.lead-item-online .lead-item-kind { color: #2c6dc7; }
+.lead-item-offline .lead-item-kind { color: var(--accent-dark); }
 .lead-name { font-weight: 600; color: var(--ink); font-size: 14px; }
 .lead-meta {
   display: flex;
@@ -3139,7 +3160,18 @@ h2.page-title {
 }
 .leads-pane .placeholder .big-icon { font-size: 48px; opacity: 0.6; }
 
-.lead-detail-title { margin: 0 0 20px; font-size: 24px; color: var(--navy); }
+.lead-detail-title { margin: 0 0 12px; font-size: 24px; color: var(--navy); }
+
+.lead-kind-banner {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin: 0 0 16px;
+}
+.lead-kind-online { background: rgba(63, 130, 220, 0.15); color: #1f5db7; }
+.lead-kind-offline { background: rgba(232, 130, 61, 0.15); color: var(--accent-dark); }
 
 .lead-meeting-card {
   background: linear-gradient(135deg, var(--accent-soft), var(--bg-soft));
@@ -3150,6 +3182,10 @@ h2.page-title {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.lead-meeting-card-online {
+  background: linear-gradient(135deg, rgba(63, 130, 220, 0.12), var(--bg-soft));
+  border-color: #2c6dc7;
 }
 .lead-meeting-label {
   font-size: 12px;

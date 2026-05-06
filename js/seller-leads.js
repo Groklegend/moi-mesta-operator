@@ -88,6 +88,12 @@
     return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
+  // Лид считается онлайн-встречей, если оператор поставил чекбокс
+  // «Онлайн-встреча» — тогда meeting_address=null, а city хранит город встречи.
+  function isOnlineLead(lead) {
+    return !lead.meeting_address && !!lead.city;
+  }
+
   function formatMeetingFull(iso) {
     if (!iso) return '';
     const d = new Date(iso);
@@ -103,15 +109,21 @@
       list.innerHTML = '<div class="empty plain">Лидов пока нет.</div>';
       return;
     }
-    list.innerHTML = LEADS.map((lead) => `
-      <button class="lead-item${lead.id === activeId ? ' active' : ''}" data-id="${lead.id}" type="button">
-        <div class="lead-name">${escapeHtml(lead.company_name)}</div>
-        <div class="lead-meta">
-          <span class="lead-city">${escapeHtml(lead.city || '')}</span>
-          <span class="lead-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
-        </div>
-        ${lead._operator_name ? `<div class="lead-from-op">от оператора ${escapeHtml(lead._operator_name)}</div>` : ''}
-      </button>`).join('');
+    list.innerHTML = LEADS.map((lead) => {
+      const isOnline = isOnlineLead(lead);
+      const kindCls = isOnline ? ' lead-item-online' : ' lead-item-offline';
+      const kindLabel = isOnline ? '🌐 онлайн' : '📍 офлайн';
+      return `
+        <button class="lead-item${kindCls}${lead.id === activeId ? ' active' : ''}" data-id="${lead.id}" type="button">
+          <div class="lead-name">${escapeHtml(lead.company_name)}</div>
+          <div class="lead-meta">
+            <span class="lead-city">${escapeHtml(lead.city || '')}</span>
+            <span class="lead-meet">${escapeHtml(formatMeetingShort(lead.meeting_at))}</span>
+          </div>
+          <div class="lead-item-kind">${kindLabel}</div>
+          ${lead._operator_name ? `<div class="lead-from-op">от оператора ${escapeHtml(lead._operator_name)}</div>` : ''}
+        </button>`;
+    }).join('');
     list.querySelectorAll('.lead-item').forEach((b) => {
       b.addEventListener('click', () => {
         activeId = b.dataset.id;
@@ -199,10 +211,16 @@
          </div>`
       : '';
 
+    const isOnline = isOnlineLead(lead);
+    const kindBannerHtml = isOnline
+      ? '<div class="lead-kind-banner lead-kind-online">🌐 Онлайн-встреча</div>'
+      : '<div class="lead-kind-banner lead-kind-offline">📍 Офлайн-встреча</div>';
+
     pane.innerHTML = `
       <h2 class="lead-detail-title">${escapeHtml(lead.company_name)}</h2>
+      ${kindBannerHtml}
 
-      <div class="lead-meeting-card">
+      <div class="lead-meeting-card${isOnline ? ' lead-meeting-card-online' : ''}">
         <div class="lead-meeting-label">📅 Встреча</div>
         ${meetingHtml}
       </div>
