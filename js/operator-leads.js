@@ -18,6 +18,8 @@
     busySlots: [],         // на текущий день (calView='day')
     busyWeek: {},          // { 'YYYY-MM-DD': [...] } на неделю (calView='week')
     pinnedMgrIds: [],      // закреплённые менеджеры (localStorage)
+    activeMgrId: '',       // активный менеджер (выбранный таб)
+    dadataCity: '',        // город, прилетевший из DaData при выборе адреса
   };
 
   const HOUR_FROM = 9;     // рабочий день для почасовой сетки
@@ -127,10 +129,16 @@
     }
   }
 
-  // Получить выбранного в форме менеджера (id) — для фильтра расписания.
+  // Активный менеджер — выбранный таб над расписанием.
   function selectedManagerId() {
-    const sel = document.querySelector('select[name="manager_id"]');
-    return sel?.value || '';
+    return state.activeMgrId || '';
+  }
+
+  function setActiveMgr(id) {
+    state.activeMgrId = id || '';
+    renderMgrTabs();
+    const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
+    refreshCalendar(ymd);
   }
 
   // ---------- Точка входа ----------
@@ -196,6 +204,7 @@
   // ---------- View «Создание заявки» ----------
   async function renderCreate() {
     state.view = 'create';
+    state.dadataCity = ''; // свежая форма — кэш города сброшен
     const pane = $('#leads-plus-pane');
 
     if (!state.managers.length) {
@@ -223,18 +232,13 @@
                   <input type="text" name="company_name" required maxlength="120">
                 </label>
 
-                <label class="ol-field ol-field-wide">
-                  <span class="ol-label">Город</span>
-                  <input type="text" name="city" maxlength="80">
-                </label>
-
                 <label class="ol-field ol-field-wide ol-field-checkbox">
                   <input type="checkbox" name="is_online" id="ol-is-online">
                   <span>Онлайн-встреча (без адреса)</span>
                 </label>
 
                 <div class="ol-field ol-field-wide ol-address-wrap">
-                  <span class="ol-label">Адрес встречи</span>
+                  <span class="ol-label" id="ol-address-label">Адрес встречи</span>
                   <input type="text" name="meeting_address" id="ol-address" maxlength="240" placeholder="Город, улица, дом, офис…">
                   <div class="dadata-suggest ol-suggest" id="ol-suggest" hidden></div>
                 </div>
@@ -254,23 +258,23 @@
                 </label>
 
                 <label class="ol-field">
-                  <span class="ol-label">Телефон клиента</span>
-                  <input type="text" name="phone" maxlength="40" placeholder="+7 (___) ___-__-__">
+                  <span class="ol-label">Телефон ЛПР</span>
+                  <input type="tel" name="phone" maxlength="22" placeholder="8 962 (323) 25 47" inputmode="tel">
                 </label>
 
                 <label class="ol-field">
                   <span class="ol-label">Номер, на который звонили</span>
-                  <input type="text" name="called_phone" maxlength="40">
-                </label>
-
-                <label class="ol-field ol-field-wide">
-                  <span class="ol-label">Сайт</span>
-                  <input type="text" name="website" maxlength="200" placeholder="https://...">
+                  <input type="tel" name="called_phone" maxlength="22" placeholder="8 962 (323) 25 47" inputmode="tel">
                 </label>
 
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">ФИО ЛПР</span>
                   <input type="text" name="lpr_name" maxlength="120" placeholder="Имя, должность">
+                </label>
+
+                <label class="ol-field ol-field-wide">
+                  <span class="ol-label">Сайт</span>
+                  <input type="text" name="website" maxlength="200" placeholder="https://...">
                 </label>
 
                 <label class="ol-field ol-field-wide ol-field-checkbox">
@@ -281,16 +285,6 @@
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">Комментарий</span>
                   <textarea name="comment" rows="3" maxlength="2000" placeholder="Что обсудили, особенности клиента, договорённости…"></textarea>
-                </label>
-
-                <label class="ol-field ol-field-wide">
-                  <span class="ol-label">Менеджер <em>*</em></span>
-                  <select name="manager_id" required>
-                    <option value="">— выберите менеджера —</option>
-                    ${state.managers.map((m) => `
-                      <option value="${m.id}">${escapeHtml((m.full_name || '').trim() || m.email)}</option>
-                    `).join('')}
-                  </select>
                 </label>
               </div>
 
@@ -330,14 +324,11 @@
     bindOnlineCheckbox();
     bindAddressAutocomplete();
     bindCalendarViews();
-    bindManagerSelectChange();
+    bindPhoneMasks();
 
-    // Если есть закреплённые менеджеры и select формы пустой — выбираем
-    // первого pinned автоматически (без change-trigger, чтобы не было
-    // двойного refreshCalendar — он сам сработает чуть ниже).
-    const sel = document.querySelector('select[name="manager_id"]');
-    if (sel && !sel.value && state.pinnedMgrIds.length) {
-      sel.value = state.pinnedMgrIds[0];
+    // Если есть закреплённые менеджеры — активируем первого автоматически.
+    if (!state.activeMgrId && state.pinnedMgrIds.length) {
+      state.activeMgrId = state.pinnedMgrIds[0];
     }
     renderMgrTabs();
 
@@ -345,6 +336,33 @@
     await refreshCalendar(todayYmd);
 
     $('input[name="company_name"]')?.focus();
+  }
+
+  function bindPhoneMasks() {
+    document.querySelectorAll('input[name="phone"], input[name="called_phone"]').forEach(bindPhoneMask);
+  }
+
+  function bindPhoneMask(input) {
+    input.addEventListener('input', () => {
+      input.value = formatPhoneRu(input.value);
+    });
+  }
+
+  // Формат «8 962 (323) 25 47». Принимаем любую вводимую цифровую строку,
+  // 7 в начале меняем на 8, дополняем 8 если её нет, режем до 11 цифр.
+  function formatPhoneRu(raw) {
+    let d = String(raw).replace(/\D/g, '');
+    if (d.startsWith('7')) d = '8' + d.slice(1);
+    if (d && !d.startsWith('8')) d = '8' + d;
+    d = d.slice(0, 11);
+    if (!d) return '';
+    let out = d[0];
+    if (d.length > 1) out += ' ' + d.slice(1, Math.min(4, d.length));
+    if (d.length > 4) out += ' (' + d.slice(4, Math.min(7, d.length));
+    if (d.length > 6) out += ')';
+    if (d.length > 7) out += ' ' + d.slice(7, Math.min(9, d.length));
+    if (d.length > 9) out += ' ' + d.slice(9, 11);
+    return out;
   }
 
   function bindDateControl() {
@@ -364,15 +382,19 @@
   function bindOnlineCheckbox() {
     const cb = $('#ol-is-online');
     const addr = $('#ol-address');
-    const wrap = document.querySelector('.ol-address-wrap');
+    const label = $('#ol-address-label');
     cb.addEventListener('change', () => {
-      addr.disabled = cb.checked;
+      // При онлайне поле «Адрес» превращается в «Город встречи»:
+      // оператор просто пишет город, а адрес сохраняется как null.
+      addr.value = '';
+      state.dadataCity = '';
+      $('#ol-suggest').hidden = true;
       if (cb.checked) {
-        addr.value = '';
-        wrap.classList.add('ol-disabled');
-        $('#ol-suggest').hidden = true;
+        if (label) label.textContent = 'Город встречи';
+        addr.placeholder = 'Например: Омск';
       } else {
-        wrap.classList.remove('ol-disabled');
+        if (label) label.textContent = 'Адрес встречи';
+        addr.placeholder = 'Город, улица, дом, офис…';
       }
     });
   }
@@ -385,6 +407,8 @@
     let lastItems = [];
 
     input.addEventListener('input', () => {
+      // Ручной ввод — кэшированный из DaData город больше не валиден.
+      state.dadataCity = '';
       clearTimeout(timer);
       timer = setTimeout(() => fetchSuggest(input.value), 300);
     });
@@ -394,6 +418,8 @@
     });
 
     async function fetchSuggest(q) {
+      // При онлайне поле — это «Город встречи», подсказки не нужны.
+      if ($('#ol-is-online')?.checked) { wrap.hidden = true; return; }
       q = (q || '').trim();
       if (q.length < 3) { wrap.hidden = true; return; }
       try {
@@ -411,12 +437,10 @@
           it.addEventListener('click', () => {
             const sug = items[Number(it.dataset.i)];
             input.value = sug.value;
-            // Если в форме город ещё пустой — подставим из DaData
-            const cityField = document.querySelector('input[name="city"]');
-            if (cityField && !cityField.value.trim()) {
-              const data = sug.data || {};
-              cityField.value = data.city_with_type || data.settlement_with_type || data.region_with_type || '';
-            }
+            const data = sug.data || {};
+            // Город из выбранного адреса — сохраняем в state, в БД попадёт
+            // отдельной колонкой city при сохранении формы.
+            state.dadataCity = data.city_with_type || data.settlement_with_type || data.region_with_type || '';
             wrap.hidden = true;
           });
         });
@@ -625,16 +649,6 @@
     });
   }
 
-  function bindManagerSelectChange() {
-    const sel = document.querySelector('select[name="manager_id"]');
-    if (!sel) return;
-    sel.addEventListener('change', () => {
-      const ymd = document.querySelector('input[name="meeting_date"]')?.value || ymdLocal(new Date());
-      renderMgrTabs();
-      refreshCalendar(ymd);
-    });
-  }
-
   // ---------- Закреплённые менеджеры (tabs над календарём) ----------
   function renderMgrTabs() {
     const wrap = $('#ol-mgr-tabs');
@@ -663,11 +677,7 @@
       t.addEventListener('click', (e) => {
         if (e.target.classList.contains('ol-mgr-tab-close')) return;
         const id = t.dataset.mgrId;
-        const sel = document.querySelector('select[name="manager_id"]');
-        if (sel && sel.value !== id) {
-          sel.value = id;
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        if (id !== state.activeMgrId) setActiveMgr(id);
       });
     });
     wrap.querySelectorAll('.ol-mgr-tab-close').forEach((c) => {
@@ -728,11 +738,7 @@
       it.addEventListener('click', () => {
         const id = it.dataset.id;
         addPinned(id);
-        const sel = document.querySelector('select[name="manager_id"]');
-        if (sel) {
-          sel.value = id;
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        setActiveMgr(id);
         popup.remove();
         document.removeEventListener('click', closePicker);
       });
@@ -773,10 +779,17 @@
         return v || null;
       };
 
+      // City: при онлайне берём то, что оператор написал в поле «Город встречи»
+      // (одно и то же поле, что для адреса). Иначе — из DaData (если выбирал
+      // подсказку), иначе — null.
+      const addrRaw = (fd.get('meeting_address') || '').trim();
+      const city = isOnline ? (addrRaw || null) : (state.dadataCity || null);
+      const meetingAddress = isOnline ? null : (addrRaw || null);
+
       const payload = {
         company_name:    (fd.get('company_name') || '').trim(),
-        city:            trimOrNull('city'),
-        meeting_address: isOnline ? null : trimOrNull('meeting_address'),
+        city,
+        meeting_address: meetingAddress,
         meeting_at:      meetingIso,
         phone:           trimOrNull('phone'),
         called_phone:    trimOrNull('called_phone'),
@@ -784,20 +797,18 @@
         lpr_name:        trimOrNull('lpr_name'),
         has_loyalty:     fd.get('has_loyalty') === 'on',
         comment:         trimOrNull('comment'),
-        manager_id:      fd.get('manager_id') || null,
+        manager_id:      state.activeMgrId || null,
         operator_id:     user.id,
         status:          'meeting_scheduled',
       };
 
-      // Онлайн-встречу маркируем в комментарии (отдельной колонки is_online не делаем —
-      // это редкий маркер, не стоит миграции).
       if (isOnline) {
         const tag = '🌐 Онлайн-встреча';
         payload.comment = payload.comment ? `${tag}\n\n${payload.comment}` : tag;
       }
 
       if (!payload.company_name) { toast('Укажите название компании.'); return; }
-      if (!payload.manager_id) { toast('Выберите менеджера.'); return; }
+      if (!payload.manager_id) { toast('Закрепите менеджера наверху правой панели (＋).'); return; }
 
       const { error } = await sb.from('leads').insert(payload);
       if (error) {
