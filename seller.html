@@ -45,6 +45,9 @@
     <button class="seller-tab" data-section="leads" type="button">
       <span class="emoji">📍</span><span>Мои лиды</span>
     </button>
+    <button class="seller-tab" data-section="calendar" type="button">
+      <span class="emoji">🗓</span><span>Календарь</span>
+    </button>
     <!-- «Рубрики» спрятаны из дропдауна — выбор рубрики уже есть справа
          в секции «Возражения». Сама вкладка осталась для прямого перехода
          по #kb-categories, но в меню не показывается. -->
@@ -528,6 +531,9 @@
     </div>
   </section>
 
+  <!-- Календарь — менеджер блокирует свои занятые слоты, оператор видит в «Заявке Плюс» -->
+  <section id="section-calendar" class="seller-section" hidden></section>
+
   </div><!-- /.seller-content -->
 </div><!-- /.seller-layout -->
 </main>
@@ -555,6 +561,10 @@
       document.getElementById('section-' + btn.dataset.section).hidden = false;
       location.hash = btn.dataset.section;
       syncDropdownLabel(btn);
+      // Календарь инициализируется лениво — только при первом переходе.
+      if (btn.dataset.section === 'calendar') {
+        window.sellerCalendar?.show();
+      }
     });
   });
 
@@ -630,7 +640,7 @@
     let target;
     if (/^app:[0-9a-f-]{36}$/.test(initial)) target = 'connect';
     else if (initial === 'actions') target = 'actions';
-    else if (initial === 'kb-categories' || initial === 'kb-objections' || initial === 'kb-documents' || initial === 'leads') target = initial;
+    else if (initial === 'kb-categories' || initial === 'kb-objections' || initial === 'kb-documents' || initial === 'leads' || initial === 'calendar') target = initial;
     else target = 'deals'; // включая «connect» и пустой hash
     const tab = document.querySelector(`#seller-nav .seller-tab[data-section="${target}"]`);
     if (tab) tab.click();
@@ -645,5 +655,6 @@
 <script src="js/seller-knowledge.js"></script>
 <script src="js/leads-data.js"></script>
 <script src="js/seller-leads.js"></script>
+<script src="js/seller-calendar.js"></script>
 </body>
 </html>

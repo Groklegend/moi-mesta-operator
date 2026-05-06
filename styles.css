@@ -4321,3 +4321,260 @@ h2.page-title {
   .ol-create-grid { grid-template-columns: 1fr; }
   .ol-create-col-right { order: -1; } /* На узких экранах календарь сверху */
 }
+
+/* ============================================================
+   Календарь менеджера (seller-calendar.js)
+   ============================================================ */
+#section-calendar {
+  padding: 8px 4px 32px;
+}
+.cal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal-prev, .cal-next, .cal-today {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+.cal-prev, .cal-next { font-size: 18px; min-width: 36px; padding: 4px 0; }
+.cal-period {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 220px;
+  text-align: center;
+}
+.cal-views {
+  display: flex;
+  gap: 0;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+}
+.cal-view-btn {
+  border: none;
+  border-radius: 0;
+  padding: 6px 16px;
+  background: var(--card);
+  font-size: 14px;
+}
+.cal-view-btn:hover { background: var(--bg-soft); }
+.cal-view-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+
+.cal-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 4px 0;
+}
+
+/* ---- Месячный вид ---- */
+.cal-month-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cal-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--card);
+}
+.cal-cell {
+  min-height: 96px;
+  padding: 6px 8px;
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.12s;
+}
+.cal-cell:nth-child(-n+7) { border-top: none; }
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell:hover { background: var(--bg-soft); }
+.cal-cell-out { color: var(--muted-2); background: rgba(0,0,0,0.015); }
+.cal-cell-out:hover { background: rgba(0,0,0,0.04); }
+.cal-cell-today .cal-cell-num {
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  width: 26px; height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cal-cell-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  padding-left: 2px;
+}
+.cal-cell-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  overflow: hidden;
+}
+.cal-slot-pill {
+  background: rgba(232, 130, 61, 0.15);
+  color: var(--accent-dark);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-slot-more {
+  color: var(--muted);
+  font-size: 11px;
+  padding-left: 6px;
+}
+
+/* ---- Недельный вид ---- */
+.cal-week-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cal-week-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.cal-week-row:hover { border-color: var(--accent-soft); }
+.cal-week-row-today { border-color: var(--accent); }
+.cal-week-day { text-align: center; }
+.cal-week-num { font-size: 22px; font-weight: 700; color: var(--ink); }
+.cal-week-wd { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.cal-week-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cal-week-slot {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+}
+.cal-week-time { font-weight: 600; color: var(--accent-dark); min-width: 48px; }
+.cal-week-comment { color: var(--ink); }
+.cal-week-empty { font-size: 13px; color: var(--muted); }
+.cal-week-add {
+  width: 36px; height: 36px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* ---- Модалка дня ---- */
+.cal-day-window {
+  max-width: 520px;
+  width: calc(100% - 32px);
+  padding: 24px 24px 20px;
+}
+.cal-day-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm, 8px);
+  margin-bottom: 16px;
+}
+.cal-day-slots {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cal-day-slot {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm, 8px);
+}
+.cal-day-slot-time { font-weight: 600; color: var(--accent-dark); }
+.cal-day-slot-comment { color: var(--ink); font-size: 14px; }
+.cal-day-slot-del {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+.cal-day-slot-del:hover { background: rgba(0,0,0,0.06); }
+.cal-day-add {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.cal-day-add-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cal-day-add-time, .cal-day-add-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cal-day-add input[type="time"],
+.cal-day-add input[type="text"] {
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  font-size: 14px;
+  font-family: inherit;
+}
+.cal-day-add input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.cal-day-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .cal-cell { min-height: 64px; padding: 4px; }
+  .cal-cell-num { font-size: 12px; }
+  .cal-cell-slots { display: none; } /* На мобильных только число; детали в модалке */
+  .cal-day-add-row { grid-template-columns: 1fr; }
+}
