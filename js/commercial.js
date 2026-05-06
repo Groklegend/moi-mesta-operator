@@ -51,6 +51,30 @@
     return new Date(iso).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' });
   }
 
+  // ---------- Вызов Worker API с JWT текущего пользователя ----------
+  // Используется для синхронной работы со связкой
+  // auth.users + public.users + legacy operators/sellers.
+  async function callApi(path, method, body) {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Нет сессии — войдите заново');
+    const r = await fetch(path, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let data;
+    try { data = await r.json(); } catch { data = null; }
+    if (!r.ok) {
+      const detail = data?.detail || data?.error || `${method} ${path} → ${r.status}`;
+      throw new Error(detail);
+    }
+    return data;
+  }
+
   // ============================================================
   // ОПЕРАТОРЫ (перенесено из admin.js, минимально адаптировано)
   // ============================================================
@@ -121,15 +145,20 @@
       <form class="form-grid" id="op-form">
         <label><div class="lbl">Имя</div>
           <input type="text" name="name" value="${escapeHtml(op.name)}" required placeholder="Иван Петров"></label>
-        <label><div class="lbl">Логин</div>
-          <input type="text" name="login" value="${escapeHtml(op.login)}" required
-                 autocomplete="off" pattern="[A-Za-z0-9_.\\-]{3,32}"
-                 title="Латиница, цифры, _ . - (3–32 символа)"
-                 placeholder="ivan.petrov">
+        <label><div class="lbl">Email (логин для входа)</div>
+          <input type="email" name="login" value="${escapeHtml(op.login)}" required
+                 autocomplete="off"
+                 placeholder="ivan@operators.moi-mesta.local">
+          <div class="lbl" style="font-weight:400;font-size:12px;color:var(--muted);margin-top:4px;">
+            Этим email оператор входит на /login. Для тестовых учёток подойдёт
+            суффикс <code>@operators.moi-mesta.local</code>, для реальных — рабочий email.
+          </div>
         </label>
         <label><div class="lbl">Пароль</div>
           <input type="text" name="password" value="${escapeHtml(op.password || '')}" ${isNew ? 'required' : ''}
-                 autocomplete="new-password" minlength="6" placeholder="Минимум 6 символов"></label>
+                 autocomplete="new-password" minlength="6"
+                 placeholder="${isNew ? 'Минимум 6 символов' : 'Оставьте пустым, чтобы не менять'}">
+        </label>
         ${isNew ? '' : `
         <label style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" name="is_active" ${op.is_active ? 'checked' : ''}>
@@ -145,33 +174,34 @@
       e.preventDefault();
       const fd = new FormData(e.target);
       const name = String(fd.get('name')).trim();
-      const login = String(fd.get('login')).trim().toLowerCase();
+      const email = String(fd.get('login')).trim().toLowerCase();
       const password = String(fd.get('password') || '');
-      const payload = { name, login };
-      if (!isNew) payload.is_active = fd.has('is_active');
-      if (password) {
-        if (password.length < 6) { toast('Пароль минимум 6 символов', 'error'); return; }
-        payload.password = password;
-      } else if (isNew) {
-        toast('Задайте пароль', 'error'); return;
-      }
+      if (!email.includes('@')) { toast('Введите email', 'error'); return; }
+      if (password && password.length < 6) { toast('Пароль минимум 6 символов', 'error'); return; }
+      if (isNew && !password) { toast('Задайте пароль', 'error'); return; }
+
       const btn = e.submitter;
       btn.disabled = true; btn.textContent = 'Сохраняем…';
-      const { data: saved, error } = isNew
-        ? await sb.from('operators').insert(payload).select().maybeSingle()
-        : await sb.from('operators').update(payload).eq('id', id).select().maybeSingle();
-      btn.disabled = false; btn.textContent = 'Сохранить';
-      if (error) {
-        const msg = error.message.includes('operators_login_key') || error.code === '23505'
-          ? 'Логин уже занят — выберите другой'
-          : 'Ошибка: ' + error.message;
-        toast(msg, 'error'); return;
+      try {
+        if (isNew) {
+          await callApi('/api/v1/commercial/users', 'POST', {
+            email, password, full_name: name, role: 'operator',
+          });
+        } else {
+          const payload = { email, full_name: name, is_active: fd.has('is_active') };
+          if (password) payload.password = password;
+          await callApi(`/api/v1/commercial/users/${id}`, 'PATCH', payload);
+        }
+        if (window.audit) audit.save('operators', isNew, id || null, {
+          name, email, password_changed: !!password,
+          is_active: isNew ? true : fd.has('is_active'),
+        });
+        closeModal(); toast('Сохранено'); loadOperators();
+      } catch (err) {
+        toast('Ошибка: ' + (err.message || err), 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Сохранить';
       }
-      if (window.audit) audit.save('operators', isNew, saved?.id || id, {
-        name: payload.name, login: payload.login,
-        is_active: payload.is_active, password_changed: !!payload.password,
-      });
-      closeModal(); toast('Сохранено'); loadOperators();
     });
   }
 
@@ -180,14 +210,19 @@
     if (!op) return;
     const ok = await confirmDialog({
       title: 'Удалить оператора?',
-      message: `«${op.name}» будет удалён. Действие необратимо.`,
+      message: `«${op.name}» будет удалён вместе с учёткой входа. Данные ` +
+               `(мотивация, статистика) останутся в системе, но привязка ` +
+               `к этому оператору пропадёт. Действие необратимо.`,
       okText: 'Удалить', cancelText: 'Отмена', danger: true,
     });
     if (!ok) return;
-    const { error } = await sb.from('operators').delete().eq('id', id);
-    if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
-    if (window.audit) audit.del('operators', id, op.name);
-    toast('Удалено'); loadOperators();
+    try {
+      await callApi(`/api/v1/commercial/users/${id}`, 'DELETE');
+      if (window.audit) audit.del('operators', id, op.name);
+      toast('Удалено'); loadOperators();
+    } catch (err) {
+      toast('Ошибка: ' + (err.message || err), 'error');
+    }
   }
 
   // ============================================================
@@ -249,15 +284,18 @@
       <form class="form-grid" id="seller-form">
         <label><div class="lbl">Имя</div>
           <input type="text" name="name" value="${escapeHtml(s.name)}" required placeholder="Иван Петров"></label>
-        <label><div class="lbl">Логин (почта)</div>
+        <label><div class="lbl">Email (логин для входа)</div>
           <input type="email" name="login" value="${escapeHtml(s.login)}" required
-                 autocomplete="off"
-                 title="Введите email менеджера"
-                 placeholder="ivan.petrov@example.com">
+                 autocomplete="off" placeholder="ivan.petrov@example.com">
+          <div class="lbl" style="font-weight:400;font-size:12px;color:var(--muted);margin-top:4px;">
+            Этим email менеджер входит на /login.
+          </div>
         </label>
         <label><div class="lbl">Пароль</div>
           <input type="text" name="password" value="${escapeHtml(s.password || '')}" ${isNew ? 'required' : ''}
-                 autocomplete="new-password" minlength="6" placeholder="Минимум 6 символов"></label>
+                 autocomplete="new-password" minlength="6"
+                 placeholder="${isNew ? 'Минимум 6 символов' : 'Оставьте пустым, чтобы не менять'}">
+        </label>
         ${isNew ? '' : `
         <label style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" name="is_active" ${s.is_active ? 'checked' : ''}>
@@ -273,33 +311,34 @@
       e.preventDefault();
       const fd = new FormData(e.target);
       const name = String(fd.get('name')).trim();
-      const login = String(fd.get('login')).trim().toLowerCase();
+      const email = String(fd.get('login')).trim().toLowerCase();
       const password = String(fd.get('password') || '');
-      const payload = { name, login };
-      if (!isNew) payload.is_active = fd.has('is_active');
-      if (password) {
-        if (password.length < 6) { toast('Пароль минимум 6 символов', 'error'); return; }
-        payload.password = password;
-      } else if (isNew) {
-        toast('Задайте пароль', 'error'); return;
-      }
+      if (!email.includes('@')) { toast('Введите email', 'error'); return; }
+      if (password && password.length < 6) { toast('Пароль минимум 6 символов', 'error'); return; }
+      if (isNew && !password) { toast('Задайте пароль', 'error'); return; }
+
       const btn = e.submitter;
       btn.disabled = true; btn.textContent = 'Сохраняем…';
-      const { data: saved, error } = isNew
-        ? await sb.from('sellers').insert(payload).select().maybeSingle()
-        : await sb.from('sellers').update(payload).eq('id', id).select().maybeSingle();
-      btn.disabled = false; btn.textContent = 'Сохранить';
-      if (error) {
-        const msg = error.message.includes('sellers_login_key') || error.code === '23505'
-          ? 'Логин уже занят — выберите другой'
-          : 'Ошибка: ' + error.message;
-        toast(msg, 'error'); return;
+      try {
+        if (isNew) {
+          await callApi('/api/v1/commercial/users', 'POST', {
+            email, password, full_name: name, role: 'seller',
+          });
+        } else {
+          const payload = { email, full_name: name, is_active: fd.has('is_active') };
+          if (password) payload.password = password;
+          await callApi(`/api/v1/commercial/users/${id}`, 'PATCH', payload);
+        }
+        if (window.audit) audit.save('sellers', isNew, id || null, {
+          name, email, password_changed: !!password,
+          is_active: isNew ? true : fd.has('is_active'),
+        });
+        closeModal(); toast('Сохранено'); loadSellers();
+      } catch (err) {
+        toast('Ошибка: ' + (err.message || err), 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Сохранить';
       }
-      if (window.audit) audit.save('sellers', isNew, saved?.id || id, {
-        name: payload.name, login: payload.login,
-        is_active: payload.is_active, password_changed: !!payload.password,
-      });
-      closeModal(); toast('Сохранено'); loadSellers();
     });
   }
 
@@ -308,14 +347,18 @@
     if (!s) return;
     const ok = await confirmDialog({
       title: 'Удалить менеджера?',
-      message: `«${s.name}» будет удалён. Действие необратимо.`,
+      message: `«${s.name}» будет удалён вместе с учёткой входа. Связанные ` +
+               `данные (отчёты, заявки) останутся в системе. Действие необратимо.`,
       okText: 'Удалить', cancelText: 'Отмена', danger: true,
     });
     if (!ok) return;
-    const { error } = await sb.from('sellers').delete().eq('id', id);
-    if (error) { toast('Ошибка: ' + error.message, 'error'); return; }
-    if (window.audit) audit.del('sellers', id, s.name);
-    toast('Удалено'); loadSellers();
+    try {
+      await callApi(`/api/v1/commercial/users/${id}`, 'DELETE');
+      if (window.audit) audit.del('sellers', id, s.name);
+      toast('Удалено'); loadSellers();
+    } catch (err) {
+      toast('Ошибка: ' + (err.message || err), 'error');
+    }
   }
 
   // ============================================================

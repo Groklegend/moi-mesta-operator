@@ -82,6 +82,24 @@ async function requireAdmin(request, env) {
   return { user, row };
 }
 
+// Доступ к /api/v1/commercial/* — admin или commercial.
+async function requireCommercialOrAdmin(request, env) {
+  const auth = request.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) return { error: json({ error: 'no_token' }, { status: 401 }) };
+  const user = await getUserFromJwt(env, m[1]);
+  if (!user || !user.id) return { error: json({ error: 'invalid_token' }, { status: 401 }) };
+  const row = await getRoleRow(env, user.id);
+  if (!row || row.status !== 'active') {
+    return { error: json({ error: 'inactive' }, { status: 403 }) };
+  }
+  const roles = row.roles || [];
+  if (!(roles.includes('admin') || roles.includes('commercial'))) {
+    return { error: json({ error: 'forbidden' }, { status: 403 }) };
+  }
+  return { user, row };
+}
+
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -581,6 +599,185 @@ async function retryWebhook(env, request, payload, attempt) {
   }
 }
 
+// ---------- /api/v1/commercial/users — операторы и менеджеры ----------
+//
+// Раньше commercial.js работал напрямую с legacy таблицами `operators` /
+// `sellers` (короткий login + plain password). После миграции на Хаб
+// реальная авторизация — через Supabase Auth (email + password). Чтобы
+// в кабинете коммерческого директора был «реальный логин и пароль»,
+// каждое создание/изменение синхронно пишет в три места:
+//   1) auth.users        — для входа через /login
+//   2) public.users      — для роли и full_name (триггер от auth.users)
+//   3) operators/sellers — для legacy: motivation_entries, stats и т.д.
+//      привязаны по operator_id, который равен auth.users.id.
+
+async function createCommercialUser(request, env) {
+  const guard = await requireCommercialOrAdmin(request, env);
+  if (guard.error) return guard.error;
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, { status: 400 }); }
+  const email = (body?.email || '').trim().toLowerCase();
+  const password = body?.password || '';
+  const full_name = (body?.full_name || '').trim();
+  const role = body?.role; // 'operator' | 'seller'
+
+  if (!email || !email.includes('@')) return json({ error: 'bad_email' }, { status: 400 });
+  if (!password || password.length < 6) return json({ error: 'bad_password' }, { status: 400 });
+  if (!full_name) return json({ error: 'name_required' }, { status: 400 });
+  if (!['operator', 'seller'].includes(role)) return json({ error: 'bad_role' }, { status: 400 });
+
+  // 1. Создаём в auth.users через Admin API (без письма).
+  const r1 = await supaFetch(env, '/auth/v1/admin/users', {
+    method: 'POST',
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name, roles: role },
+    }),
+  });
+  if (!r1.ok) {
+    const detail = await r1.text();
+    return json({ error: 'auth_create_failed', detail }, { status: r1.status });
+  }
+  const created = await r1.json();
+  const userId = created?.id;
+  if (!userId) return json({ error: 'no_user_id' }, { status: 500 });
+
+  // 2. Дополняем public.users (триггер кладёт минимум).
+  await supaFetch(env, `/rest/v1/users?id=eq.${userId}`, {
+    method: 'PATCH',
+    headers: { prefer: 'return=minimal' },
+    body: JSON.stringify({ full_name, roles: [role], status: 'active' }),
+  });
+
+  // 3. Создаём в legacy operators/sellers с тем же id (UPSERT).
+  const targetTable = role === 'operator' ? 'operators' : 'sellers';
+  await supaFetch(env, `/rest/v1/${targetTable}?on_conflict=id`, {
+    method: 'POST',
+    headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({
+      id: userId,
+      name: full_name,
+      login: email,
+      password,
+      is_active: true,
+    }),
+  });
+
+  await writeAudit(env, request, {
+    user_id: guard.user.id,
+    user_email: guard.user.email,
+    action: 'commercial_user_create',
+    target_type: 'user',
+    target_id: userId,
+    metadata: { email, role, full_name },
+  });
+
+  return json({ ok: true, id: userId, email });
+}
+
+async function patchCommercialUser(request, env, userId) {
+  const guard = await requireCommercialOrAdmin(request, env);
+  if (guard.error) return guard.error;
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, { status: 400 }); }
+  const email = body?.email ? String(body.email).trim().toLowerCase() : null;
+  const password = body?.password || null;
+  const full_name = typeof body?.full_name === 'string' ? body.full_name.trim() : null;
+  const is_active = typeof body?.is_active === 'boolean' ? body.is_active : null;
+
+  if (email && !email.includes('@')) return json({ error: 'bad_email' }, { status: 400 });
+  if (password && password.length < 6) return json({ error: 'bad_password' }, { status: 400 });
+
+  // 1. auth.users — email и/или password.
+  if (email || password) {
+    const authPayload = {};
+    if (email) { authPayload.email = email; authPayload.email_confirm = true; }
+    if (password) authPayload.password = password;
+    const r1 = await supaFetch(env, `/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(authPayload),
+    });
+    if (!r1.ok) {
+      const detail = await r1.text();
+      return json({ error: 'auth_update_failed', detail }, { status: r1.status });
+    }
+  }
+
+  // 2. public.users.
+  const usersPayload = {};
+  if (email) usersPayload.email = email;
+  if (full_name) usersPayload.full_name = full_name;
+  if (is_active !== null) usersPayload.status = is_active ? 'active' : 'disabled';
+  if (Object.keys(usersPayload).length) {
+    await supaFetch(env, `/rest/v1/users?id=eq.${userId}`, {
+      method: 'PATCH',
+      headers: { prefer: 'return=minimal' },
+      body: JSON.stringify(usersPayload),
+    });
+  }
+
+  // 3. legacy operators / sellers (мульти-роль может быть в обеих).
+  const legacyPayload = {};
+  if (full_name) legacyPayload.name = full_name;
+  if (email) legacyPayload.login = email;
+  if (password) legacyPayload.password = password;
+  if (is_active !== null) legacyPayload.is_active = is_active;
+  if (Object.keys(legacyPayload).length) {
+    await supaFetch(env, `/rest/v1/operators?id=eq.${userId}`, {
+      method: 'PATCH',
+      headers: { prefer: 'return=minimal' },
+      body: JSON.stringify(legacyPayload),
+    });
+    await supaFetch(env, `/rest/v1/sellers?id=eq.${userId}`, {
+      method: 'PATCH',
+      headers: { prefer: 'return=minimal' },
+      body: JSON.stringify(legacyPayload),
+    });
+  }
+
+  await writeAudit(env, request, {
+    user_id: guard.user.id,
+    user_email: guard.user.email,
+    action: 'commercial_user_update',
+    target_type: 'user',
+    target_id: userId,
+    metadata: { email, full_name, is_active, password_changed: !!password },
+  });
+
+  return json({ ok: true });
+}
+
+async function deleteCommercialUser(request, env, userId) {
+  const guard = await requireCommercialOrAdmin(request, env);
+  if (guard.error) return guard.error;
+
+  // 1. auth.users — Admin API DELETE. Каскадом удалит public.users (через FK).
+  const r1 = await supaFetch(env, `/auth/v1/admin/users/${userId}`, { method: 'DELETE' });
+  if (!r1.ok && r1.status !== 404) {
+    const detail = await r1.text();
+    return json({ error: 'auth_delete_failed', detail }, { status: r1.status });
+  }
+
+  // 2. legacy operators / sellers — удаляем явно (FK с ON DELETE могло
+  // быть, но безопаснее снести руками; если строки нет — 0 строк затронуто).
+  await supaFetch(env, `/rest/v1/operators?id=eq.${userId}`, { method: 'DELETE' });
+  await supaFetch(env, `/rest/v1/sellers?id=eq.${userId}`, { method: 'DELETE' });
+
+  await writeAudit(env, request, {
+    user_id: guard.user.id,
+    user_email: guard.user.email,
+    action: 'commercial_user_delete',
+    target_type: 'user',
+    target_id: userId,
+  });
+
+  return json({ ok: true });
+}
+
 // ---------- /sb/* — прокси на Supabase ----------
 //
 // Зачем: некоторые российские провайдеры через DPI режут TCP-соединения
@@ -679,6 +876,18 @@ export default {
       const mEmail = url.pathname.match(/^\/api\/v1\/admin\/users\/([^/]+)\/email\/?$/);
       if (mEmail && request.method === 'PATCH') {
         return withCors(await changeEmail(request, env, mEmail[1]));
+      }
+
+      // Коммерческий: операторы и менеджеры (auth.users + public.users + legacy).
+      if (url.pathname === '/api/v1/commercial/users' && request.method === 'POST') {
+        return withCors(await createCommercialUser(request, env));
+      }
+      const mCommUser = url.pathname.match(/^\/api\/v1\/commercial\/users\/([0-9a-f-]{36})\/?$/);
+      if (mCommUser && request.method === 'PATCH') {
+        return withCors(await patchCommercialUser(request, env, mCommUser[1]));
+      }
+      if (mCommUser && request.method === 'DELETE') {
+        return withCors(await deleteCommercialUser(request, env, mCommUser[1]));
       }
 
       // Гари: отчёты менеджеров
