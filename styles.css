@@ -4578,3 +4578,28 @@ h2.page-title {
   .cal-cell-slots { display: none; } /* На мобильных только число; детали в модалке */
   .cal-day-add-row { grid-template-columns: 1fr; }
 }
+
+/* Standalone-кнопка раздела (не входит в дропдаун кабинета) */
+.section-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-left: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s, color 0.12s;
+}
+.section-shortcut:hover { border-color: var(--accent); }
+.section-shortcut.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+.section-shortcut.active .section-dropdown-emoji { filter: grayscale(0); }

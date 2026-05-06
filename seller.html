@@ -25,6 +25,11 @@
     </button>
     <div class="section-dropdown-menu" id="section-dropdown-menu" hidden></div>
   </div>
+  <!-- Календарь — standalone-кнопка, не входит в дропдаун -->
+  <button class="section-shortcut" id="section-shortcut-calendar" type="button">
+    <span class="section-dropdown-emoji">🗓</span>
+    <span>Календарь</span>
+  </button>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <span id="user-email" style="font-size:13px;color:var(--muted);"></span>
   <button class="link" id="logout">Выйти</button>
@@ -45,7 +50,7 @@
     <button class="seller-tab" data-section="leads" type="button">
       <span class="emoji">📍</span><span>Мои лиды</span>
     </button>
-    <button class="seller-tab" data-section="calendar" type="button">
+    <button class="seller-tab" data-section="calendar" data-standalone="1" type="button">
       <span class="emoji">🗓</span><span>Календарь</span>
     </button>
     <!-- «Рубрики» спрятаны из дропдауна — выбор рубрики уже есть справа
@@ -560,12 +565,24 @@
       document.querySelectorAll('.seller-section').forEach(s => s.hidden = true);
       document.getElementById('section-' + btn.dataset.section).hidden = false;
       location.hash = btn.dataset.section;
-      syncDropdownLabel(btn);
+      // standalone-табы (например, Календарь) НЕ обновляют лейбл дропдауна —
+      // они отдельная кнопка в шапке. Подсвечиваем соответствующий shortcut.
+      const isStandalone = btn.dataset.standalone === '1';
+      if (!isStandalone) syncDropdownLabel(btn);
+      document.querySelectorAll('.section-shortcut').forEach(s => s.classList.remove('active'));
+      if (isStandalone) {
+        document.getElementById('section-shortcut-' + btn.dataset.section)?.classList.add('active');
+      }
       // Календарь инициализируется лениво — только при первом переходе.
       if (btn.dataset.section === 'calendar') {
         window.sellerCalendar?.show();
       }
     });
+  });
+
+  // Standalone-кнопка «Календарь» в шапке — делегирует клик соответствующей вкладке.
+  document.getElementById('section-shortcut-calendar')?.addEventListener('click', () => {
+    document.querySelector('#seller-nav .seller-tab[data-section="calendar"]')?.click();
   });
 
   // ---------- Дропдаун-переключатель разделов в шапке ----------
@@ -589,7 +606,7 @@
   }
   function buildDropdownMenu() {
     if (!ddMenu) return;
-    const tabs = document.querySelectorAll('#seller-nav .seller-tab:not([hidden])');
+    const tabs = document.querySelectorAll('#seller-nav .seller-tab:not([hidden]):not([data-standalone="1"])');
     ddMenu.innerHTML = '';
     tabs.forEach(tab => {
       const item = document.createElement('button');
