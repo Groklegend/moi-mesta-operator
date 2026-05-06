@@ -56,7 +56,7 @@ h1, h2, h3, .topbar .title {
 .topbar {
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  padding: 8px 28px 16px; /* нижний padding больше — под подпись «Кабинет …» */
+  padding: 10px 28px;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -64,31 +64,36 @@ h1, h2, h3, .topbar .title {
   top: 0;
   z-index: 50;
 }
+/* Бренд: логотип сверху, подпись «Кабинет …» снизу — в одном flex-column.
+   Освобождает место в горизонтали шапки. */
+.topbar .brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex-shrink: 0;
+  line-height: 1;
+}
 .topbar .logo {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
   color: inherit;
   flex-shrink: 0;
-  position: relative;
 }
 .topbar .logo img {
-  height: 36px;
+  height: 32px;
   width: auto;
   display: block;
 }
-/* Подпись «Кабинет …» — теперь позиционируется под логотипом, чтобы не
-   занимать горизонтальное место в шапке. На мобильных скрывается. */
 .topbar .title {
-  position: absolute;
-  left: 28px;     /* совпадает с padding-left у .topbar */
-  top: 38px;      /* под изображением логотипа (36px высоты + 2px отступ) */
   color: var(--muted);
   font-size: 11px;
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
-  pointer-events: none;
+  /* Сдвигаем под текст «Мои Места» в логотипе, мимо иконки. */
+  margin-left: 44px;
 }
 
 /* Бокс с именем оператора и кнопкой «Выйти» в шапке */
