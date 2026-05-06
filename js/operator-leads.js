@@ -257,15 +257,31 @@
                   <input type="time" name="meeting_time">
                 </label>
 
-                <label class="ol-field">
-                  <span class="ol-label">Телефон ЛПР</span>
-                  <input type="tel" name="phone" maxlength="22" placeholder="8 962 (323) 25 47" inputmode="tel">
-                </label>
-
-                <label class="ol-field">
-                  <span class="ol-label">Номер, на который звонили</span>
-                  <input type="tel" name="called_phone" maxlength="22" placeholder="8 962 (323) 25 47" inputmode="tel">
-                </label>
+                <div class="ol-phones-row ol-field-wide">
+                  <label class="ol-field">
+                    <span class="ol-label">Телефон ЛПР</span>
+                    <input type="text" name="phone" maxlength="22"
+                           placeholder="8 (962) 323-25-47"
+                           inputmode="tel"
+                           autocomplete="tel-national"
+                           data-lpignore="true"
+                           data-1p-ignore="true"
+                           data-form-type="other">
+                  </label>
+                  <button type="button" class="ol-phone-copy" id="ol-phone-copy"
+                          aria-label="Скопировать в «Номер, на который звонили»"
+                          title="Скопировать в «Номер, на который звонили»">→</button>
+                  <label class="ol-field">
+                    <span class="ol-label">Номер, на который звонили</span>
+                    <input type="text" name="called_phone" maxlength="22"
+                           placeholder="8 (962) 323-25-47"
+                           inputmode="tel"
+                           autocomplete="tel-national"
+                           data-lpignore="true"
+                           data-1p-ignore="true"
+                           data-form-type="other">
+                  </label>
+                </div>
 
                 <label class="ol-field ol-field-wide">
                   <span class="ol-label">ФИО ЛПР</span>
@@ -297,18 +313,18 @@
 
           <aside class="ol-create-col-right">
             <div class="ol-cal-head">
-              <h3 class="ol-cal-title">Расписание менеджера</h3>
-              <div class="ol-cal-views">
-                <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
-                <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
+              <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
+              <div class="ol-cal-head-right">
+                <span class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</span>
+                <div class="ol-cal-views">
+                  <button type="button" class="ol-cal-view-btn primary" data-cv="day">День</button>
+                  <button type="button" class="ol-cal-view-btn" data-cv="week">Неделя</button>
+                </div>
               </div>
             </div>
-            <div class="ol-mgr-tabs" id="ol-mgr-tabs"></div>
-            <div class="ol-cal-period" id="ol-cal-period">${escapeHtml(formatDayHeader(todayYmd))}</div>
             <div class="ol-cal-body" id="ol-cal-body">
               <div class="ol-cal-loading">Загрузка…</div>
             </div>
-            <p class="ol-cal-hint">Кликните на свободный час — время автоматически подставится в форме.</p>
           </aside>
         </div>
       </div>`;
@@ -340,6 +356,14 @@
 
   function bindPhoneMasks() {
     document.querySelectorAll('input[name="phone"], input[name="called_phone"]').forEach(bindPhoneMask);
+    $('#ol-phone-copy')?.addEventListener('click', () => {
+      const src = document.querySelector('input[name="phone"]');
+      const dst = document.querySelector('input[name="called_phone"]');
+      if (!src || !dst) return;
+      dst.value = src.value;
+      // Триггерим input, чтобы маска применилась повторно (на всякий случай).
+      dst.dispatchEvent(new Event('input', { bubbles: true }));
+    });
   }
 
   function bindPhoneMask(input) {
@@ -348,7 +372,7 @@
     });
   }
 
-  // Формат «8 962 (323) 25 47». Принимаем любую вводимую цифровую строку,
+  // Формат «8 (962) 323-25-47». Принимаем любую вводимую цифровую строку,
   // 7 в начале меняем на 8, дополняем 8 если её нет, режем до 11 цифр.
   function formatPhoneRu(raw) {
     let d = String(raw).replace(/\D/g, '');
@@ -357,11 +381,11 @@
     d = d.slice(0, 11);
     if (!d) return '';
     let out = d[0];
-    if (d.length > 1) out += ' ' + d.slice(1, Math.min(4, d.length));
-    if (d.length > 4) out += ' (' + d.slice(4, Math.min(7, d.length));
-    if (d.length > 6) out += ')';
-    if (d.length > 7) out += ' ' + d.slice(7, Math.min(9, d.length));
-    if (d.length > 9) out += ' ' + d.slice(9, 11);
+    if (d.length > 1) out += ' (' + d.slice(1, Math.min(4, d.length));
+    if (d.length === 4) out += ')';
+    if (d.length > 4) out += ') ' + d.slice(4, Math.min(7, d.length));
+    if (d.length > 7) out += '-' + d.slice(7, Math.min(9, d.length));
+    if (d.length > 9) out += '-' + d.slice(9, 11);
     return out;
   }
 

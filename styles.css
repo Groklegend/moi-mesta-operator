@@ -5093,3 +5093,73 @@ h2.page-title {
   transition: background 0.12s;
 }
 .ol-mgr-picker-item:hover { background: var(--accent-soft); color: var(--accent-dark); }
+
+/* ============================================================
+   Заявка Плюс — компактная правая панель + ряд телефонов
+   ============================================================ */
+.ol-create-col-right { padding: 14px 16px; }
+
+.ol-cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ol-cal-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.ol-cal-period {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ol-mgr-tabs { margin-bottom: 0; }
+.ol-cal-body { margin-top: 8px; }
+.ol-hour { min-height: 36px; }
+.ol-hour-time { width: 50px; }
+.ol-hour-info { padding: 4px 10px; }
+
+/* Ряд из двух полей телефона со стрелочкой между ними */
+.ol-phones-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: end;
+}
+.ol-phone-copy {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.ol-phone-copy:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.ol-phone-copy:active { transform: scale(0.96); }
+
+@media (max-width: 640px) {
+  .ol-phones-row { grid-template-columns: 1fr; }
+  .ol-phone-copy {
+    margin: 0 auto;
+    transform: rotate(90deg);
+  }
+}
