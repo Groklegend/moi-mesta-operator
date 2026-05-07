@@ -5772,6 +5772,9 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
 .cal-layout.cal-no-sidebar > .cal-sidebar { display: none; }
 
 /* ---------- Анализ звонков (operator-calls.js) ---------- */
+/* `display: flex` перебивает UA-правило hidden{display:none}, поэтому
+   панель оставалась видна при переключении в другой режим. Явный override. */
+.calls-area[hidden] { display: none !important; }
 .calls-area {
   display: flex;
   flex-direction: column;
