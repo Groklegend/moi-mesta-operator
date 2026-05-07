@@ -490,9 +490,8 @@ function setMode(m) {
   motPane.hidden = !isMot;
   if (leadsPane) leadsPane.hidden = !isLeads;
 
-  // Кнопка «＋ Новая заявка» в шапке — видна только в режиме «Плюс Заявка».
-  const newLeadBtn = document.getElementById('op-new-lead-topbar');
-  if (newLeadBtn) newLeadBtn.hidden = !isLeads;
+  // Кнопка «＋ Новая заявка» в шапке видна всегда — клик из любого режима
+  // сам переключает на «Доску» и открывает форму создания (см. handler ниже).
 
   if (isObj) {
     if (state.currentObjection) renderAnswerPane();
