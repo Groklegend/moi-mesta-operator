@@ -220,6 +220,58 @@ h1, h2, h3, .topbar .title {
   color: var(--accent-dark);
 }
 .mode-btn span { font-size: 15px; line-height: 1; }
+
+/* Выпадашка «Разделы» — Возражения / Документы / Мотивация свёрнуты сюда,
+   чтобы не есть место в шапке. «Плюс Заявка» остаётся отдельной кнопкой. */
+.mode-more { position: relative; display: inline-block; }
+.mode-more-trigger {
+  background: transparent;
+  border: none;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-more-trigger:hover { background: var(--bg-soft); color: var(--ink); }
+.mode-more-trigger.active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+.mode-more-trigger .emoji { font-size: 15px; line-height: 1; }
+.mode-more-trigger .arrow { font-size: 11px; color: var(--muted); margin-left: 2px; }
+.mode-more-trigger.active .arrow { color: var(--accent-dark); }
+.mode-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 30;
+}
+.mode-more-menu.hidden { display: none; }
+.mode-more-menu .mode-btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
 .topbar .spacer { flex: 1; }
 /* Кнопка «＋ Новая заявка» в шапке оператора — между mode-nav и role-switcher.
    Видна только в режиме «Плюс Заявка» (operator.js setMode). */

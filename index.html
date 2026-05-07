@@ -16,15 +16,24 @@
     <div class="title">Кабинет оператора</div>
   </div>
   <nav class="mode-nav">
-    <button class="mode-btn" data-mode="objections" type="button">
-      <span>💬</span> Возражения
-    </button>
-    <button class="mode-btn" data-mode="documents" type="button">
-      <span>📎</span> Документы
-    </button>
-    <button class="mode-btn" data-mode="motivation" type="button">
-      <span>📊</span> Мотивация
-    </button>
+    <div class="mode-more" id="mode-more">
+      <button class="mode-more-trigger" id="mode-more-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+        <span class="emoji" id="mode-more-emoji">🗂️</span>
+        <span id="mode-more-label">Разделы</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="mode-more-menu hidden" id="mode-more-menu" role="menu">
+        <button class="mode-btn" data-mode="objections" type="button" role="menuitem">
+          <span>💬</span> Возражения
+        </button>
+        <button class="mode-btn" data-mode="documents" type="button" role="menuitem">
+          <span>📎</span> Документы
+        </button>
+        <button class="mode-btn" data-mode="motivation" type="button" role="menuitem">
+          <span>📊</span> Мотивация
+        </button>
+      </div>
+    </div>
     <button class="mode-btn active" data-mode="leads" type="button">
       <span>📋</span> Плюс Заявка
     </button>

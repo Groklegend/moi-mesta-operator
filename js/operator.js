@@ -425,11 +425,37 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => setMode(btn.dataset.mode));
 });
 
+// Выпадашка «Разделы» — три режима (Возражения/Документы/Мотивация) свёрнуты
+// в один триггер, чтобы не есть место в шапке.
+(function setupModeMoreDropdown() {
+  const trigger = document.getElementById('mode-more-trigger');
+  const menu = document.getElementById('mode-more-menu');
+  if (!trigger || !menu) return;
+
+  function close() { menu.classList.add('hidden'); trigger.setAttribute('aria-expanded', 'false'); }
+  function open()  { menu.classList.remove('hidden'); trigger.setAttribute('aria-expanded', 'true'); }
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menu.classList.contains('hidden')) open(); else close();
+  });
+  document.addEventListener('click', (e) => {
+    if (menu.classList.contains('hidden')) return;
+    if (!menu.contains(e.target) && e.target !== trigger) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+  // Клик по пункту меню → setMode уже сработает выше, тут только закрываем.
+  menu.querySelectorAll('.mode-btn').forEach((b) => b.addEventListener('click', close));
+})();
+
 function setMode(m) {
   state.mode = m;
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === m);
   });
+  updateMoreTrigger(m);
 
   const isObj = m === 'objections';
   const isDocs = m === 'documents';
@@ -479,6 +505,30 @@ function setMode(m) {
     window.renderMotivation?.();
   } else if (isLeads) {
     window.operatorLeads?.show();
+  }
+}
+
+// Когда активен один из «свёрнутых» режимов, триггер выпадашки берёт его
+// иконку+название и подсвечивается. Иначе — нейтральные «Разделы».
+function updateMoreTrigger(mode) {
+  const trigger = document.getElementById('mode-more-trigger');
+  const emojiEl = document.getElementById('mode-more-emoji');
+  const labelEl = document.getElementById('mode-more-label');
+  if (!trigger || !emojiEl || !labelEl) return;
+  const map = {
+    objections: { emoji: '💬', label: 'Возражения' },
+    documents:  { emoji: '📎', label: 'Документы' },
+    motivation: { emoji: '📊', label: 'Мотивация' },
+  };
+  const cur = map[mode];
+  if (cur) {
+    emojiEl.textContent = cur.emoji;
+    labelEl.textContent = cur.label;
+    trigger.classList.add('active');
+  } else {
+    emojiEl.textContent = '🗂️';
+    labelEl.textContent = 'Разделы';
+    trigger.classList.remove('active');
   }
 }
 
