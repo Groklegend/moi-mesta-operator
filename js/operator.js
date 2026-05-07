@@ -508,28 +508,23 @@ function setMode(m) {
   }
 }
 
-// Когда активен один из «свёрнутых» режимов, триггер выпадашки берёт его
-// иконку+название и подсвечивается. Иначе — нейтральные «Разделы».
+// Все режимы свёрнуты в один триггер «Разделы». Триггер всегда показывает
+// иконку+название текущего режима и всегда подсвечен.
 function updateMoreTrigger(mode) {
   const trigger = document.getElementById('mode-more-trigger');
   const emojiEl = document.getElementById('mode-more-emoji');
   const labelEl = document.getElementById('mode-more-label');
   if (!trigger || !emojiEl || !labelEl) return;
   const map = {
+    leads:      { emoji: '📋', label: 'Доска' },
     objections: { emoji: '💬', label: 'Возражения' },
     documents:  { emoji: '📎', label: 'Документы' },
     motivation: { emoji: '📊', label: 'Мотивация' },
   };
-  const cur = map[mode];
-  if (cur) {
-    emojiEl.textContent = cur.emoji;
-    labelEl.textContent = cur.label;
-    trigger.classList.add('active');
-  } else {
-    emojiEl.textContent = '🗂️';
-    labelEl.textContent = 'Разделы';
-    trigger.classList.remove('active');
-  }
+  const cur = map[mode] || { emoji: '🗂️', label: 'Разделы' };
+  emojiEl.textContent = cur.emoji;
+  labelEl.textContent = cur.label;
+  trigger.classList.add('active');
 }
 
 function resetAnswerPane(icon = '💬', text = 'Выберите возражение слева — ответ появится здесь') {

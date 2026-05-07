@@ -15,14 +15,26 @@
     </a>
     <div class="title">Кабинет оператора</div>
   </div>
+  <div class="spacer"></div>
+  <div class="category-dropdown" id="cat-dropdown">
+    <button class="cat-trigger" id="cat-trigger" type="button">
+      <span class="emoji" id="cat-emoji">🗂️</span>
+      <span id="cat-label">Все рубрики</span>
+      <span class="arrow">▾</span>
+    </button>
+    <div class="cat-menu hidden" id="cat-menu"></div>
+  </div>
   <nav class="mode-nav">
     <div class="mode-more" id="mode-more">
-      <button class="mode-more-trigger" id="mode-more-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
-        <span class="emoji" id="mode-more-emoji">🗂️</span>
-        <span id="mode-more-label">Разделы</span>
+      <button class="mode-more-trigger active" id="mode-more-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+        <span class="emoji" id="mode-more-emoji">📋</span>
+        <span id="mode-more-label">Доска</span>
         <span class="arrow">▾</span>
       </button>
       <div class="mode-more-menu hidden" id="mode-more-menu" role="menu">
+        <button class="mode-btn active" data-mode="leads" type="button" role="menuitem">
+          <span>📋</span> Доска
+        </button>
         <button class="mode-btn" data-mode="objections" type="button" role="menuitem">
           <span>💬</span> Возражения
         </button>
@@ -34,19 +46,7 @@
         </button>
       </div>
     </div>
-    <button class="mode-btn active" data-mode="leads" type="button">
-      <span>📋</span> Плюс Заявка
-    </button>
   </nav>
-  <div class="spacer"></div>
-  <div class="category-dropdown" id="cat-dropdown">
-    <button class="cat-trigger" id="cat-trigger" type="button">
-      <span class="emoji" id="cat-emoji">🗂️</span>
-      <span id="cat-label">Все рубрики</span>
-      <span class="arrow">▾</span>
-    </button>
-    <div class="cat-menu hidden" id="cat-menu"></div>
-  </div>
   <button class="btn primary op-topbar-btn" id="op-new-lead-topbar" type="button" hidden>＋ Новая заявка</button>
   <nav class="role-switcher" id="role-switcher" hidden></nav>
   <div class="operator-box" id="operator-box" hidden>
