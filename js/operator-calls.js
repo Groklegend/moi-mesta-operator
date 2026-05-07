@@ -114,11 +114,11 @@
         <span class="calls-stats-total">${s.total} <span class="calls-stats-unit">звонк${plural(s.total, 'ов', '', 'а')}</span></span>
       </div>
       <div class="calls-stats-list">
-        <div class="calls-stat-row calls-stat-row-bad">
+        <div class="calls-stat-row">
           <span class="calls-stat-label">До 5 секунд (недозвоны)</span>
           <span class="calls-stat-val">${s.under5} <span class="calls-stat-pct">${pct(s.under5)}%</span></span>
         </div>
-        <div class="calls-stat-row calls-stat-row-good">
+        <div class="calls-stat-row">
           <span class="calls-stat-label">От 5 секунд (содержательные)</span>
           <span class="calls-stat-val">${s.over5} <span class="calls-stat-pct">${pct(s.over5)}%</span></span>
         </div>
@@ -137,8 +137,12 @@
         </div>
         <div class="calls-stat-divider"></div>
         <div class="calls-stat-row calls-stat-row-outcome">
+          <span class="calls-stat-label">Презентация продукта</span>
+          <span class="calls-stat-val">${s.presentations} <span class="calls-stat-pct">из ${s.over5} содерж.</span></span>
+        </div>
+        <div class="calls-stat-row calls-stat-row-outcome">
           <span class="calls-stat-label">Назначено встреч (заявок)</span>
-          <span class="calls-stat-val">${s.leadsCreated} <span class="calls-stat-pct">из ${s.over5} содерж.</span></span>
+          <span class="calls-stat-val">${s.leadsCreated} <span class="calls-stat-pct">из ${s.presentations} презент.</span></span>
         </div>
         <div class="calls-stat-row calls-stat-row-outcome">
           <span class="calls-stat-label">Конверсия в лид</span>
@@ -207,6 +211,7 @@
     const total = sum('total');
     const totalDuration = days.reduce((a, x) => a + x.avgDuration * x.over5, 0);
     const over5Sum = sum('over5');
+    const presentations = sum('presentations');
     const leadsCreated = sum('leads');
     return {
       total,
@@ -215,6 +220,7 @@
       over30: sum('over30'),
       min1to2: sum('min1to2'),
       over3: sum('over3'),
+      presentations,
       leadsCreated,
       avgDuration: over5Sum ? Math.round(totalDuration / over5Sum) : 0,
       conversionPct: over5Sum ? Math.round(leadsCreated / over5Sum * 100) : 0,
@@ -233,16 +239,20 @@
     const dow = day.getDay(); // 0=вс
     const weekend = dow === 0 || dow === 6;
     const base = weekend ? 25 : 95;
+    // Все сдвиги беззнаковые (>>>), иначе для seed >= 0x80000000 знаковый
+    // shift даёт отрицательное число → отрицательные метрики и сломанные %.
     const total = base + (seed % 40);
-    const under5Pct = 0.18 + ((seed >> 4) % 14) / 100;
+    const under5Pct = 0.18 + ((seed >>> 4) % 14) / 100;
     const under5 = Math.round(total * under5Pct);
     const over5 = total - under5;
-    const over30 = Math.round(over5 * (0.55 + ((seed >> 8) % 20) / 100));
-    const min1to2 = Math.round(over5 * (0.22 + ((seed >> 11) % 14) / 100));
-    const over3 = Math.round(over5 * (0.10 + ((seed >> 14) % 14) / 100));
-    const avgDuration = 35 + ((seed >> 5) % 70); // 35–104 сек
-    const leads = Math.round(over5 * (0.06 + ((seed >> 6) % 12) / 100));
-    return { total, under5, over5, over30, min1to2, over3, avgDuration, leads };
+    const over30 = Math.round(over5 * (0.55 + ((seed >>> 8) % 20) / 100));
+    const min1to2 = Math.round(over5 * (0.22 + ((seed >>> 11) % 14) / 100));
+    const over3 = Math.round(over5 * (0.10 + ((seed >>> 14) % 14) / 100));
+    const avgDuration = 35 + ((seed >>> 5) % 70); // 35–104 сек
+    // Воронка: содержательные → презентации (35–55%) → встречи (15–35% от презентаций)
+    const presentations = Math.round(over5 * (0.35 + ((seed >>> 17) % 21) / 100));
+    const leads = Math.round(presentations * (0.15 + ((seed >>> 6) % 21) / 100));
+    return { total, under5, over5, over30, min1to2, over3, presentations, avgDuration, leads };
   }
 
   // ---------- Разбор отдельных звонков ----------
@@ -323,15 +333,15 @@
     const calls = [];
     for (let i = 0; i < stats.leads; i++) {
       const seed = hashStr(formatYmd(day) + ':' + i);
-      const baseDur = 60 + ((seed >> 2) % 240);
+      const baseDur = 60 + ((seed >>> 2) % 240);
       calls.push({
         contactName: NAMES[seed % NAMES.length],
-        companyName: COMPANIES[(seed >> 4) % COMPANIES.length],
+        companyName: COMPANIES[(seed >>> 4) % COMPANIES.length],
         phone:       generatePhone(seed),
         durationSec: baseDur,
         strongPoints:    pickN(STRONG_POINTS, 3, seed),
-        adherencePct:    65 + ((seed >> 7) % 31),
-        recommendations: pickN(RECOMMENDATIONS, 2, (seed >> 11) >>> 0),
+        adherencePct:    65 + ((seed >>> 7) % 31),
+        recommendations: pickN(RECOMMENDATIONS, 2, seed >>> 11),
       });
     }
     return calls;
@@ -412,9 +422,9 @@
   function generatePhone(seed) {
     const code3 = ['903', '905', '910', '915', '916', '925', '926', '929'];
     const a = code3[seed % code3.length];
-    const b = 100 + ((seed >> 4) % 900);
-    const c = 10 + ((seed >> 8) % 90);
-    const d = 10 + ((seed >> 12) % 90);
+    const b = 100 + ((seed >>> 4) % 900);
+    const c = 10 + ((seed >>> 8) % 90);
+    const d = 10 + ((seed >>> 12) % 90);
     return `+7 (${a}) ${b}-${String(c).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   }
 

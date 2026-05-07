@@ -5898,14 +5898,10 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
   font-size: 14px;
   background: var(--bg-soft);
 }
-.calls-stat-row-bad { background: #fdecec; color: #8a1a1a; }
-.calls-stat-row-good { background: #e8f6ec; color: #1c5d2c; }
 .calls-stat-row-meta { background: transparent; padding: 6px 12px; }
 .calls-stat-label { font-weight: 600; }
 .calls-stat-val { font-weight: 700; font-size: 15px; }
 .calls-stat-pct { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 6px; }
-.calls-stat-row-bad .calls-stat-pct { color: #b04545; }
-.calls-stat-row-good .calls-stat-pct { color: #468a5a; }
 .calls-stat-divider {
   height: 1px;
   background: var(--border);
