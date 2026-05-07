@@ -5934,3 +5934,142 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
 }
 .calls-recos-list li + li { margin-top: 6px; }
 .calls-recos-list b { font-weight: 700; }
+
+/* Outcome-строки (Назначено встреч, Конверсия) — выделяем мягким акцентом */
+.calls-stat-row-outcome {
+  background: #fff4e6;
+  color: #7a4a00;
+}
+.calls-stat-row-outcome .calls-stat-pct { color: #a86d22; font-weight: 500; }
+
+/* ---------- Разбор звонков (нижний блок) ---------- */
+.calls-detail {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.calls-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.calls-detail-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.calls-detail-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.calls-detail-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: var(--bg-soft);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.calls-detail-empty {
+  padding: 24px 16px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+}
+.calls-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.call-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--bg-soft);
+}
+.call-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.call-card-name strong { font-size: 15px; color: var(--ink); }
+.call-card-company { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.call-card-phone {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-dark);
+  text-decoration: none;
+}
+.call-card-phone:hover { text-decoration: underline; }
+.call-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+.call-card-section { margin-top: 12px; }
+.call-card-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.call-card-list {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.call-card-list li + li { margin-top: 4px; }
+.call-card-list-recos li {
+  margin-top: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+}
+.call-card-list-recos li:last-child { border-bottom: none; padding-bottom: 0; }
+.call-card-tip { font-weight: 600; color: var(--ink); }
+.call-card-why { color: var(--muted); font-size: 13px; margin-top: 3px; }
+.call-card-why b { color: var(--ink-2); font-weight: 600; }
+
+.call-card-adherence {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.call-card-adherence-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.call-card-adherence-label b { font-size: 14px; color: var(--ink); }
+.call-card-adherence-bar {
+  height: 8px;
+  background: var(--bg-soft);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.call-card-adherence-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.call-card-adherence-good .call-card-adherence-fill { background: linear-gradient(90deg, #7bc47f, #2e8b57); }
+.call-card-adherence-good .call-card-adherence-label b { color: #2e8b57; }
+.call-card-adherence-mid  .call-card-adherence-fill { background: linear-gradient(90deg, #f5a623, #e88a13); }
+.call-card-adherence-mid  .call-card-adherence-label b { color: #c46e10; }
+.call-card-adherence-low  .call-card-adherence-fill { background: linear-gradient(90deg, #e57b6f, #c44d3f); }
+.call-card-adherence-low  .call-card-adherence-label b { color: #c44d3f; }

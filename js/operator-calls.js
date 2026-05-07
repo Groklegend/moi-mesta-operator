@@ -53,6 +53,7 @@
         <div class="calls-stats-card" id="calls-stats">—</div>
         <div class="calls-recos-card" id="calls-recos">—</div>
       </div>
+      <div class="calls-detail" id="calls-detail">—</div>
     `;
   }
 
@@ -101,6 +102,7 @@
     const stats = aggregateRange(from, to);
     document.getElementById('calls-stats').innerHTML = renderStats(stats, state.period);
     document.getElementById('calls-recos').innerHTML = renderRecos(stats);
+    document.getElementById('calls-detail').innerHTML = renderCallDetails(state.cursor, state.period);
   }
 
   function renderStats(s, period) {
@@ -134,13 +136,17 @@
           <span class="calls-stat-val">${s.over3} <span class="calls-stat-pct">${pct(s.over3)}%</span></span>
         </div>
         <div class="calls-stat-divider"></div>
+        <div class="calls-stat-row calls-stat-row-outcome">
+          <span class="calls-stat-label">Назначено встреч (заявок)</span>
+          <span class="calls-stat-val">${s.leadsCreated} <span class="calls-stat-pct">из ${s.over5} содерж.</span></span>
+        </div>
+        <div class="calls-stat-row calls-stat-row-outcome">
+          <span class="calls-stat-label">Конверсия в лид</span>
+          <span class="calls-stat-val">${s.conversionPct}%</span>
+        </div>
         <div class="calls-stat-row calls-stat-row-meta">
           <span class="calls-stat-label">Средняя длительность</span>
           <span class="calls-stat-val">${formatDuration(s.avgDuration)}</span>
-        </div>
-        <div class="calls-stat-row calls-stat-row-meta">
-          <span class="calls-stat-label">Конверсия в лид</span>
-          <span class="calls-stat-val">${s.conversionPct}%</span>
         </div>
       </div>
     `;
@@ -201,6 +207,7 @@
     const total = sum('total');
     const totalDuration = days.reduce((a, x) => a + x.avgDuration * x.over5, 0);
     const over5Sum = sum('over5');
+    const leadsCreated = sum('leads');
     return {
       total,
       under5: sum('under5'),
@@ -208,8 +215,9 @@
       over30: sum('over30'),
       min1to2: sum('min1to2'),
       over3: sum('over3'),
+      leadsCreated,
       avgDuration: over5Sum ? Math.round(totalDuration / over5Sum) : 0,
-      conversionPct: total ? Math.round(sum('leads') / over5Sum * 100) : 0,
+      conversionPct: over5Sum ? Math.round(leadsCreated / over5Sum * 100) : 0,
     };
   }
 
@@ -235,6 +243,203 @@
     const avgDuration = 35 + ((seed >> 5) % 70); // 35–104 сек
     const leads = Math.round(over5 * (0.06 + ((seed >> 6) % 12) / 100));
     return { total, under5, over5, over30, min1to2, over3, avgDuration, leads };
+  }
+
+  // ---------- Разбор отдельных звонков ----------
+  // Карточка под каждый успешный звонок (тот, что превратился в заявку):
+  // имя ЛПР, телефон, сильные стороны оператора, % соответствия скрипту,
+  // и рекомендации с объяснением «зачем» — чтобы оператор видел смысл.
+
+  const NAMES = [
+    'Иван Петров', 'Сергей Иванов', 'Анна Соколова', 'Дмитрий Ковалёв',
+    'Ольга Мельник', 'Михаил Громов', 'Елена Зайцева', 'Алексей Орлов',
+    'Татьяна Чернова', 'Павел Кузнецов', 'Мария Лебедева', 'Виктор Соловьёв',
+  ];
+  const COMPANIES = [
+    'Цветочный', 'Зоотовары', 'Пекарня "У Михалыча"', 'Барбершоп Mr.Right',
+    'Аптека «36,7»', 'Студия маникюра Nail&Go', 'Кофейня «Восход»',
+    'Магазин рыбы «Океан»', 'Автомастерская «Гараж»', 'Книжный «Чернила»',
+    'Кондитерская «Безе»', 'Мини-маркет «У дома»',
+  ];
+  const STRONG_POINTS = [
+    'Сразу представились и назвали компанию',
+    'Уточнили имя и должность ЛПР до начала презентации',
+    'Спросили про текущую программу лояльности',
+    'Предложили выслать материалы перед встречей',
+    'Сделали комплимент бизнесу клиента',
+    'Сослались на похожего клиента в той же сфере',
+    'Назначили конкретную дату и время встречи',
+    'Записали возражение для следующего касания',
+    'Подтвердили, что звонок записывается',
+    'Отзеркалили возражение клиента — он почувствовал, что услышан',
+    'Использовали технику «именно поэтому» при отработке возражения',
+    'Дали клиенту высказаться, не перебивали',
+  ];
+  const RECOMMENDATIONS = [
+    {
+      tip: 'Задавайте больше открытых вопросов про текущую ситуацию: «Как сейчас работаете с возвратными клиентами?»',
+      why: 'Открытые вопросы вытаскивают реальные боли клиента. На встрече менеджер сразу заходит с конкретикой, а не с общими словами — конверсия встречи в сделку растёт.',
+    },
+    {
+      tip: 'Уточняйте KPI ЛПР: «Какой средний чек вы хотите получить в этом сезоне?»',
+      why: 'Когда вы знаете его метрику, на встрече вы сразу попадаете в его финансовые цели. Клиент слышит «вы про мои деньги», а не «вы про свой продукт».',
+    },
+    {
+      tip: 'Спрашивайте про их текущие акции: «Какие активности у вас сейчас работают?»',
+      why: 'Это показывает, что вы изучили клиента, и снимает позицию «продажник, который ничего не знает». ЛПР начинает воспринимать вас как партнёра, а не звонящего.',
+    },
+    {
+      tip: 'Подбирайте кейс из той же сферы. Если барбершоп — расскажите про барбершоп, не про кафе.',
+      why: 'Социальное доказательство «у конкурента сработало» снимает до 30% возражений типа «у нас в нише это не зайдёт».',
+    },
+    {
+      tip: 'Закрывайте на конкретное время, не «когда удобно».',
+      why: '«Когда удобно» = «никогда». Конкретный слот в календаре удерживает обязательство — клиент уже представляет себя на этой встрече.',
+    },
+    {
+      tip: 'Отправляйте подтверждение в Telegram сразу после звонка.',
+      why: 'Письменное подтверждение снижает no-show на встречу примерно на 40%. Клиент видит дату/время/адрес и не может «забыть».',
+    },
+    {
+      tip: 'Не торопитесь с презентацией продукта в первом звонке.',
+      why: 'Цель первого звонка — назначить встречу, а не продать. Ранняя презентация даёт клиенту повод «подумать» и сорвать встречу.',
+    },
+    {
+      tip: 'Записывайте дословно фразы клиента и передавайте их менеджеру.',
+      why: 'Когда менеджер на встрече использует слова клиента — клиент чувствует, что его услышали. Доверие растёт быстрее, чем за час обычной беседы.',
+    },
+    {
+      tip: 'Спрашивайте «Что для вас в этом важно?» вместо «Вам это интересно?»',
+      why: 'Закрытый вопрос даёт клиенту лёгкий выход «не интересно». Открытый — заставляет осмыслить, почему он вообще говорит с вами.',
+    },
+    {
+      tip: 'Отрабатывайте возражение «дорого» вопросом «По сравнению с чем?»',
+      why: 'Это переводит разговор из эмоций в цифры. Клиент часто сам понимает, что не сравнивал — и возражение растворяется.',
+    },
+  ];
+
+  function generateDayCalls(day) {
+    const stats = fetchCallStats(day);
+    const calls = [];
+    for (let i = 0; i < stats.leads; i++) {
+      const seed = hashStr(formatYmd(day) + ':' + i);
+      const baseDur = 60 + ((seed >> 2) % 240);
+      calls.push({
+        contactName: NAMES[seed % NAMES.length],
+        companyName: COMPANIES[(seed >> 4) % COMPANIES.length],
+        phone:       generatePhone(seed),
+        durationSec: baseDur,
+        strongPoints:    pickN(STRONG_POINTS, 3, seed),
+        adherencePct:    65 + ((seed >> 7) % 31),
+        recommendations: pickN(RECOMMENDATIONS, 2, (seed >> 11) >>> 0),
+      });
+    }
+    return calls;
+  }
+
+  function renderCallDetails(cursor, period) {
+    const calls = generateDayCalls(cursor);
+    const dayLabel = formatDay(cursor);
+    const periodNote = period !== 'day'
+      ? `<div class="calls-detail-note">Разбор показывается за один день. Стрелки ‹/› листают по выбранному периоду — для перехода по дням переключите режим в «День».</div>`
+      : '';
+    if (!calls.length) {
+      return `
+        <div class="calls-detail-head">
+          <h3>Разбор звонков за ${escapeHtml(dayLabel)}</h3>
+        </div>
+        ${periodNote}
+        <div class="calls-detail-empty">За этот день успешных звонков нет.</div>
+      `;
+    }
+    return `
+      <div class="calls-detail-head">
+        <h3>Разбор звонков за ${escapeHtml(dayLabel)}</h3>
+        <span class="calls-detail-count">${calls.length} ${plural(calls.length, 'звонков', 'звонок', 'звонка')}</span>
+      </div>
+      ${periodNote}
+      <div class="calls-detail-list">
+        ${calls.map(renderCallCard).join('')}
+      </div>
+    `;
+  }
+
+  function renderCallCard(c) {
+    const phoneHref = c.phone.replace(/[^\d+]/g, '');
+    const adherenceTone = c.adherencePct >= 85 ? 'good' : c.adherencePct >= 70 ? 'mid' : 'low';
+    return `
+      <div class="call-card">
+        <div class="call-card-head">
+          <div class="call-card-name">
+            <strong>${escapeHtml(c.contactName)}</strong>
+            <span class="call-card-company">· ${escapeHtml(c.companyName)}</span>
+          </div>
+          <a class="call-card-phone" href="tel:${escapeHtml(phoneHref)}">${escapeHtml(c.phone)}</a>
+        </div>
+        <div class="call-card-meta">Длительность: ${formatDuration(c.durationSec)}</div>
+
+        <div class="call-card-section">
+          <div class="call-card-section-title">✅ Сильные стороны, которые вы использовали</div>
+          <ul class="call-card-list">
+            ${c.strongPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div class="call-card-adherence call-card-adherence-${adherenceTone}">
+          <div class="call-card-adherence-label">
+            Соответствие скрипту: <b>${c.adherencePct}%</b>
+          </div>
+          <div class="call-card-adherence-bar">
+            <div class="call-card-adherence-fill" style="width:${c.adherencePct}%"></div>
+          </div>
+        </div>
+
+        <div class="call-card-section">
+          <div class="call-card-section-title">💡 Что добавить — и зачем это нужно</div>
+          <ul class="call-card-list call-card-list-recos">
+            ${c.recommendations.map((r) => `
+              <li>
+                <div class="call-card-tip">${escapeHtml(r.tip)}</div>
+                <div class="call-card-why"><b>Зачем:</b> ${escapeHtml(r.why)}</div>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </div>
+    `;
+  }
+
+  function generatePhone(seed) {
+    const code3 = ['903', '905', '910', '915', '916', '925', '926', '929'];
+    const a = code3[seed % code3.length];
+    const b = 100 + ((seed >> 4) % 900);
+    const c = 10 + ((seed >> 8) % 90);
+    const d = 10 + ((seed >> 12) % 90);
+    return `+7 (${a}) ${b}-${String(c).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+
+  // Стабильный «случайный» выбор N элементов из пула по seed.
+  function pickN(pool, n, seed) {
+    const arr = pool.slice();
+    const out = [];
+    let s = (seed >>> 0) || 1;
+    for (let i = 0; i < n && arr.length; i++) {
+      s = (s * 16807 + 12345) >>> 0;
+      const idx = s % arr.length;
+      out.push(arr[idx]);
+      arr.splice(idx, 1);
+    }
+    return out;
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',
+    }[c]));
+  }
+
+  function formatYmd(d) {
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
   }
 
   // ---------- Утилиты ----------
