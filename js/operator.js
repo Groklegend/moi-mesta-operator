@@ -461,7 +461,8 @@ function setMode(m) {
   const isDocs = m === 'documents';
   const isMot = m === 'motivation';
   const isLeads = m === 'leads';
-  const isFullWidth = isMot || isLeads;
+  const isCalls = m === 'calls';
+  const isFullWidth = isMot || isLeads || isCalls;
 
   // Сайдбар целиком — прячем в режимах, где правая панель занимает всю ширину
   document.getElementById('sidebar').hidden = isFullWidth;
@@ -486,9 +487,15 @@ function setMode(m) {
   const answerPane = document.getElementById('answer-pane');
   const motPane = document.getElementById('motivation-pane');
   const leadsPane = document.getElementById('leads-plus-pane');
-  answerPane.hidden = isMot || isLeads;
+  const callsPane = document.getElementById('calls-pane');
+  answerPane.hidden = isMot || isLeads || isCalls;
   motPane.hidden = !isMot;
   if (leadsPane) leadsPane.hidden = !isLeads;
+  if (callsPane) callsPane.hidden = !isCalls;
+
+  // Активная подсветка вкладки «Анализ звонков» в шапке
+  const callsTabBtn = document.getElementById('op-calls-tab-btn');
+  if (callsTabBtn) callsTabBtn.classList.toggle('active', isCalls);
 
   // Кнопка «＋ Новая заявка» в шапке видна всегда — клик из любого режима
   // сам переключает на «Доску» и открывает форму создания (см. handler ниже).
@@ -504,11 +511,14 @@ function setMode(m) {
     window.renderMotivation?.();
   } else if (isLeads) {
     window.operatorLeads?.show();
+  } else if (isCalls) {
+    window.operatorCalls?.show();
   }
 }
 
-// Все режимы свёрнуты в один триггер «Разделы». Триггер всегда показывает
-// иконку+название текущего режима и всегда подсвечен.
+// Триггер выпадашки показывает текущий режим, если он из её списка
+// (Доска/Возражения/Документы/Мотивация). В режиме «calls» — нейтральные
+// «Разделы» без подсветки, потому что Анализ звонков — отдельная вкладка.
 function updateMoreTrigger(mode) {
   const trigger = document.getElementById('mode-more-trigger');
   const emojiEl = document.getElementById('mode-more-emoji');
@@ -520,10 +530,16 @@ function updateMoreTrigger(mode) {
     documents:  { emoji: '📎', label: 'Документы' },
     motivation: { emoji: '📊', label: 'Мотивация' },
   };
-  const cur = map[mode] || { emoji: '🗂️', label: 'Разделы' };
-  emojiEl.textContent = cur.emoji;
-  labelEl.textContent = cur.label;
-  trigger.classList.add('active');
+  const cur = map[mode];
+  if (cur) {
+    emojiEl.textContent = cur.emoji;
+    labelEl.textContent = cur.label;
+    trigger.classList.add('active');
+  } else {
+    emojiEl.textContent = '🗂️';
+    labelEl.textContent = 'Разделы';
+    trigger.classList.remove('active');
+  }
 }
 
 function resetAnswerPane(icon = '💬', text = 'Выберите возражение слева — ответ появится здесь') {
@@ -601,4 +617,9 @@ setTimeout(() => setMode('leads'), 0);
 document.getElementById('op-new-lead-topbar')?.addEventListener('click', () => {
   if (state.mode !== 'leads') setMode('leads');
   window.operatorLeads?.newLead?.();
+});
+
+// «📞 Анализ звонков» — отдельная вкладка в шапке, открывает свой режим.
+document.getElementById('op-calls-tab-btn')?.addEventListener('click', () => {
+  setMode(state.mode === 'calls' ? 'leads' : 'calls');
 });

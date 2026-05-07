@@ -280,6 +280,32 @@ h1, h2, h3, .topbar .title {
   padding: 8px 14px;
   white-space: nowrap;
 }
+
+/* Вкладка «📞 Анализ звонков» в шапке — отдельная кнопка-таб между
+   выпадашкой «Разделы» и «＋ Новая заявка». */
+.topbar-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.topbar-tab-btn:hover { background: var(--bg-soft); color: var(--ink); }
+.topbar-tab-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+.topbar-tab-btn span { font-size: 15px; line-height: 1; }
 .topbar a, .topbar button.link {
   color: var(--ink-2);
   text-decoration: none;
@@ -5744,3 +5770,167 @@ body:has(.leads-plus-area:not([hidden])) main.container.wide { padding-top: 6px;
 /* В режиме «Сегодня» sidebar Month/Week полностью убирается из grid */
 .cal-layout.cal-no-sidebar { grid-template-columns: 1fr; }
 .cal-layout.cal-no-sidebar > .cal-sidebar { display: none; }
+
+/* ---------- Анализ звонков (operator-calls.js) ---------- */
+.calls-area {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 0 24px;
+}
+.calls-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.calls-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.calls-nav-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.calls-nav-btn:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+.calls-range {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  min-width: 220px;
+  text-align: center;
+}
+.calls-period-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--bg-soft);
+  padding: 4px;
+  border-radius: 10px;
+}
+.calls-period-tab {
+  background: transparent;
+  border: none;
+  padding: 7px 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 7px;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.calls-period-tab:hover { color: var(--ink); }
+.calls-period-tab.active {
+  background: var(--card);
+  color: var(--accent-dark);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.calls-demo-banner {
+  background: #fff8e6;
+  border: 1px solid #f3d780;
+  color: #8a5a00;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.calls-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  .calls-grid { grid-template-columns: 1fr; }
+}
+.calls-stats-card,
+.calls-recos-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.calls-stats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.calls-stats-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.calls-stats-total {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--accent-dark);
+}
+.calls-stats-unit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 4px;
+  text-transform: lowercase;
+}
+.calls-stats-list { display: flex; flex-direction: column; gap: 6px; }
+.calls-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-soft);
+}
+.calls-stat-row-bad { background: #fdecec; color: #8a1a1a; }
+.calls-stat-row-good { background: #e8f6ec; color: #1c5d2c; }
+.calls-stat-row-meta { background: transparent; padding: 6px 12px; }
+.calls-stat-label { font-weight: 600; }
+.calls-stat-val { font-weight: 700; font-size: 15px; }
+.calls-stat-pct { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+.calls-stat-row-bad .calls-stat-pct { color: #b04545; }
+.calls-stat-row-good .calls-stat-pct { color: #468a5a; }
+.calls-stat-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+.calls-recos-block {
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.calls-recos-block + .calls-recos-block { margin-top: 12px; }
+.calls-recos-good { background: #e8f6ec; }
+.calls-recos-bad  { background: #fdecec; }
+.calls-recos-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.calls-recos-good .calls-recos-title { color: #1c5d2c; }
+.calls-recos-bad .calls-recos-title  { color: #8a1a1a; }
+.calls-recos-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.calls-recos-list li + li { margin-top: 6px; }
+.calls-recos-list b { font-weight: 700; }
